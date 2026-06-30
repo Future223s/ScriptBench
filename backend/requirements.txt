@@ -1,0 +1,8 @@
+google-genai
+pandas
+matplotlib
+SQLAlchemy
+fastapi
+uvicorn
+python-multipart
+dotenv
