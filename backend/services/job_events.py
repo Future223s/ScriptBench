@@ -5,6 +5,7 @@ from threading import Lock
 from typing import Any
 
 from fastapi import WebSocket
+from pydantic import BaseModel
 
 
 class JobEventHub:
@@ -25,7 +26,10 @@ class JobEventHub:
         with self._lock:
             self._connections.discard(websocket)
 
-    async def broadcast(self, payload: dict[str, Any]) -> None:
+    async def broadcast(self, payload: dict[str, Any] | BaseModel) -> None:
+        if isinstance(payload, BaseModel):
+            payload = payload.model_dump()
+
         with self._lock:
             connections = list(self._connections)
 
@@ -41,25 +45,8 @@ class JobEventHub:
                 for websocket in stale_connections:
                     self._connections.discard(websocket)
 
-    def broadcast_threadsafe(self, payload: dict[str, Any]) -> None:
+    def broadcast_threadsafe(self, payload: dict[str, Any] | BaseModel) -> None:
         if self._loop is None or not self._loop.is_running():
             return
 
         self._loop.call_soon_threadsafe(asyncio.create_task, self.broadcast(payload))
-
-
-def build_job_event(
-    *,
-    event: str,
-    message: str,
-    job_payload: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "event": event,
-        "type": event,
-        "message": message,
-        "workflow_id": job_payload.get("workflow_id"),
-        "job_id": job_payload.get("job_id"),
-        "status": job_payload.get("status"),
-        "job": job_payload,
-    }

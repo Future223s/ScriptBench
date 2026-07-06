@@ -12,7 +12,7 @@ from backend.database.repositories.transcription_job_samples_repository import (
 from backend.database.repositories.transcription_jobs_repository import (
     TranscriptionJobsRepository,
 )
-from backend.models.api import TranscriptionJobUpdateRequest
+from backend.models.jobs import TranscriptionJobUpdateRequest
 
 router = APIRouter(tags=["transcription-jobs"])
 

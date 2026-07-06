@@ -28,14 +28,13 @@ from backend.database.repositories.workflow_metrics_repository import (
     WorkflowMetricsRepository,
 )
 from backend.database.repositories.workflows_repository import WorkflowsRepository
+from backend.models.events import JobEventPayload
 from backend.services.gemini import GeminiClient
-from backend.services.job_events import JobEventHub, build_job_event
+from backend.services.job_events import JobEventHub
 from backend.services.prompt_resolution import PromptResolutionService
 from backend.services.scoring_client import ScoringClient
-from backend.models.api import (
-    JobTransitionRequest,
-    V1WorkflowCreateRequest as WorkflowCreateRequest,
-)
+from backend.models.jobs import JobTransitionRequest
+from backend.models.workflows import V1WorkflowCreateRequest as WorkflowCreateRequest
 
 router = APIRouter(tags=["workflows-v0"])
 
@@ -323,7 +322,7 @@ def _publish_job_event(
     if job_event_hub is None:
         return
     job_event_hub.broadcast_threadsafe(
-        build_job_event(event=event, message=message, job_payload=job_payload)
+        JobEventPayload.build(event=event, message=message, job_payload=job_payload)
     )
 
 

@@ -19,7 +19,8 @@ from backend.database.repositories.transcription_jobs_repository import Transcri
 from backend.database.repositories.workflows_repository import WorkflowsRepository
 
 from backend.services.gemini import GeminiClient
-from backend.services.job_events import JobEventHub, build_job_event
+from backend.models.events import JobEventPayload
+from backend.services.job_events import JobEventHub
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +167,7 @@ class TranscriptionJobWorker:
     async def _process_job(self, job_payload: dict[str, Any]) -> None:
         job_id = int(job_payload["job_id"])
         self._publish(
-            build_job_event(
+            JobEventPayload.build(
                 event="job.running",
                 message="Model request sent.",
                 job_payload=job_payload,
@@ -194,7 +195,7 @@ class TranscriptionJobWorker:
                 refreshed_job["time_elapsed"] = time_elapsed
                 refreshed_job["completed_at"] = completed_at.isoformat()
                 self._publish(
-                    build_job_event(
+                    JobEventPayload.build(
                         event="job.completed",
                         message="Transcription completed.",
                         job_payload=refreshed_job,
@@ -217,7 +218,7 @@ class TranscriptionJobWorker:
                 refreshed_job["time_elapsed"] = time_elapsed
                 refreshed_job["completed_at"] = completed_at.isoformat()
                 self._publish(
-                    build_job_event(
+                    JobEventPayload.build(
                         event="job.failed",
                         message=str(exc),
                         job_payload=refreshed_job,

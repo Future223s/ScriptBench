@@ -9,7 +9,7 @@ from backend.database.repositories.transcription_job_samples_repository import T
 from backend.database.repositories.transcription_jobs_repository import TranscriptionJobsRepository
 from backend.database.repositories.transcriptions_repository import TranscriptionsRepository
 from backend.database.repositories.workflows_repository import WorkflowsRepository
-from backend.models.api import V1WorkflowCreateRequest as WorkflowCreateRequest
+from backend.models.workflows import V1WorkflowCreateRequest as WorkflowCreateRequest
 
 
 router = APIRouter(tags=["workflows-v1"])

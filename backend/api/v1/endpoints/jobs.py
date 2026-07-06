@@ -14,16 +14,14 @@ from backend.database.repositories.samples_repository import SamplesRepository
 from backend.database.repositories.transcription_job_samples_repository import TranscriptionJobSamplesRepository
 from backend.database.repositories.transcription_jobs_repository import TranscriptionJobsRepository
 from backend.database.repositories.workflows_repository import WorkflowsRepository
-from backend.models.api import WorkspaceJobsResponse
+from backend.models.events import JobEventPayload
+from backend.models.workflows import WorkspaceJobsResponse
 from backend.models.prompt_spec import PromptSpec
 from backend.services.gemini import GeminiClient
 from backend.services.gemini_prompt_refresh import GeminiPromptRefreshService
 from backend.services.prompt_resolution import PromptResolutionService
-from backend.services.job_events import JobEventHub, build_job_event
-from backend.models.api import (
-    JobTransitionRequest,
-    V1WorkflowCreateRequest as WorkflowCreateRequest,
-)
+from backend.services.job_events import JobEventHub
+from backend.models.jobs import JobTransitionRequest
 
 router = APIRouter(tags=["transcription-jobs-v1"])
 
@@ -123,7 +121,7 @@ def create_workspace_jobs(
 
         if job_event_hub is not None:
             job_event_hub.broadcast_threadsafe(
-                build_job_event(
+                JobEventPayload.build(
                     event="job.created",
                     message=f"Job {job_id} created.",
                     job_payload=job_payload,
@@ -155,98 +153,6 @@ def _job_payload(
     except Exception:
         payload["sample_ids"] = []
     return payload
-
-
-def _resolved_prompt_sample_ids(resolved_prompt: dict[str, object] | list[object]) -> list[str]:
-    if isinstance(resolved_prompt, dict):
-        contents = resolved_prompt.get("contents", [])
-        if isinstance(contents, list):
-            sample_ids = []
-            for content in contents:
-                if not isinstance(content, dict):
-                    continue
-                parts = content.get("parts", [])
-                if not isinstance(parts, list):
-                    continue
-                for part in parts:
-                    if not isinstance(part, dict):
-                        continue
-                    file_data = part.get("file_data")
-                    if not isinstance(file_data, dict):
-                        continue
-                    sample_id = str(file_data.get("sample_id", "")).strip()
-                    if sample_id:
-                        sample_ids.append(sample_id)
-            return list(dict.fromkeys(sample_ids))
-
-    return []
-
-
-async def _refresh_job_prompt_for_queue(
-    *,
-    engine,
-    workflow_row,
-    job_row,
-) -> dict[str, object]:
-    resolved_prompt = job_row["resolved_prompt"]
-    if isinstance(resolved_prompt, str):
-        resolved_prompt = json.loads(resolved_prompt)
-    if not isinstance(resolved_prompt, dict):
-        raise HTTPException(status_code=500, detail="Transcription job resolved_prompt is invalid")
-
-    sample_ids = _resolved_prompt_sample_ids(resolved_prompt)
-    samples_repository = SamplesRepository(engine)
-    sample_payloads_by_sample_id: dict[str, tuple[bytes, str | None]] = {}
-    for sample_id in sample_ids:
-        sample_row = samples_repository.fetch_sample(sample_id)
-        if sample_row is None:
-            raise HTTPException(status_code=404, detail=f"Sample not found: {sample_id}")
-        sample_blob = sample_row["sample_blob"]
-        if sample_blob is None:
-            raise HTTPException(status_code=500, detail=f"Sample '{sample_id}' is missing image bytes")
-        sample_payloads_by_sample_id[sample_id] = (
-            bytes(sample_blob),
-            str(sample_row["sample_mime_type"]) if sample_row["sample_mime_type"] is not None else None,
-        )
-
-    workflow_config = WorkflowConfig(
-        workflow_name=str(workflow_row["workflow_name"]),
-        stage=str(workflow_row["workflow_stage"]),
-        model_family=str(workflow_row["model_family"]),
-        model=str(workflow_row["model"]) if workflow_row["model"] is not None else None,
-        workflow_id=int(workflow_row["workflow_id"]),
-        status=str(workflow_row["status"]),
-        prompt_template=workflow_row["prompt_spec"],
-    )
-    refresher = GeminiPromptRefreshService(
-        provider=GeminiClient(workflow_config=workflow_config, image_dir=FilePath(".")),
-        sample_uploads_repository=SampleUploadsRepository(engine),
-    )
-    refreshed = await refresher.refresh_resolved_prompt(
-        resolved_prompt=resolved_prompt,
-        sample_payloads_by_sample_id=sample_payloads_by_sample_id,
-    )
-    return refreshed
-
-
-def _ref_usage_message(ref_usage: list[dict[str, object]]) -> str:
-    if not ref_usage:
-        return "Job queued."
-
-    if all(item.get("ref_source") == "stored" for item in ref_usage):
-        return "Job queued using stored refs."
-
-    parts: list[str] = []
-    for item in ref_usage:
-        sample_id = str(item.get("sample_id", ""))
-        ref_reason = str(item.get("ref_reason") or "")
-        if item.get("ref_source") == "stored":
-            parts.append(f"{sample_id}: stored")
-        elif ref_reason:
-            parts.append(f"{sample_id}: new ({ref_reason})")
-        else:
-            parts.append(f"{sample_id}: new")
-    return "Job queued with ref refresh: " + ", ".join(parts) + "."
 
 @router.get("/api/v1/workflows/{workflow_id}/workspace/jobs/{job_id}")
 def get_workspace_job(
@@ -298,13 +204,15 @@ def queue_workspace_jobs(
 ) -> dict[str, object]:
     workflows_repository = WorkflowsRepository(engine)
     transcription_jobs_repository = TranscriptionJobsRepository(engine)
+    transcription_job_samples_repository = TranscriptionJobSamplesRepository(engine)
+    samples_repository = SamplesRepository(engine)
     workflow_row = workflows_repository.fetch_workflow(workflow_id)
     if workflow_row is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
     existing_jobs = transcription_jobs_repository.fetch_transcription_jobs_for_workflow(workflow_id)
     available_job_ids = {int(job["job_id"]) for job in existing_jobs}
-    if payload.job_ids is None or payload.job_ids == []:
+    if not payload.job_ids:
         selected_job_ids = [int(job["job_id"]) for job in existing_jobs]
     else:
         selected_job_ids = [int(job_id) for job_id in payload.job_ids]
@@ -314,18 +222,81 @@ def queue_workspace_jobs(
                 status_code=404,
                 detail=f"Unknown job_id(s): {', '.join(str(job_id) for job_id in missing_job_ids)}",
             )
+
     if not selected_job_ids:
         return {"workflow_id": workflow_id, "job_count": 0, "updated_job_ids": [], "status": "queued"}
+
+    workflow_config = WorkflowConfig(
+        workflow_name=str(workflow_row["workflow_name"]),
+        stage=str(workflow_row["workflow_stage"]),
+        model_family=str(workflow_row["model_family"]),
+        model=str(workflow_row["model"]) if workflow_row["model"] is not None else None,
+        workflow_id=int(workflow_row["workflow_id"]),
+        status=str(workflow_row["status"]),
+        prompt_template=workflow_row["prompt_spec"],
+    )
+    prompt_refresher = GeminiPromptRefreshService(
+        provider=GeminiClient(workflow_config=workflow_config, image_dir=FilePath(".")),
+        sample_uploads_repository=SampleUploadsRepository(engine),
+    )
 
     for job_id in selected_job_ids:
         job_row = transcription_jobs_repository.fetch_transcription_job(job_id)
         if job_row is None:
-            continue
+            raise HTTPException(status_code=404, detail=f"Transcription job not found: {job_id}")
+    
+        resolved_prompt = job_row["resolved_prompt"]
+        if isinstance(resolved_prompt, str):
+            try:
+                resolved_prompt = json.loads(resolved_prompt)
+            except json.JSONDecodeError as error:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Transcription job resolved_prompt is invalid",
+                ) from error
+        if not isinstance(resolved_prompt, dict):
+            raise HTTPException(status_code=500, detail="Transcription job resolved_prompt is invalid")
+
+        sample_ids: list[str] = []
+        contents = resolved_prompt.get("contents", [])
+        # get sample_ids from transcription_job_samples table instead
+        if isinstance(contents, list):
+            for content in contents:
+                if not isinstance(content, dict):
+                    continue
+                parts = content.get("parts", [])
+                if not isinstance(parts, list):
+                    continue
+                for part in parts:
+                    if not isinstance(part, dict):
+                        continue
+                    file_data = part.get("file_data")
+                    if not isinstance(file_data, dict):
+                        continue
+                    sample_id = str(file_data.get("sample_id", "")).strip()
+                    if sample_id:
+                        sample_ids.append(sample_id)
+        sample_ids = list(dict.fromkeys(sample_ids))
+
+        # What are sample_pyalods_by_sample_id
+        sample_payloads_by_sample_id: dict[str, tuple[bytes, str | None]] = {}
+        for sample_id in sample_ids:
+            sample_row = samples_repository.fetch_sample(sample_id)
+            if sample_row is None:
+                raise HTTPException(status_code=404, detail=f"Sample not found: {sample_id}")
+            sample_blob = sample_row["sample_blob"]
+            if sample_blob is None:
+                raise HTTPException(status_code=500, detail=f"Sample '{sample_id}' is missing image bytes")
+            sample_payloads_by_sample_id[sample_id] = (
+                bytes(sample_blob),
+                str(sample_row["sample_mime_type"]) if sample_row["sample_mime_type"] is not None else None,
+            )
+
+
         refreshed_prompt = asyncio.run(
-            _refresh_job_prompt_for_queue(
-                engine=engine,
-                workflow_row=workflow_row,
-                job_row=job_row,
+            prompt_refresher.refresh_resolved_prompt(
+                resolved_prompt=resolved_prompt,
+                sample_payloads_by_sample_id=sample_payloads_by_sample_id,
             )
         )
         ref_usage = refreshed_prompt["ref_usage"]
@@ -336,18 +307,36 @@ def queue_workspace_jobs(
         )
         refreshed_job = transcription_jobs_repository.fetch_transcription_job(job_id)
         if refreshed_job is not None:
-            job_payload = _job_payload(
-                job_row=refreshed_job,
-                transcription_job_samples_repository=TranscriptionJobSamplesRepository(engine),
+            job_payload = row_to_dict(refreshed_job)
+            job_payload["sample_ids"] = transcription_job_samples_repository.fetch_transcription_job_samples(
+                int(job_id)
             )
             job_payload["gemini_ref_usage"] = ref_usage
-            job_event_hub.broadcast(
-                build_job_event(
-                    event="job.queued",
-                    message=_ref_usage_message(ref_usage),
-                    job_payload=job_payload,
+            if not ref_usage:
+                message = "Job queued."
+            elif all(item.get("ref_source") == "stored" for item in ref_usage):
+                message = "Job queued using stored refs."
+            else:
+                ref_parts: list[str] = []
+                for item in ref_usage:
+                    sample_id = str(item.get("sample_id", ""))
+                    ref_source = item.get("ref_source")
+                    ref_reason = str(item.get("ref_reason") or "")
+                    if ref_source == "stored":
+                        ref_parts.append(f"{sample_id}: stored")
+                    elif ref_reason:
+                        ref_parts.append(f"{sample_id}: new ({ref_reason})")
+                    else:
+                        ref_parts.append(f"{sample_id}: new")
+                message = "Job queued with ref refresh: " + ", ".join(ref_parts) + "."
+            if job_event_hub is not None:
+                job_event_hub.broadcast_threadsafe(
+                    JobEventPayload.build(
+                        event="job.queued",
+                        message=message,
+                        job_payload=job_payload,
+                    )
                 )
-            )
 
     return {
         "workflow_id": workflow_id,
@@ -392,8 +381,8 @@ def retry_workspace_jobs(
         )
         refreshed_job = transcription_jobs_repository.fetch_transcription_job(job_id)
         if refreshed_job is not None:
-            job_event_hub.broadcast(
-                build_job_event(
+            job_event_hub.broadcast_threadsafe(
+                JobEventPayload.build(
                     event="job.pending",
                     message="Job moved back to pending.",
                     job_payload=_job_payload(

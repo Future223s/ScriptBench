@@ -11,7 +11,7 @@ from backend.database.repositories.sample_set_samples_repository import SampleSe
 from backend.database.repositories.samples_repository import SamplesRepository
 from backend.database.repositories.workflows_repository import WorkflowsRepository
 from backend.database.repositories.workflow_metrics_repository import WorkflowMetricsRepository
-from backend.models.api import SampleSetCreateRequest
+from backend.models.sample_sets import SampleSetCreateRequest
 
 router = APIRouter(tags=["sample-sets-v1"])
 

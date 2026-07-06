@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 
 from backend.api.dependencies import get_engine, json_safe
 from backend.database.repositories.samples_repository import SamplesRepository
-from backend.models.api import GroupingCreateRequest, GroupingValueRequest
+from backend.models.groupings import GroupingCreateRequest, GroupingValueRequest
 
 router = APIRouter(tags=["groupings"])
 
