@@ -129,66 +129,6 @@ class GeminiClient(TranscriptionEngine):
             name=cache_name,
         )
 
-    async def build_prompt(
-        self,
-        *,
-        prompt_spec: Mapping[str, Any],
-        sample_payloads_by_sample_id: Mapping[str, tuple[bytes, str | None]],
-        sample_ids: Sequence[str] | None = None,
-    ) -> dict[str, Any]:
-        instructions = str(prompt_spec["instructions"]).strip()
-        if not instructions:
-            raise ValueError("prompt_spec.instructions is required")
-        if not sample_ids:
-            raise ValueError("sample_ids is required")
-
-        examples = prompt_spec["examples"]
-        output_format = prompt_spec["output_format"]
-        resolved_sample_ids = [str(sample_id) for sample_id in sample_ids]
-        required_sample_ids = list(
-            dict.fromkeys(
-                [
-                    *(str(asset_id) for example in examples for asset_id in example["assets"]),
-                    *resolved_sample_ids,
-                ]
-            )
-        )
-        missing_sample_ids = [sample_id for sample_id in required_sample_ids if sample_id not in sample_payloads_by_sample_id]
-        if missing_sample_ids:
-            raise KeyError(f"Missing sample payload(s) for: {', '.join(missing_sample_ids)}")
-
-        upload_refs = await self.upload_samples({sample_id: sample_payloads_by_sample_id[sample_id] for sample_id in required_sample_ids})
-        file_refs = await self.get_file_refs(upload_refs)
-
-        contents: list[types.Content] = [types.Content(role="user", parts=[types.Part.from_text(text=instructions)])]
-
-        for example_index, example in enumerate(examples, start=1):
-            title = str(example["title"]).strip()
-            instruction_text = str(example["instruction_text"]).strip()
-            asset_ids = [str(asset_id) for asset_id in example["assets"]]
-            example_file_refs = [file_refs[asset_id] for asset_id in asset_ids]
-            parts = [types.Part.from_text(text=f"{title}\n{instruction_text}".strip())]
-            parts.extend(types.Part.from_uri(file_uri=getattr(file_ref, "uri"), mime_type=getattr(file_ref, "mime_type", None)) for file_ref in example_file_refs)
-            contents.append(types.Content(role="user", parts=parts))
-
-        for sample_index, sample_id in enumerate(resolved_sample_ids, start=1):
-            file_ref = file_refs[sample_id]
-            contents.append(types.Content(role="user", parts=[types.Part.from_text(text=f"sample_{sample_index}"), types.Part.from_uri(file_uri=getattr(file_ref, "uri"), mime_type=getattr(file_ref, "mime_type", None))]))
-
-        output_text = (
-            "Return plain text only."
-            if str(output_format["type"]).strip() == "plain_text"
-            else "Return output in this format: " + json.dumps(dict(output_format), separators=(",", ":"))
-        )
-        contents.append(types.Content(role="user", parts=[types.Part.from_text(text=output_text)]))
-
-        return {
-            "contents": contents,
-            "resolved_prompt": {
-                "contents": [self._serialize_model_object(content) for content in contents],
-            },
-        }
-
     async def transcribe(self, contents: list, cached_content: str | None = None) -> str:
         config_options = {"temperature": 0}
         if cached_content:

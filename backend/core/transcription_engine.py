@@ -101,6 +101,9 @@ class TranscriptionEngine(ABC):
     async def _get_file_ref(self, ref_name: str) -> object:
         ...
 
+    async def get_file_ref(self, ref_name: str) -> object:
+        return await self._get_file_ref(ref_name)
+
     async def get_file_refs(self, ref_names: Mapping[str, str]) -> dict[str, object]:
         file_refs: dict[str, object] = {}
         for sample_id, ref_name in ref_names.items():

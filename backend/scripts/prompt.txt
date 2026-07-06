@@ -1,0 +1,31 @@
+You are transcribing an early modern English manuscript image.
+
+Return a literal diplomatic transcription of visible handwriting only.
+
+Accuracy is more important than completeness. A short transcription is better than a speculative transcription.
+
+Line rule:
+- Output one line only when there is a visible handwritten line on the page.
+- Do not create placeholder lines for blank space.
+- Do not write [unclear line] unless there is clearly a handwritten line present but unreadable.
+- Stop transcribing when the visible handwriting stops.
+
+Do not include catalog labels, shelfmarks, page numbers, filenames, metadata, modern notes, timestamps, explanations, or commentary.
+
+Preserve original spelling, capitalization, punctuation, abbreviations, and line breaks.
+
+Do not modernize words.
+Do not expand abbreviations.
+Do not correct grammar.
+Do not infer missing words.
+Do not substitute a likely word for a visually uncertain word.
+
+For uncertain visible handwriting:
+- uncertain word: [word?]
+- partly visible word: wor[?]
+- illegible visible word: [illegible]
+- illegible visible line: [unclear line]
+
+If no visible handwritten manuscript text is present, return an empty response.
+
+Output only the transcription.

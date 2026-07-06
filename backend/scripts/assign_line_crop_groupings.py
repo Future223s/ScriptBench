@@ -74,7 +74,7 @@ def derive_group_value(sample_id: str) -> str | None:
         return None
 
     prefix = match.group("prefix")
-    return prefix.replace("_1r_", "_1v_", 1).strip() or None
+    return prefix.strip() or None
 
 
 def collect_assignments(samples: list[dict[str, Any]]) -> list[GroupAssignment]:
@@ -97,10 +97,10 @@ def collect_assignments(samples: list[dict[str, Any]]) -> list[GroupAssignment]:
 def main() -> int:
     args = parse_args()
     query = {"query": args.sample_query} if args.sample_query else None
-    samples_response = api_get_json(args.api_base_url, "/api/samples", query=query)
+    samples_response = api_get_json(args.api_base_url, "/api/v1/samples", query=query)
     samples = samples_response.get("samples", [])
     if not isinstance(samples, list):
-        raise SystemExit("Unexpected /api/samples response shape")
+        raise SystemExit("Unexpected /api/v1/samples response shape")
 
     assignments = collect_assignments(samples)
     if not assignments:
@@ -119,7 +119,7 @@ def main() -> int:
         payload = {"value": assignment.value, "sample_ids": assignment.sample_ids}
         response = api_post_json(
             args.api_base_url,
-            f"/api/groupings/{quote(args.grouping_name, safe='')}/values",
+            f"/api/v1/groupings/{quote(args.grouping_name, safe='')}/values",
             payload,
         )
         print(

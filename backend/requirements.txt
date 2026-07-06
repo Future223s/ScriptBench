@@ -4,5 +4,6 @@ matplotlib
 SQLAlchemy
 fastapi
 uvicorn
+watchfiles
 python-multipart
 dotenv

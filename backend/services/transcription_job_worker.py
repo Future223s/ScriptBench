@@ -13,18 +13,15 @@ from google.genai import types
 
 from backend.api.dependencies import json_safe, row_to_dict
 from backend.core.workflow_config import WorkflowConfig
-from backend.database.repositories.transcription_job_samples_repository import (
-    TranscriptionJobSamplesRepository,
-)
-from backend.database.repositories.transcription_jobs_repository import (
-    TranscriptionJobsRepository,
-)
+
+from backend.database.repositories.transcription_job_samples_repository import TranscriptionJobSamplesRepository
+from backend.database.repositories.transcription_jobs_repository import TranscriptionJobsRepository
 from backend.database.repositories.workflows_repository import WorkflowsRepository
+
 from backend.services.gemini import GeminiClient
 from backend.services.job_events import JobEventHub, build_job_event
 
 logger = logging.getLogger(__name__)
-
 
 def _rehydrate_contents(contents: Any) -> list[Any]:
     if not isinstance(contents, list):
@@ -41,6 +38,17 @@ def _rehydrate_contents(contents: Any) -> list[Any]:
             if "text" in part:
                 parts.append(types.Part.from_text(text=str(part["text"])))
                 continue
+            file_data = part.get("file_data")
+            if isinstance(file_data, dict):
+                file_uri = file_data.get("file_uri")
+                if file_uri is not None:
+                    parts.append(
+                        types.Part.from_uri(
+                            file_uri=str(file_uri),
+                            mime_type=file_data.get("mime_type"),
+                        )
+                    )
+                    continue
             file_uri = part.get("file_uri")
             if file_uri is not None:
                 parts.append(

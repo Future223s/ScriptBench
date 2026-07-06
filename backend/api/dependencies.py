@@ -24,7 +24,6 @@ from backend.database.tables.transcription_job_samples_table import transcriptio
 from backend.database.tables.transcription_jobs_table import transcription_jobs  # noqa: F401
 from backend.database.tables.transcriptions_table import transcriptions  # noqa: F401
 from backend.database.tables.workflow_metrics_table import workflow_metrics  # noqa: F401
-from backend.database.tables.workflow_samples_table import workflow_samples  # noqa: F401
 from backend.database.tables.workflows_table import workflows  # noqa: F401
 from backend.services.job_events import JobEventHub
 
