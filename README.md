@@ -2,31 +2,37 @@
 
 ScriptBench is a web app for uploading samples, organizing them into sample sets, running reproducible, fail-safe transcription workflows, and reviewing the outputs.
 
-## Run locally
+## Local setup
 
-Start the backend and frontend in separate terminals:
+Prerequisites:
+
+- Node.js 18 or newer
+- Python installed on your machine
+- `GEMINI_API_KEY` if you want transcription workflows to call Gemini
+
+Start the backend and frontend in separate terminals from the repository root:
 
 1. Backend
 
 ```powershell
-cd backend
 python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend/requirements.txt
 python -m backend.api.main
 ```
+
+The backend starts on `http://127.0.0.1:8000` and uses a local SQLite database automatically. No separate database setup is required.
 
 2. Frontend
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
 Open `http://127.0.0.1:3000` in your browser.
-
-If you want transcription workflows to call the model, set `GEMINI_API_KEY` in your environment before starting the backend.
 
 ## Open the app
 
@@ -34,6 +40,34 @@ If you want transcription workflows to call the model, set `GEMINI_API_KEY` in y
 - API: `http://127.0.0.1:8000`
 
 The frontend is already configured to send `/api` requests to the backend.
+
+## Docker
+
+This repository includes a development compose file for running both services together.
+
+Prerequisites:
+
+- Docker Desktop or Docker Engine with Compose v2
+- `GEMINI_API_KEY` in your shell environment if you want Gemini-powered workflows
+
+From the repository root, run:
+
+```powershell
+docker compose -f docker-compose-dev.yml up --build
+```
+
+Then open:
+
+- Frontend: `http://127.0.0.1:3000`
+- API: `http://127.0.0.1:8000`
+
+To stop the stack, press `Ctrl+C` and then run:
+
+```powershell
+docker compose -f docker-compose-dev.yml down
+```
+
+The Docker setup keeps the backend database and frontend build artifacts in named volumes, so your data and cached build state persist between runs.
 
 ## High-Level Workflow
 
