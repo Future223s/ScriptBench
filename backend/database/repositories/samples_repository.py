@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from collections.abc import Sequence
+from typing import Any
 
-from sqlalchemy import delete, select
-from sqlalchemy.dialects.postgresql import insert as postgresql_insert
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.engine import Engine
-from sqlalchemy.engine.row import RowMapping
 
 from ..tables.samples_table import samples
 
@@ -16,145 +13,90 @@ class SamplesRepository:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
 
-    def upsert_sample(
+    def list_samples(
+        self,
+        *,
+        query: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        stmt = stmt = select(
+            samples.c.sample_id,
+            samples.c.sample_name,
+            samples.c.sample_mime_type,
+            samples.c.created_at,
+            samples.c.updated_at,
+        ).order_by(
+            samples.c.created_at.desc(),
+            samples.c.sample_id.asc(),
+        )
+        normalized_query = (query or "").strip()
+        if normalized_query:
+            pattern = f"%{normalized_query.casefold()}%"
+            stmt = stmt.where(
+                or_(
+                    func.lower(samples.c.sample_id).like(pattern),
+                    func.lower(samples.c.sample_name).like(pattern),
+                    func.lower(func.coalesce(samples.c.ground_truth_text, "")).like(pattern),
+                ) 
+            )
+            
+        if limit is not None:
+            stmt = stmt.limit(limit)
+
+        with self.engine.begin() as conn:
+            rows = conn.execute(stmt).fetchall()
+        return [dict(row._mapping) for row in rows]
+
+    def fetch_sample(self, sample_id: str) -> dict[str, Any] | None:
+        with self.engine.begin() as conn:
+            row = conn.execute(select(samples).where(samples.c.sample_id == sample_id)).fetchone()
+        return dict(row._mapping) if row is not None else None
+
+    def fetch_samples_by_names(self, sample_names: Sequence[str]) -> list[dict[str, Any]]:
+        names = [str(sample_name).strip() for sample_name in sample_names if str(sample_name).strip()]
+        if not names:
+            return []
+        with self.engine.begin() as conn:
+            rows = conn.execute(select(samples).where(samples.c.sample_name.in_(names))).fetchall()
+        return [dict(row._mapping) for row in rows]
+
+    def insert_sample_metadata(
         self,
         *,
         sample_id: str,
-        sample_group: str | None = None,
-        sample_groups: Mapping[str, object] | None = None,
-        sample_blob: bytes | None = None,
-        sample_mime_type: str | None = None,
+        sample_name: str,
         ground_truth_text: str | None = None,
     ) -> None:
-        now = datetime.now(timezone.utc)
-        insert_stmt = (
-            postgresql_insert(samples)
-            if self.engine.dialect.name == "postgresql"
-            else sqlite_insert(samples)
-        )
-        stmt = insert_stmt.values(
-            sample_id=sample_id,
-            sample_group=sample_group,
-            sample_groups=dict(sample_groups or {}),
-            sample_blob=sample_blob,
-            sample_mime_type=sample_mime_type,
-            ground_truth_text=ground_truth_text,
-            created_at=now,
-            updated_at=now,
-        )
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[samples.c.sample_id],
-            set_={
-                "sample_group": stmt.excluded.sample_group,
-                "sample_groups": stmt.excluded.sample_groups,
-                "sample_blob": stmt.excluded.sample_blob,
-                "sample_mime_type": stmt.excluded.sample_mime_type,
-                "ground_truth_text": stmt.excluded.ground_truth_text,
-                "updated_at": now,
-            },
-        )
         with self.engine.begin() as conn:
-            conn.execute(stmt)
+            conn.execute(
+                insert(samples).values(
+                    sample_id=sample_id,
+                    sample_name=sample_name,
+                    sample_blob=None,
+                    sample_mime_type=None,
+                    ground_truth_text=ground_truth_text,
+                )
+            )
 
-    def fetch_sample(self, sample_id: str) -> RowMapping | None:
-        stmt = select(samples).where(samples.c.sample_id == sample_id)
+    def update_sample_blob(
+        self,
+        *,
+        sample_id: str,
+        sample_blob: bytes,
+        sample_mime_type: str | None,
+    ) -> int:
         with self.engine.begin() as conn:
-            row = conn.execute(stmt).mappings().one_or_none()
-        return row
-
-    def list_samples(self, sample_group: str | None = None) -> list[RowMapping]:
-        stmt = select(samples)
-        if sample_group is not None:
-            stmt = stmt.where(samples.c.sample_group == sample_group)
-        stmt = stmt.order_by(samples.c.sample_id)
-        with self.engine.begin() as conn:
-            rows = conn.execute(stmt).mappings().all()
-        return rows
-
-    def delete_sample(self, sample_id: str) -> int:
-        stmt = delete(samples).where(samples.c.sample_id == sample_id)
-        with self.engine.begin() as conn:
-            result = conn.execute(stmt)
+            result = conn.execute(
+                update(samples)
+                .where(samples.c.sample_id == sample_id)
+                .values(
+                    sample_blob=sample_blob,
+                    sample_mime_type=sample_mime_type,
+                )
+            )
         return int(result.rowcount or 0)
 
-    def assign_sample_group_values(
-        self,
-        *,
-        group_name: str,
-        assignments: Mapping[str, object],
-    ) -> list[str]:
-        now = datetime.now(timezone.utc)
-        missing_sample_ids: list[str] = []
-
+    def delete_sample(self, sample_id: str) -> int:
         with self.engine.begin() as conn:
-            for sample_id, value in assignments.items():
-                row = conn.execute(
-                    select(samples.c.sample_groups).where(samples.c.sample_id == sample_id)
-                ).mappings().one_or_none()
-                if row is None:
-                    missing_sample_ids.append(sample_id)
-                    continue
-
-                sample_groups = dict(row["sample_groups"] or {})
-                sample_groups[group_name] = value
-                conn.execute(
-                    samples.update()
-                    .where(samples.c.sample_id == sample_id)
-                    .values(sample_groups=sample_groups, updated_at=now)
-                )
-
-        return missing_sample_ids
-
-    def delete_grouping(self, group_name: str) -> int:
-        now = datetime.now(timezone.utc)
-        updated_rows = 0
-
-        with self.engine.begin() as conn:
-            rows = conn.execute(
-                select(
-                    samples.c.sample_id,
-                    samples.c.sample_group,
-                    samples.c.sample_groups,
-                )
-            ).mappings().all()
-
-            for row in rows:
-                sample_id = str(row["sample_id"])
-                sample_group = row["sample_group"]
-                sample_groups = dict(row["sample_groups"] or {})
-                changed = False
-
-                if sample_group == group_name:
-                    sample_group = None
-                    changed = True
-
-                if group_name in sample_groups:
-                    sample_groups.pop(group_name, None)
-                    changed = True
-
-                if not changed:
-                    continue
-
-                conn.execute(
-                    samples.update()
-                    .where(samples.c.sample_id == sample_id)
-                    .values(
-                        sample_group=sample_group,
-                        sample_groups=sample_groups,
-                        updated_at=now,
-                    )
-                )
-                updated_rows += 1
-
-        return updated_rows
-
-    def assign_samples_to_group(
-        self,
-        *,
-        group_name: str,
-        sample_ids: Sequence[str],
-    ) -> list[str]:
-        return self.assign_sample_group_values(
-            group_name=group_name,
-            assignments={sample_id: "" for sample_id in sample_ids},
-        )
+            result = conn.execute(delete(samples).where(samples.c.sample_id == sample_id))
+        return int(result.rowcount or 0)

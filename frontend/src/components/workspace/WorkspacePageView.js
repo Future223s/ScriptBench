@@ -15,6 +15,7 @@ export function WorkspacePageView({ state, actions, rootRef }) {
             workspace={state.workspace}
             loading={state.workspaceLoading}
             activePane={state.workspacePane}
+            transcriptionSet={state.workspaceTranscriptionSet}
             jobSelection={state.workspaceJobSelection}
             reviewQuery={state.workspaceReviewQuery}
             reviewSort={state.workspaceReviewSort}

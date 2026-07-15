@@ -87,6 +87,18 @@ function relativePathToSampleId(relativePath) {
     .join("__");
 }
 
+function normalizeFolderRecordId(relativePath) {
+  return relativePathToSampleId(stripExtension(dropFolderRoot(relativePath)));
+}
+
+function normalizeFolderRecordIdWithRoot(relativePath, commonRoot = "", { preserveFullPathWhenNoCommonRoot = false } = {}) {
+  return relativePathToSampleId(
+    stripExtension(
+      stripCommonRoot(relativePath, commonRoot, { preserveFullPathWhenNoCommonRoot }),
+    ),
+  );
+}
+
 export function normalizeFolderSampleId(relativePath) {
   return relativePathToSampleId(stripExtension(dropFolderRoot(relativePath)));
 }
@@ -153,4 +165,19 @@ export async function collectGroundTruthFolderFiles(files) {
   }
 
   return texts;
+}
+
+export function collectFolderFiles(files) {
+  const commonRoot = commonDirectoryPrefix(
+    files.map((file) => file.webkitRelativePath || file.name),
+  );
+  const preserveFullPathWhenNoCommonRoot = !commonRoot && files.length > 1;
+
+  return files.map((file) => ({
+    file,
+    recordId: normalizeFolderRecordIdWithRoot(file.webkitRelativePath || file.name, commonRoot, {
+      preserveFullPathWhenNoCommonRoot,
+    }),
+    fileName: normalizeFolderRecordId(file.webkitRelativePath || file.name),
+  }));
 }

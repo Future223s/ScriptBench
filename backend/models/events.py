@@ -2,19 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
-
-from .jobs import TranscriptionJobRecord
+from pydantic import BaseModel, Field
 
 
 class JobEventPayload(BaseModel):
     event: str
-    type: str
     message: str
-    workflow_id: int | None = None
-    job_id: int | None = None
-    status: str | None = None
-    job: TranscriptionJobRecord | dict[str, Any]
+    job: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def build(
@@ -22,19 +16,10 @@ class JobEventPayload(BaseModel):
         *,
         event: str,
         message: str,
-        job_payload: dict[str, Any] | TranscriptionJobRecord,
+        job_payload: dict[str, Any] | None = None,
     ) -> "JobEventPayload":
-        if isinstance(job_payload, TranscriptionJobRecord):
-            payload = job_payload.model_dump()
-        else:
-            payload = job_payload
-
         return cls(
             event=event,
-            type=event,
             message=message,
-            workflow_id=payload.get("workflow_id"),
-            job_id=payload.get("job_id"),
-            status=payload.get("status"),
-            job=payload,
+            job=dict(job_payload or {}),
         )

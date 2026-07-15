@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, func
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Table, func
 
 from ..schema import metadata
 
@@ -27,3 +27,6 @@ sample_set_samples = Table(
         server_default=func.current_timestamp(),
     ),
 )
+
+Index("ix_sample_set_samples_sample_set_id_position", sample_set_samples.c.sample_set_id, sample_set_samples.c.position)
+Index("ix_sample_set_samples_sample_id", sample_set_samples.c.sample_id)

@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from io import BytesIO
+from datetime import datetime, timedelta, timezone
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from backend.core.transcription_engine import (
     TranscriptionEngine,
 )
 from backend.core.workflow_config import WorkflowConfig
+from backend.database.repositories.sample_uploads_repository import SampleUploadsRepository
 
 
 class GeminiClient(TranscriptionEngine):
@@ -26,6 +28,7 @@ class GeminiClient(TranscriptionEngine):
         image_dir: Path | None = None,
         cache_registry_path: Path | None = None,
         image_extensions: tuple[str, ...] = DEFAULT_IMAGE_EXTENSIONS,
+        sample_uploads_repository: SampleUploadsRepository | None = None,
     ) -> None:
         super().__init__(
             workflow_config=workflow_config,
@@ -42,6 +45,7 @@ class GeminiClient(TranscriptionEngine):
             "gemini-3-flash-preview",
         )
         self.client = genai.Client(api_key=self.api_key)
+        self.sample_uploads_repository = sample_uploads_repository
 
     async def _upload_sample(
         self,
@@ -63,6 +67,31 @@ class GeminiClient(TranscriptionEngine):
 
     async def _get_file_ref(self, ref_name: str) -> object:
         return await asyncio.to_thread(self.client.files.get, name=ref_name)
+
+    async def refresh_sample_ref(
+        self,
+        *,
+        sample_id: str,
+        sample_payload: tuple[bytes, str | None],
+        upload_record: Mapping[str, Any] | None = None,
+    ) -> str:
+        upload_ref = str((upload_record or {}).get("upload_ref") or "").strip()
+        updated_at = (upload_record or {}).get("updated_at")
+        if upload_ref and isinstance(updated_at, datetime):
+            timestamp = updated_at if updated_at.tzinfo is not None else updated_at.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) - timestamp.astimezone(timezone.utc) <= timedelta(hours=24):
+                try:
+                    return str(getattr(await self.get_file_ref(upload_ref), "uri", upload_ref))
+                except Exception:
+                    pass
+        upload_ref = str((await self.upload_samples({sample_id: sample_payload}))[sample_id]).strip()
+        if self.sample_uploads_repository is not None:
+            self.sample_uploads_repository.upsert_sample_upload(
+                sample_id=sample_id,
+                model_family=self.model_family,
+                upload_ref=upload_ref,
+            )
+        return str(getattr(await self.get_file_ref(upload_ref), "uri", upload_ref))
 
     def _content_preview(self, contents: list, max_chars: int = 2000) -> str:
         content_text = "\n".join(

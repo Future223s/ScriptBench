@@ -11,6 +11,12 @@ export function SampleFilterPanel({
 }) {
   return (
     <div className="selection-summary">
+      {(summary || actions) ? (
+        <div className="selection-summary__bar">
+          {summary ? <div className="count-label">{summary}</div> : <span />}
+          {actions ? <div className="inline-actions workflow-selection-actions">{actions}</div> : null}
+        </div>
+      ) : null}
       <div className="sample-filter-grid">
         {filters.map((filter) => {
           const fieldProps = {
@@ -41,8 +47,6 @@ export function SampleFilterPanel({
           );
         })}
       </div>
-      {actions ? <div className="inline-actions workflow-selection-actions">{actions}</div> : null}
-      {summary ? <div className="count-label">{summary}</div> : null}
       <div className={listClass} {...listAttributes}>
         {rows || <div className="empty-state">{emptyState}</div>}
       </div>

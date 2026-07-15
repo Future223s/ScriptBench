@@ -1,0 +1,73 @@
+.btn,
+.button,
+.btn-primary,
+.button--primary,
+.btn-secondary,
+.button--secondary,
+.btn-ghost,
+.button--ghost,
+.btn-danger,
+.button--danger {
+  min-height: 38px;
+  padding: 9px 13px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.btn,
+.button {
+  background: transparent;
+  color: inherit;
+}
+
+.btn-primary,
+.button--primary {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 8px 18px rgba(212, 106, 50, 0.22);
+}
+
+.btn-primary:hover,
+.button--primary:hover {
+  background: var(--accent-strong);
+  transform: translateY(-1px);
+}
+
+.btn-secondary,
+.button--secondary {
+  background: var(--blue-soft);
+  color: var(--blue);
+  border-color: rgba(49, 93, 127, 0.24);
+}
+
+.btn-secondary:hover,
+.button--secondary:hover,
+.btn-ghost:hover,
+.button--ghost:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.btn-ghost,
+.button--ghost {
+  background: rgba(255, 252, 247, 0.72);
+  color: var(--text-primary);
+  border-color: var(--line);
+}
+
+.btn-danger,
+.button--danger {
+  background: var(--red-soft);
+  color: var(--red);
+  border-color: rgba(181, 54, 44, 0.22);
+}
+
+.btn-tight,
+.button--compact {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 12px;
+}

@@ -19,6 +19,7 @@ function initialWorkspaceState() {
     workspaceError: "",
     workspaceActionStatus: "",
     workspacePane: "jobs",
+    workspaceTranscriptionSet: "default",
     workspaceJobSelection: { pending: [], queued: [], completed: [] },
     workspaceReviewQuery: "",
     workspaceReviewSort: "score",
@@ -70,6 +71,7 @@ export function useWorkspacePage() {
       workspaceLoading: false,
       workspaceError: "",
       workspacePane: preserveWorkspaceUi ? current.workspacePane : "jobs",
+      workspaceTranscriptionSet: preserveWorkspaceUi ? current.workspaceTranscriptionSet : "default",
       workspaceJobSelection: { pending: [], queued: [], completed: [] },
       workspaceReviewQuery: preserveWorkspaceUi ? current.workspaceReviewQuery : "",
       workspaceReviewSort: preserveWorkspaceUi ? current.workspaceReviewSort : "score",
@@ -150,7 +152,10 @@ export function useWorkspacePage() {
     if (!workflowId) return;
     closeWorkspaceEventSocket();
 
-    const socket = new WebSocket(workspaceApi.getWorkspaceEventsUrl());
+    const eventsUrl = workspaceApi.getWorkspaceEventsUrl();
+    if (!eventsUrl) return;
+
+    const socket = new WebSocket(eventsUrl);
     workspaceEventSocketRef.current = socket;
 
     socket.onmessage = (event) => {
@@ -492,7 +497,7 @@ export function useWorkspacePage() {
     }
 
     try {
-      await workspaceApi.createWorkspaceTranscriptions(workflowId);
+      await workspaceApi.createWorkspaceTranscriptions(workflowId, stateRef.current.workspaceTranscriptionSet || "default");
       patchState({ notice: "Transcriptions assembled.", error: "", workspaceError: "" });
       await loadWorkspace(workflowId);
     } catch (error) {
@@ -537,6 +542,10 @@ export function useWorkspacePage() {
   function setWorkspacePane(workspacePane) {
     if (!["jobs", "assembly", "review"].includes(workspacePane)) return;
     patchState({ workspacePane });
+  }
+
+  function setWorkspaceTranscriptionSet(transcriptionSet) {
+    patchState({ workspaceTranscriptionSet: transcriptionSet || "default" });
   }
 
   function toggleReviewCompare() {
@@ -671,6 +680,7 @@ export function useWorkspacePage() {
     openSelectedWorkflow,
     setWorkspacePickerWorkflowId,
     setWorkspacePane,
+    setWorkspaceTranscriptionSet,
     toggleReviewCompare,
     setWorkspaceReviewQuery,
     setWorkspaceReviewSort,

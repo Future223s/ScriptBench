@@ -37,6 +37,7 @@ export function WorkspacePanel({
   workspace,
   loading,
   activePane = "jobs",
+  transcriptionSet = "default",
   jobSelection = {},
   reviewQuery = "",
   reviewSort = "score",
@@ -122,6 +123,7 @@ export function WorkspacePanel({
             <WorkspaceAssemblyMode
               workspace={workspace}
               transcriptions={transcriptions}
+              transcriptionSet={transcriptionSet}
               actions={actions}
             />
           ) : null}

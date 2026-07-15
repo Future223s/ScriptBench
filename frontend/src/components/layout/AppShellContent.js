@@ -9,11 +9,7 @@ export function AppShellContent({ children }) {
   return (
     <>
       <TopBar
-        loading={topBar.loading}
-        sampleCount={topBar.sampleCount}
-        sampleSetCount={topBar.sampleSetCount}
         prototypeNav={topBar.prototypeNav}
-        onCreateWorkflow={topBar.openWorkflowWizard}
         onNavigatePrototype={topBar.navigatePrototype}
       />
       {children}

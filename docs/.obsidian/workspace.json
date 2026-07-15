@@ -1,0 +1,224 @@
+{
+  "main": {
+    "id": "99ddc312234389d8",
+    "type": "split",
+    "children": [
+      {
+        "id": "87bd96a110ca8165",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b6f6e18666ec9508",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "specs/Integration.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Integration"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "9dadd7a69b87d227",
+    "type": "split",
+    "children": [
+      {
+        "id": "acb874881ace9262",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "180eae219d51db5e",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "087d92659f601949",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "o",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "d0a5c4b562f5bf1d",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 200
+  },
+  "right": {
+    "id": "0c87ed685fbb11e3",
+    "type": "split",
+    "children": [
+      {
+        "id": "b111938c6bd9effa",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "78b5415f36ca6203",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "specs/Integration.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Integration"
+            }
+          },
+          {
+            "id": "eb165ab6aa3f6c88",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "95679ca6997d53ad",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "9bbb3a59fca199eb",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "baa4f7e24fa9e4d8",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ],
+        "currentTab": 3
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "b6f6e18666ec9508",
+  "lastOpenFiles": [
+    "specs/Persistence_updated.md",
+    "standards/endpoints.md",
+    "notes/commands.md",
+    "specs/frontend/WorkflowBuilder.md",
+    "standards/frontend-specs-guide.md",
+    "standards",
+    "methodologies/endpoints.md",
+    "specs/Persistence.md",
+    "specs/frontend/FileManagement.md",
+    "specs/frontend/Dashboard.md",
+    "specs/endpoints/Workflow Resource.md",
+    "specs/endpoints/File Management.md",
+    "specs/endpoints",
+    "specs/endpoints/workflow_steps.md",
+    "specs/endpoints/workflow_dag_nodes.md",
+    "specs/endpoints/workflow_dag_edges.md",
+    "specs/endpoints/workflows.md",
+    "specs/endpoints/sample_set_samples.md",
+    "specs/endpoints/sample_sets.md",
+    "specs/endpoints/payload_inputs.md",
+    "specs/endpoints/samples.md",
+    "specs/endpoints/README.md",
+    "specs/endpoints/payload_templates.md",
+    "specs/endpoints/output_specs.md",
+    "specs/endpoints/object_uploads.md",
+    "specs/endpoints/model_outputs.md",
+    "specs/endpoints/execution_rows.md",
+    "specs/endpoints/cross_object_processing.md",
+    "specs/endpoints",
+    "specs/endpoint_specs",
+    "specs/frontend",
+    "specs/frontned",
+    "specs/Frontend",
+    "methodologies",
+    "templates/adr-template",
+    "templates/adr_"
+  ]
+}

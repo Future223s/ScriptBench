@@ -1,0 +1,183 @@
+.field,
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field__label,
+.field label,
+.field-row label {
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.field__control,
+.field input,
+.field select,
+.field textarea,
+.field-row input,
+.field-row select,
+.field-row textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 253, 249, 0.9);
+  color: var(--text-primary);
+  padding: 9px 10px;
+  outline: none;
+}
+
+.field__control:focus,
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.field-row input:focus,
+.field-row select:focus,
+.field-row textarea:focus {
+  border-color: rgba(212, 106, 50, 0.58);
+  box-shadow: 0 0 0 3px rgba(212, 106, 50, 0.12);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.form-grid .wide,
+.field.wide {
+  grid-column: 1 / -1;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.step {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.step.is-active {
+  border-color: rgba(212, 106, 50, 0.42);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.selection-summary {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sample-picker {
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.workflow-sample-picker {
+  max-height: 500px;
+}
+
+.sample-filter-grid,
+.workflow-selection-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workflow-selection-actions {
+  margin-top: 2px;
+}
+
+.mode-switch {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  margin-bottom: 14px;
+}
+
+.mode-option {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mode-option.is-active {
+  background: var(--surface-solid);
+  border-color: var(--line);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-soft);
+}
+
+.inputs-card {
+  padding: 12px;
+}
+
+.inputs-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.schema-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr) auto;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.workflow-builder-inline-form {
+  padding: 0;
+}
+
+.workflow-builder-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workflow-builder-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.workflow-builder-assignment-selector-card .field {
+  gap: 6px;
+}
+
+.workflow-builder-assignment-selector-card .field label {
+  font-size: var(--font-size-label-sm);
+}

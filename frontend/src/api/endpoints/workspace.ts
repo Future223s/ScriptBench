@@ -1,5 +1,3 @@
-import { apiFetch } from "../client";
-
 export type ApiId = string | number;
 
 export interface WorkspaceWorkflowSummary {
@@ -82,52 +80,94 @@ export interface WorkspaceTranscriptionDetailResponse {
   sample_ids: string[];
 }
 
-export const workspaceApi = {
-  getWorkspaceEventsUrl: () => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_WS_BASE_URL || "http://127.0.0.1:8000";
-    const url = new URL(baseUrl);
-    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    return new URL("/api/v1/events", url).toString();
+const EMPTY_WORKFLOW: WorkspaceWorkflowSummary = {
+  workflow_id: 0,
+  workflow_name: "",
+  workflow_stage: "",
+  model_family: "",
+  model: "",
+  sample_set_id: null,
+  status: null,
+  groups: [],
+  updated_at: null,
+};
+
+const EMPTY_WORKSPACE: WorkspaceResponse = {
+  workflow: EMPTY_WORKFLOW,
+  sample_ids: [],
+  pending_jobs: [],
+  queued_jobs: [],
+  completed_jobs: [],
+  transcriptions: [],
+};
+
+const EMPTY_JOB_DETAIL: WorkspaceJobDetailResponse = {
+  job_id: 0,
+  workflow_id: null,
+  status: null,
+  created_at: null,
+  started_at: null,
+  completed_at: null,
+  failure_reason: null,
+  raw_content: null,
+  sample_ids: [],
+  resolved_prompt: null,
+  time_elapsed: null,
+};
+
+const EMPTY_TRANSCRIPTION_DETAIL: WorkspaceTranscriptionDetailResponse = {
+  transcription: {
+    transcription_id: 0,
+    workflow_id: null,
+    job_id: null,
+    sample_id: null,
+    sample_ids: [],
+    group_name: null,
+    group_value: null,
+    output_name: null,
+    transcription_text: null,
+    cer: null,
+    wer: null,
+    hallucinations: null,
+    line_omission_count: null,
+    line_addition_count: null,
+    created_at: null,
+    updated_at: null,
+    status: null,
+    metrics: null,
   },
-  getWorkflows: () => apiFetch<WorkflowsResponse>("/api/v1/workflows"),
-  markWorkspaceOpened: (workflowId: ApiId, workflowStage: string) =>
-    apiFetch(`/api/workspaces/${encodeURIComponent(String(workflowId))}/opened?workflow_stage=${encodeURIComponent(workflowStage)}`, {
-      method: "POST",
-    }),
-  getWorkspace: (workflowId: ApiId) =>
-    apiFetch<WorkspaceResponse>(`/api/v1/workflows/${encodeURIComponent(String(workflowId))}/workspace`),
-  createWorkspaceJobs: (workflowId: ApiId) =>
-    apiFetch(`/api/v1/workflows/${encodeURIComponent(String(workflowId))}/workspace/jobs`, {
-      method: "POST",
-    }),
-  queueWorkspaceJobs: (workflowId: ApiId, jobIds: Array<string | number> = []) =>
-    apiFetch(`/api/v1/workflows/${encodeURIComponent(String(workflowId))}/workspace/jobs/queue`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ job_ids: jobIds.length ? jobIds : null }),
-    }),
-  retryWorkspaceJobs: (workflowId: ApiId, jobIds: Array<string | number> = []) =>
-    apiFetch(`/api/v1/workflows/${encodeURIComponent(String(workflowId))}/workspace/jobs/retry`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ job_ids: jobIds.length ? jobIds : null }),
-    }),
-  deleteWorkspaceJobs: (workflowId: ApiId, kind = "all") =>
-    apiFetch(`/api/v1/workflows/${encodeURIComponent(String(workflowId))}/workspace/jobs?kind=${encodeURIComponent(kind)}`, {
-      method: "DELETE",
-    }),
-  getWorkspaceJob: (workflowId: ApiId, jobId: ApiId) =>
-    apiFetch<WorkspaceJobDetailResponse>(`/api/v1/workflows/${encodeURIComponent(String(workflowId))}/workspace/jobs/${encodeURIComponent(String(jobId))}`),
-  createWorkspaceTranscriptions: (workflowId: ApiId) =>
-    apiFetch(`/api/v0/workflows/${encodeURIComponent(String(workflowId))}/workspace/transcriptions`, {
-      method: "POST",
-    }),
-  getWorkspaceTranscription: (workflowId: ApiId, transcriptionId: ApiId) =>
-    apiFetch<WorkspaceTranscriptionDetailResponse>(
-      `/api/v0/workflows/${encodeURIComponent(String(workflowId))}/workspace/transcriptions/${encodeURIComponent(String(transcriptionId))}`,
-    ),
-  scoreWorkspace: (workflowId: ApiId) =>
-    apiFetch(`/api/v0/workflows/${encodeURIComponent(String(workflowId))}/workspace/score`, {
-      method: "POST",
-    }),
+  ground_truth_text: "",
+  sample_ids: [],
+};
+
+export const workspaceApi = {
+  getWorkspaceEventsUrl: () => "",
+  getWorkflows: async () => ({ workflows: [], workflow_count: 0 } satisfies WorkflowsResponse),
+  markWorkspaceOpened: async () => undefined,
+  getWorkspace: async (workflowId: ApiId) => ({
+    ...EMPTY_WORKSPACE,
+    workflow: {
+      ...EMPTY_WORKFLOW,
+      workflow_id: workflowId,
+    },
+  }),
+  createWorkspaceJobs: async () => ({ message: "Legacy workspace endpoint removed." }),
+  queueWorkspaceJobs: async () => undefined,
+  retryWorkspaceJobs: async () => undefined,
+  deleteWorkspaceJobs: async () => undefined,
+  getWorkspaceJob: async (workflowId: ApiId, jobId: ApiId) => ({
+    ...EMPTY_JOB_DETAIL,
+    workflow_id: workflowId,
+    job_id: jobId,
+  }),
+  createWorkspaceTranscriptions: async () => ({ message: "Legacy workspace endpoint removed." }),
+  getWorkspaceTranscription: async (workflowId: ApiId, transcriptionId: ApiId) => ({
+    ...EMPTY_TRANSCRIPTION_DETAIL,
+    transcription: {
+      ...EMPTY_TRANSCRIPTION_DETAIL.transcription,
+      workflow_id: workflowId,
+      transcription_id: transcriptionId,
+    },
+  }),
+  scoreWorkspace: async () => undefined,
 } as const;

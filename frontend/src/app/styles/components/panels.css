@@ -1,0 +1,93 @@
+.panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
+}
+
+.panel__header,
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel__heading,
+.panel-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.panel__widget,
+.panel-title-widget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel__copy,
+.panel-title-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.panel__title,
+.panel-title h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0;
+}
+
+.panel__eyebrow,
+.panel-title span {
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.workflow-builder-canvas-header .panel__heading,
+.workflow-builder-canvas-header .panel-title {
+  gap: 2px;
+}
+
+.workflow-builder-canvas-header .panel__title,
+.workflow-builder-canvas-header .panel-title h2,
+.workflow-builder-metadata-header .panel__title,
+.workflow-builder-metadata-header .panel-title h2 {
+  font-size: var(--font-size-title-sm);
+}
+
+.workflow-builder-metadata-header .panel__heading,
+.workflow-builder-metadata-header .panel-title {
+  gap: 0;
+}
+
+.workflow-builder-assignment-card-header .panel__heading,
+.workflow-builder-assignment-card-header .panel-title {
+  gap: 2px;
+}
+
+.workflow-builder-assignment-card-header .panel__title,
+.workflow-builder-assignment-card-header .panel-title h2 {
+  font-size: var(--font-size-title-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.workflow-builder-assignment-card-header .panel__eyebrow,
+.workflow-builder-assignment-card-header .panel-title span {
+  font-size: var(--font-size-label-sm);
+  line-height: 1.35;
+}

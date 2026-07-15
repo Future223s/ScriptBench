@@ -89,3 +89,33 @@ class PromptResolutionService:
                 "contents": contents,
             },
         }
+
+    async def refresh_resolved_prompt(
+        self,
+        *,
+        resolved_prompt: Mapping[str, Any] | str,
+        refreshed_file_uris: Mapping[str, str],
+        sample_payloads_by_sample_id: Mapping[str, tuple[bytes, str | None]] | None = None,
+    ) -> dict[str, Any]:
+        if isinstance(resolved_prompt, str):
+            resolved_prompt = json.loads(resolved_prompt)
+        contents = resolved_prompt.get("contents", []) if isinstance(resolved_prompt, dict) else []
+        for content in contents:
+            if not isinstance(content, dict):
+                continue
+            for part in content.get("parts", []):
+                if not isinstance(part, dict):
+                    continue
+                file_data = part.get("file_data")
+                if not isinstance(file_data, dict):
+                    continue
+                sample_id = str(file_data.get("sample_id") or "").strip()
+                if not sample_id:
+                    file_uri = str(file_data.get("file_uri") or "")
+                    if file_uri.startswith(PLACEHOLDER_URI_PREFIX):
+                        sample_id = file_uri.removeprefix(PLACEHOLDER_URI_PREFIX).strip()
+                if sample_id in refreshed_file_uris:
+                    file_data["file_uri"] = refreshed_file_uris[sample_id]
+                    if sample_payloads_by_sample_id and sample_id in sample_payloads_by_sample_id:
+                        file_data["mime_type"] = sample_payloads_by_sample_id[sample_id][1]
+        return resolved_prompt if isinstance(resolved_prompt, dict) else {"contents": contents}

@@ -74,9 +74,7 @@ pnpm-debug.log*
 *.sqlite3
 
 # Local database files
-database/
 data/
-
 
 # =========================
 # Environment / Secrets

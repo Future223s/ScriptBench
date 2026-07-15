@@ -4,58 +4,159 @@ import { EmptyState } from "../common/EmptyState.js";
 import { Panel } from "../common/Panel.js";
 import { formatDate } from "../../utils/date.js";
 import { truncate } from "../../utils/html.js";
-import {
-  filterSamplesForPicker,
-  membershipsForSample,
-  selectedGrouping,
-  valuesForGrouping,
-  visibleWorkflowSamples,
-} from "../../utils/workflow.js";
 import { SampleFilterPanel } from "./SampleFilterPanel.js";
+import {
+  managementModes,
+  recordIdForType,
+  visibleRecordsForType,
+} from "../../hooks/file-management/fileManagementShared.js";
 
-const fileManagementModes = {
-  "create-sample-set": {
-    title: "Create sample set",
-    description: "Package the visible samples into a sample set for workflow authoring.",
-    submitLabel: "Save sample set",
-  },
-  "create-grouping": {
-    title: "Create grouping",
-    description: "Collect the currently visible samples under a shared grouping name.",
-    submitLabel: "Save grouping",
-  },
-  "assign-grouping-value": {
-    title: "Assign grouping value",
-    description: "Choose an existing grouping and assign a value to the visible samples.",
-    submitLabel: "Save value",
-  },
-  "delete-samples": {
-    title: "Delete samples",
-    description: "Select the filtered samples you want to remove.",
-    submitLabel: "Delete selected",
-  },
-};
+function artifactGroupLookup(artifactGroups) {
+  return new Map(artifactGroups.map((group) => [String(group.artifact_group_id), group]));
+}
 
-function SampleRow({ sample, groupings, deletable, selected, actions }) {
-  const memberships = membershipsForSample(groupings, sample.sample_id);
+function recordDisplayName(type, record) {
+  if (type === "artifact") return record.artifact_name;
+  if (type === "asset") return record.asset_name;
+  return record.sample_name || record.sample_id;
+}
+
+function recordSummary(type, record, sampleSets, artifactGroups) {
+  if (type === "artifact") {
+    const groupName = record.artifact_group_name || artifactGroupLookup(artifactGroups).get(String(record.artifact_group_id || ""))?.artifact_group_name;
+    return [
+      `Origin: ${record.originating_sample_id}`,
+      groupName ? `Group: ${groupName}` : "Ungrouped",
+      `Category: ${record.artifact_category}`,
+      record.updated_at ? formatDate(record.updated_at) : "",
+    ].filter(Boolean);
+  }
+
+  if (type === "asset") {
+    return [
+      `Type: ${record.asset_type}`,
+      record.asset_mime_type ? `Mime: ${record.asset_mime_type}` : "",
+      record.updated_at ? formatDate(record.updated_at) : "",
+      record.asset_blob_size ? `${record.asset_blob_size} bytes` : "",
+    ].filter(Boolean);
+  }
+
+  const memberships = sampleSetMemberships(record.sample_id, sampleSets);
+  return [
+    record.sample_mime_type ? `Mime: ${record.sample_mime_type}` : "",
+    record.updated_at ? String(record.updated_at) : "",
+    `${memberships.length} sample set${memberships.length === 1 ? "" : "s"}`,
+  ].filter(Boolean);
+}
+
+function sampleSetMemberships(sampleId, sampleSets) {
+  return sampleSets.filter((sampleSet) => Array.isArray(sampleSet.sample_ids) && sampleSet.sample_ids.includes(sampleId));
+}
+
+export function ManagementFields({ type, draft, actions }) {
+  if (type === "sample") {
+    return (
+      <div className="form-grid">
+        <div className="field wide">
+          <label htmlFor="sample-set-name">Sample set name</label>
+          <input
+            id="sample-set-name"
+            name="sample_set_name"
+            value={draft.sample_set_name}
+            onChange={(event) => actions.setDraftField("sample_set_name", event.target.value)}
+            placeholder="EMMO line crops"
+            required
+          />
+        </div>
+        <div className="field wide">
+          <label htmlFor="sample-set-description">Description</label>
+          <input
+            id="sample-set-description"
+            name="sample_set_description"
+            value={draft.sample_set_description}
+            onChange={(event) => actions.setDraftField("sample_set_description", event.target.value)}
+            placeholder="Optional notes"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "artifact") {
+    return (
+      <div className="form-grid">
+        <div className="field wide">
+          <label htmlFor="artifact-group-name">Artifact group name</label>
+          <input
+            id="artifact-group-name"
+            name="artifact_group_name"
+            value={draft.artifact_group_name}
+            onChange={(event) => actions.setDraftField("artifact_group_name", event.target.value)}
+            placeholder="Document pages"
+            required
+          />
+        </div>
+        <div className="field wide">
+          <label htmlFor="artifact-group-description">Description</label>
+          <input
+            id="artifact-group-description"
+            name="artifact_group_description"
+            value={draft.artifact_group_description}
+            onChange={(event) => actions.setDraftField("artifact_group_description", event.target.value)}
+            placeholder="Optional notes"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function RecordRow({
+  type,
+  record,
+  selected,
+  deletable,
+  actions,
+  sampleSets,
+  artifactGroups,
+}) {
+  const recordId = recordIdForType(type, record);
+  const displayName = recordDisplayName(type, record);
+  const summary = recordSummary(type, record, sampleSets, artifactGroups);
+  const badgeLabel =
+    type === "artifact"
+      ? record.artifact_group_name || "Ungrouped"
+      : type === "asset"
+        ? record.asset_type
+        : record.ground_truth_text ? "Ground truth" : "Empty";
+
   function handleContextMenu(event) {
     event.preventDefault();
-    actions.toggleFileManagementSelection(sample.sample_id, !selected);
+    actions.toggleSelection(type, recordId, !selected);
   }
 
   const content = (
     <>
       <div className="sample-main">
-        <strong>{sample.sample_id}</strong>
+        <strong>{displayName || recordId}</strong>
         <div className="meta-line">
-          <span>{sample.has_sample_blob ? `${sample.sample_blob_size} bytes` : "No file"}</span>
-          <span>{formatDate(sample.updated_at)}</span>
-          <span>{memberships.length} groups</span>
+          <span>{recordId}</span>
+          {summary.map((entry) => (
+            <span key={entry}>{entry}</span>
+          ))}
         </div>
-        <p>{truncate(sample.ground_truth_text)}</p>
+        <p>
+          {type === "sample"
+            ? truncate(record.ground_truth_text)
+            : type === "artifact"
+              ? truncate(record.artifact_mime_type || "")
+              : truncate(record.asset_mime_type || "")}
+        </p>
       </div>
-      <span className={["badge", sample.ground_truth_text ? "green" : ""].filter(Boolean).join(" ")}>
-        {sample.ground_truth_text ? "Ground truth" : "Empty"}
+      <span className={["badge", type === "sample" && record.ground_truth_text ? "green" : ""].filter(Boolean).join(" ")}>
+        {badgeLabel}
       </span>
     </>
   );
@@ -69,7 +170,7 @@ function SampleRow({ sample, groupings, deletable, selected, actions }) {
         <input
           type="checkbox"
           checked={selected}
-          onChange={(event) => actions.toggleFileManagementSelection(sample.sample_id, event.target.checked)}
+          onChange={(event) => actions.toggleSelection(type, recordId, event.target.checked)}
         />
         {content}
       </label>
@@ -80,7 +181,7 @@ function SampleRow({ sample, groupings, deletable, selected, actions }) {
     <button
       className={["sample-row", "file-sample-row", selected ? "is-selected" : ""].filter(Boolean).join(" ")}
       type="button"
-      onClick={() => actions.openSample(sample.sample_id)}
+      onClick={() => actions.openRecord(type, recordId)}
       onContextMenu={handleContextMenu}
     >
       {content}
@@ -88,197 +189,92 @@ function SampleRow({ sample, groupings, deletable, selected, actions }) {
   );
 }
 
-function ModeFields({ mode, draft, groupings, actions }) {
-  if (mode === "create-sample-set") {
-    return (
-      <div className="form-grid">
-        <div className="field wide">
-          <label htmlFor="sample-set-name">Sample set name</label>
-          <input
-            id="sample-set-name"
-            name="sample_set_name"
-            value={draft.sample_set_name}
-            onChange={(event) => actions.setFileManagementDraftField("sample_set_name", event.target.value)}
-            placeholder="EMMO line crops"
-            required
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="sample-set-type">Sample set type</label>
-          <input
-            id="sample-set-type"
-            name="sample_set_type"
-            value={draft.sample_set_type}
-            onChange={(event) => actions.setFileManagementDraftField("sample_set_type", event.target.value)}
-            placeholder="source, crop, evaluation"
-            required
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="sample-set-description">Description</label>
-          <input
-            id="sample-set-description"
-            name="sample_set_description"
-            value={draft.sample_set_description}
-            onChange={(event) => actions.setFileManagementDraftField("sample_set_description", event.target.value)}
-            placeholder="Optional notes"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (mode === "assign-grouping-value") {
-    const selectedGroupingName = draft.grouping_value_group_name || groupings[0]?.name || "";
-
-    return (
-      <div className="form-grid">
-        <div className="field wide">
-          <label htmlFor="grouping-value-group">Grouping</label>
-          <select
-            id="grouping-value-group"
-            name="grouping_value_group_name"
-            value={selectedGroupingName}
-            onChange={(event) => actions.setFileManagementDraftField("grouping_value_group_name", event.target.value)}
-            disabled={!groupings.length}
-            required
-          >
-            {groupings.length ? (
-              groupings.map((group) => (
-                <option key={group.name} value={group.name}>
-                  {group.name}
-                </option>
-              ))
-            ) : (
-              <option value="">No groupings available</option>
-            )}
-          </select>
-        </div>
-        <div className="field wide">
-          <label htmlFor="grouping-value-name">Value name</label>
-          <input
-            id="grouping-value-name"
-            name="grouping_value_name"
-            value={draft.grouping_value_name}
-            onChange={(event) => actions.setFileManagementDraftField("grouping_value_name", event.target.value)}
-            placeholder="front page, handwritten, clean"
-            required
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (mode === "delete-samples") {
-    return null;
-  }
-
-  return (
-    <div className="form-grid">
-      <div className="field wide">
-        <label htmlFor="grouping-name">Grouping name</label>
-        <input
-          id="grouping-name"
-          name="grouping_name"
-          value={draft.grouping_name}
-          onChange={(event) => actions.setFileManagementDraftField("grouping_name", event.target.value)}
-          placeholder="EMMO Sample"
-          required
-        />
-      </div>
-    </div>
-  );
+function filterSummary(type, visibleCount) {
+  const label = managementModes[type].title.toLowerCase();
+  return `${visibleCount} ${label}`;
 }
 
 export function SampleManagementPanel({ state, actions }) {
-  const mode = fileManagementModes[state.fileManagementMode] ? state.fileManagementMode : "create-grouping";
-  const currentMode = fileManagementModes[mode];
-  const selectedFilterGrouping = selectedGrouping(state.groupings, state.appliedFileManagementGroupFilter);
-  const filteredSamples = filterSamplesForPicker(
-    visibleWorkflowSamples(
-      state.samples,
-      state.groupings,
-      state.appliedFileManagementGroupFilter,
-      state.appliedFileManagementGroupFilterValue,
-    ),
-    state.appliedFileManagementQuery,
-    state.appliedFileManagementQueryMode || "contains",
-  );
-  const filterGroupValues = valuesForGrouping(selectedFilterGrouping);
-  const selectedSampleIds = state.fileManagementSelection.length ? state.fileManagementSelection : [];
-  const rows = filteredSamples.length ? (
-    filteredSamples.map((sample) => (
-      <SampleRow
-        key={sample.sample_id}
-        sample={sample}
-        groupings={state.groupings}
-        deletable={mode === "delete-samples"}
-        selected={selectedSampleIds.includes(sample.sample_id)}
+  const type = managementModes[state.managementType] ? state.managementType : "sample";
+  const mode = managementModes[type];
+  const visibleRecords = visibleRecordsForType(state, type);
+  const selectedIds = state.selections[type] || [];
+  const hasSelectedRecords = selectedIds.length > 0;
+  const visibleRecordIds = visibleRecords.map((record) => recordIdForType(type, record));
+  const allVisibleSelected = visibleRecordIds.length > 0 && visibleRecordIds.every((recordId) => selectedIds.includes(recordId));
+  const rows = state.loading ? (
+    <EmptyState>Loading {mode.title.toLowerCase()}...</EmptyState>
+  ) : visibleRecords.length ? (
+    visibleRecords.map((record) => (
+      <RecordRow
+        key={recordIdForType(type, record)}
+        type={type}
+        record={record}
+        deletable={false}
+        selected={selectedIds.includes(recordIdForType(type, record))}
         actions={actions}
+        sampleSets={state.sampleSets}
+        artifactGroups={state.artifactGroups}
       />
     ))
   ) : (
-    <EmptyState>No samples match the current filters.</EmptyState>
+    <EmptyState>No {mode.title.toLowerCase()} match the current filters.</EmptyState>
   );
 
-  return (
-    <Panel className="file-mode-panel">
-      <div className="panel-header">
-        <div className="panel-title">
-          <h2>File management</h2>
-          <span>{currentMode.title}</span>
-        </div>
-      </div>
-      <div className="mode-header">
-        <div className="mode-switch file-mode-switch">
-          {Object.entries(fileManagementModes).map(([key, meta]) => (
-            <button
-              key={key}
-              className={["mode-option", key === mode ? "is-active" : ""].filter(Boolean).join(" ")}
-              type="button"
-              onClick={() => actions.setFileManagementMode(key)}
-              aria-pressed={key === mode}
-            >
-              {meta.title}
-            </button>
-          ))}
-        </div>
-        <button className="btn-primary file-mode-submit" type="submit" form="file-management-form">
-          {currentMode.submitLabel}
-        </button>
-      </div>
-      <form
-        id="file-management-form"
-        className="file-management-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void actions.submitFileManagement();
-        }}
-      >
-        <div className="mode-copy">
-          <strong>{currentMode.title}</strong>
-          <p>{currentMode.description}</p>
-          <p className="mode-hint">Right-click a sample to add it to the selection.</p>
-        </div>
-        <ModeFields mode={mode} draft={state.fileManagementDraft} groupings={state.groupings} actions={actions} />
-      </form>
-      <div className="file-sample-stack">
-        <SampleFilterPanel
-          filters={[
+  const filters =
+    type === "sample"
+      ? [
+          {
+            id: "sample-search",
+            label: "Search",
+            kind: "text",
+            value: state.filters.sample.query,
+            placeholder: "Sample ID, name, or ground truth",
+            onChange: (value) => actions.setFilterField("sample", "query", value),
+          },
+          {
+            id: "sample-match-mode",
+            label: "Match",
+            kind: "select",
+            value: state.filters.sample.queryMode,
+            onChange: (value) => actions.setFilterField("sample", "queryMode", value),
+            options: [
+              { value: "contains", label: "Contains" },
+              { value: "starts-with", label: "Begins with" },
+              { value: "exact", label: "Exact" },
+            ],
+          },
+          {
+            id: "sample-set-filter",
+            label: "Sample set",
+            kind: "select",
+            value: state.filters.sample.sampleSetId,
+            onChange: (value) => actions.setFilterField("sample", "sampleSetId", value),
+            options: [
+              { value: "", label: "All sample sets" },
+              ...state.sampleSets.map((sampleSet) => ({
+                value: String(sampleSet.sample_set_id),
+                label: sampleSet.sample_set_name,
+              })),
+            ],
+          },
+        ]
+      : type === "artifact"
+        ? [
             {
-              id: "sample-search",
+              id: "artifact-search",
               label: "Search",
               kind: "text",
-              value: state.fileManagementQuery,
-              placeholder: "Sample ID or ground truth",
-              onChange: (value) => actions.setFileManagementQuery(value),
+              value: state.filters.artifact.query,
+              placeholder: "Artifact name, source sample, or group",
+              onChange: (value) => actions.setFilterField("artifact", "query", value),
             },
             {
-              id: "sample-match-mode",
+              id: "artifact-match-mode",
               label: "Match",
               kind: "select",
-              value: state.fileManagementQueryMode || "contains",
-              onChange: (value) => actions.setFileManagementQueryMode(value),
+              value: state.filters.artifact.queryMode,
+              onChange: (value) => actions.setFilterField("artifact", "queryMode", value),
               options: [
                 { value: "contains", label: "Contains" },
                 { value: "starts-with", label: "Begins with" },
@@ -286,48 +282,113 @@ export function SampleManagementPanel({ state, actions }) {
               ],
             },
             {
-              id: "sample-group-filter",
-              label: "Group",
+              id: "artifact-group-filter",
+              label: "Artifact group",
               kind: "select",
-              value: state.fileManagementGroupFilter,
-              onChange: (value) => actions.setFileManagementGroupFilter(value),
+              value: state.filters.artifact.artifactGroupId,
+              onChange: (value) => actions.setFilterField("artifact", "artifactGroupId", value),
               options: [
-                { value: "", label: "All groupings" },
-                ...state.groupings.map((group) => ({ value: group.name, label: group.name })),
+                { value: "", label: "All groups" },
+                ...state.artifactGroups.map((group) => ({
+                  value: String(group.artifact_group_id),
+                  label: group.artifact_group_name,
+                })),
               ],
             },
             {
-              id: "sample-group-filter-value",
-              label: "Value",
+              id: "artifact-category-filter",
+              label: "Category",
               kind: "select",
-              value: state.fileManagementGroupFilterValue,
-              disabled: !state.fileManagementGroupFilter,
-              onChange: (value) => actions.setFileManagementGroupFilterValue(value),
+              value: state.filters.artifact.artifactCategory,
+              onChange: (value) => actions.setFilterField("artifact", "artifactCategory", value),
               options: [
-                { value: "", label: "All values" },
-                ...filterGroupValues.map((entry) => ({ value: entry.value, label: `${entry.value} (${entry.sampleIds.length})` })),
+                { value: "", label: "All categories" },
+                { value: "companion", label: "Companion" },
+                { value: "decomposition", label: "Decomposition" },
               ],
             },
-          ]}
-          actions={
-            <>
-              <button className="btn-secondary" type="button" onClick={() => actions.applyFileManagementFilter()}>
-                Apply filter
-              </button>
-              <button className="btn-secondary" type="button" onClick={() => actions.selectAllFileManagement()}>
-                Select all
-              </button>
-            </>
-          }
-          summary={
-            mode === "delete-samples"
-              ? `${filteredSamples.length} samples currently visible. ${state.fileManagementSelection.length} selected for deletion.`
-              : `${filteredSamples.length} samples currently visible. ${state.fileManagementSelection.length} selected.`
-          }
+          ]
+        : [
+            {
+              id: "asset-search",
+              label: "Search",
+              kind: "text",
+              value: state.filters.asset.query,
+              placeholder: "Asset name or type",
+              onChange: (value) => actions.setFilterField("asset", "query", value),
+            },
+            {
+              id: "asset-match-mode",
+              label: "Match",
+              kind: "select",
+              value: state.filters.asset.queryMode,
+              onChange: (value) => actions.setFilterField("asset", "queryMode", value),
+              options: [
+                { value: "contains", label: "Contains" },
+                { value: "starts-with", label: "Begins with" },
+                { value: "exact", label: "Exact" },
+              ],
+            },
+            {
+              id: "asset-type-filter",
+              label: "Asset type",
+              kind: "select",
+              value: state.filters.asset.assetType,
+              onChange: (value) => actions.setFilterField("asset", "assetType", value),
+              options: [
+                { value: "", label: "All asset types" },
+                ...uniqueAssetTypes(state.assets).map((assetType) => ({ value: assetType, label: assetType })),
+              ],
+            },
+          ];
+
+  const filterActions = (
+    <>
+      <button className="btn-secondary" type="button" onClick={() => actions.applyFilters()}>
+        Apply filter
+      </button>
+      <button className="btn-secondary" type="button" onClick={() => actions.clearFilters(type)} disabled={state.loading}>
+        Clear
+      </button>
+      {type === "artifact" ? (
+        <button
+          className="btn-secondary"
+          type="button"
+          onClick={actions.refreshArtifactMappings}
+          disabled={state.loading || state.refreshingArtifactMappings}
+        >
+          {state.refreshingArtifactMappings ? "Refreshing..." : "Refresh mappings"}
+        </button>
+      ) : null}
+      <button
+        className="btn-secondary"
+        type="button"
+        onClick={() => (allVisibleSelected ? actions.clearSelection(type) : actions.selectAllVisible())}
+        disabled={state.loading || !visibleRecords.length}
+      >
+        {allVisibleSelected ? "Unselect all" : "Select all"}
+      </button>
+      <button className="btn-danger" type="button" onClick={() => actions.submitManagement("delete")} disabled={state.loading || !hasSelectedRecords}>
+        Delete selected
+      </button>
+    </>
+  );
+
+  return (
+    <Panel className="file-mode-panel">
+      <div className="file-sample-stack">
+        <SampleFilterPanel
+          filters={filters}
+          actions={filterActions}
+          summary={filterSummary(type, visibleRecords.length)}
           rows={rows}
           listClass="sample-picker file-sample-picker"
         />
       </div>
     </Panel>
   );
+}
+
+function uniqueAssetTypes(assets) {
+  return [...new Set(assets.map((asset) => String(asset.asset_type || "").trim()).filter(Boolean))].sort();
 }

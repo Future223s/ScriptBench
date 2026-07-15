@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { dashboardApi } from "../../api/endpoints/dashboard.ts";
+import { workflowBuilderApi } from "../../api/endpoints/workflowBuilder.ts";
 import { APP_DATA_CHANGED_EVENT } from "../../utils/appEvents.js";
 import { buildWorkflowPayload, defaultBatchItemSchemaEntries, defaultWorkflowDraft } from "../../utils/workflow.js";
 import { useNotificationOverlay } from "../../components/layout/NotificationOverlay.js";
@@ -32,7 +32,7 @@ export function useWorkflowCreation() {
 
   async function loadSampleSets() {
     try {
-      const response = await dashboardApi.getSampleSets();
+      const response = await workflowBuilderApi.getSampleSets();
       setState((current) => ({
         ...current,
         sampleSets: response.sample_sets || [],
@@ -222,7 +222,7 @@ export function useWorkflowCreation() {
         return;
       }
 
-      await dashboardApi.createWorkflow(payload);
+      await workflowBuilderApi.createWorkflow(payload);
       window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
       setState((current) => ({
         ...current,

@@ -9,10 +9,11 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from backend.api.dependencies import get_engine
-from backend.api.v1.router import router as v1_router
-from backend.services.job_events import JobEventHub
-from backend.services.transcription_job_worker import TranscriptionJobWorker
+from backend.api.v2.router import router as v2_router
+from backend.services.file_upload_worker import FileUploadWorker
+from backend.services.upload_events import FileUploadEventHub
 
 import logging
 logging.basicConfig(
@@ -22,29 +23,35 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.job_event_hub = JobEventHub()
-    app.state.job_event_hub.bind_loop(asyncio.get_running_loop())
-    app.state.job_worker = None
+    app.state.file_upload_event_hub = FileUploadEventHub()
+    app.state.file_upload_event_hub.bind_loop(asyncio.get_running_loop())
+    app.state.file_upload_worker = None
 
     engine = get_engine()
-    worker = TranscriptionJobWorker(
+    file_upload_worker = FileUploadWorker(
         engine=engine,
-        event_hub=app.state.job_event_hub,
+        event_hub=app.state.file_upload_event_hub,
     )
-    worker.start()
-    
-    app.state.job_worker = worker
+    file_upload_worker.start()
+    app.state.file_upload_worker = file_upload_worker
 
     try:
         yield
     finally:
-        worker = getattr(app.state, "job_worker", None)
-        if worker is not None:
-            worker.stop()
+        file_upload_worker = getattr(app.state, "file_upload_worker", None)
+        if file_upload_worker is not None:
+            await file_upload_worker.stop()
 
 
 app = FastAPI(title="Economic Upheaval API", lifespan=lifespan)
-app.include_router(v1_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(v2_router)
 
 if __name__ == "__main__":
     import uvicorn

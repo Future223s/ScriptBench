@@ -59,6 +59,12 @@ export interface DeleteWorkflowResponse {
   deleted: true;
 }
 
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T | null;
+}
+
 export interface WorkflowCreatePromptExample {
   title: string;
   instruction_text: string;
@@ -95,19 +101,31 @@ export interface WorkflowCreatePayload {
 }
 
 export const dashboardApi = {
-  getSampleSets: () => apiFetch<SampleSetsResponse>("/api/v1/sample-sets"),
-  getSampleSetAnalytics: (sampleSetId: ApiId) =>
-    apiFetch<SampleSetAnalyticsResponse>(`/api/v1/sample-sets/${encodeURIComponent(String(sampleSetId))}/analytics`),
+  getSampleSets: () => apiFetch<SampleSetsResponse>("/api/v2/sample-sets"),
+  getSampleSetAnalytics: async (sampleSetId: ApiId) => {
+    const response = await apiFetch<ApiResponse<SampleSetAnalyticsResponse | null>>(
+      `/api/v2/sample-sets/${encodeURIComponent(String(sampleSetId))}/analytics`,
+    );
+    const data = response.data;
+    return {
+      sample_set: data?.sample_set ?? null,
+      sample_ids: Array.isArray(data?.sample_ids) ? data.sample_ids : [],
+      workflows: Array.isArray(data?.workflows) ? data.workflows : [],
+      workflow_count: typeof data?.workflow_count === "number" ? data.workflow_count : undefined,
+      sample_count: typeof data?.sample_count === "number" ? data.sample_count : undefined,
+      metrics: data?.metrics ?? {},
+    };
+  },
   deleteSampleSet: (sampleSetId: ApiId) =>
-    apiFetch<DeleteSampleSetResponse>(`/api/v1/sample-sets/${encodeURIComponent(String(sampleSetId))}`, {
+    apiFetch<DeleteSampleSetResponse>(`/api/v2/sample-sets/${encodeURIComponent(String(sampleSetId))}`, {
       method: "DELETE",
     }),
   deleteWorkflow: (workflowId: ApiId) =>
-    apiFetch<DeleteWorkflowResponse>(`/api/v1/workflows/${encodeURIComponent(String(workflowId))}`, {
+    apiFetch<DeleteWorkflowResponse>(`/api/v2/workflows/${encodeURIComponent(String(workflowId))}`, {
       method: "DELETE",
     }),
   createWorkflow: (payload: WorkflowCreatePayload) =>
-    apiFetch("/api/v1/workflows", {
+    apiFetch("/api/v2/workflows", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),

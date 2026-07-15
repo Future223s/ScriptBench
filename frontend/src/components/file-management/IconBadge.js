@@ -14,6 +14,20 @@ export function IconBadge({ kind, className = "" }) {
         <path d="M8 11h8M8 14h6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       </svg>
     ),
+    artifact: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6.5 7.5h11v9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-9Z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+        <path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M8.5 11h7M8.5 14h5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
+    asset: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="5.5" y="5.5" width="13" height="13" rx="2.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M8 14.5 11 11l2.2 2.4 1.8-1.9 2 2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="9.2" cy="9.2" r="1" fill="currentColor" />
+      </svg>
+    ),
     group: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />

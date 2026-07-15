@@ -10,7 +10,6 @@ export default function FileManagementRoute() {
     <FileManagementPageView
       state={fileManagement.state}
       actions={fileManagement.actions}
-      uploadRefs={fileManagement.uploadRefs}
     />
   );
 }

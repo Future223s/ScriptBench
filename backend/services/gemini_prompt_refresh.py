@@ -33,26 +33,17 @@ class GeminiPromptRefreshService:
         )
 
         refreshed_file_uris: dict[str, str] = {}
-        ref_usage: list[dict[str, Any]] = []
         for sample_id in sample_ids:
             sample_payload = sample_payloads_by_sample_id.get(sample_id)
             if sample_payload is None:
                 raise KeyError(f"Missing sample payload for: {sample_id}")
 
-            upload_ref, file_ref, uploaded, reason = await self._ensure_fresh_upload_ref(
+            upload_ref, file_ref, uploaded = await self._ensure_fresh_upload_ref(
                 sample_id=sample_id,
                 sample_payload=sample_payload,
                 upload_record=upload_records.get(sample_id),
             )
             refreshed_file_uris[sample_id] = str(getattr(file_ref, "uri", upload_ref))
-            ref_usage.append(
-                {
-                    "sample_id": sample_id,
-                    "ref_source": "new" if uploaded else "stored",
-                    "ref_reason": reason,
-                    "upload_ref": upload_ref,
-                }
-            )
             if uploaded:
                 self.sample_uploads_repository.upsert_sample_upload(
                     sample_id=sample_id,
@@ -69,7 +60,6 @@ class GeminiPromptRefreshService:
             "resolved_prompt": refreshed_prompt,
             "sample_ids": sample_ids,
             "refreshed_file_uris": refreshed_file_uris,
-            "ref_usage": ref_usage,
         }
 
     async def _ensure_fresh_upload_ref(
@@ -78,35 +68,34 @@ class GeminiPromptRefreshService:
         sample_id: str,
         sample_payload: tuple[bytes, str | None],
         upload_record: Mapping[str, Any] | None,
-    ) -> tuple[str, Any, bool, str | None]:
-        if upload_record is None:
-            uploaded_refs = await self.provider.upload_samples({sample_id: sample_payload})
-            upload_ref = str(uploaded_refs[sample_id]).strip()
-            if not upload_ref:
-                raise RuntimeError(f"Gemini did not return an upload ref for {sample_id}")
-            file_ref = await self.provider.get_file_ref(upload_ref)
-            return upload_ref, file_ref, True, "not_stored"
-
-        if self._is_fresh(upload_record.get("updated_at")):
+    ) -> tuple[str, Any, bool]:
+        if upload_record is not None and self._is_fresh(upload_record.get("updated_at")):
             upload_ref = str(upload_record.get("upload_ref", "")).strip()
             if upload_ref:
                 try:
                     file_ref = await self.provider.get_file_ref(upload_ref)
-                    return upload_ref, file_ref, False, None
+                    return upload_ref, file_ref, False
                 except Exception:
                     pass
-            reason = "access_failed"
-        else:
-            reason = "window_expired"
 
         uploaded_refs = await self.provider.upload_samples({sample_id: sample_payload})
         upload_ref = str(uploaded_refs[sample_id]).strip()
         if not upload_ref:
             raise RuntimeError(f"Gemini did not return an upload ref for {sample_id}")
         file_ref = await self.provider.get_file_ref(upload_ref)
-        return upload_ref, file_ref, True, reason
+        return upload_ref, file_ref, True
 
     def _collect_sample_ids(self, resolved_prompt: Mapping[str, Any]) -> list[str]:
+        prompt_file_bindings = resolved_prompt.get("prompt_file_bindings", [])
+        if isinstance(prompt_file_bindings, list):
+            sample_ids = [
+                str(binding.get("sample_id", "")).strip()
+                for binding in prompt_file_bindings
+                if isinstance(binding, Mapping) and str(binding.get("sample_id", "")).strip()
+            ]
+            if sample_ids:
+                return list(dict.fromkeys(sample_ids))
+
         contents = resolved_prompt.get("contents", [])
         if not isinstance(contents, list):
             return []
@@ -147,6 +136,8 @@ class GeminiPromptRefreshService:
             if not isinstance(content, dict):
                 continue
             parts = content.get("parts", [])
+            if not isinstance(parts, list):
+                continue
             for part in parts:
                 if not isinstance(part, dict):
                     continue
@@ -160,6 +151,7 @@ class GeminiPromptRefreshService:
                     continue
                 file_data["file_uri"] = refreshed_file_uris[sample_id]
                 file_data["mime_type"] = sample_payloads_by_sample_id[sample_id][1]
+                file_data["placeholder"] = False
         return resolved_prompt
 
     def _is_fresh(self, updated_at: Any) -> bool:
