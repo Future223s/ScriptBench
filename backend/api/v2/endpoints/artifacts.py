@@ -15,6 +15,7 @@ from backend.models.artifacts import (
     ArtifactDeleteRequest,
     ArtifactMapRequest,
     ArtifactMapResponse,
+    ArtifactMapApiResponse,
     ArtifactMapResult,
     ArtifactResponse,
     ArtifactPatchRequest,
