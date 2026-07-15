@@ -117,10 +117,12 @@
   - PK `artifact_id`
   - unique `(originating_sample_id, artifact_name)`
   - FK `originating_sample_id -> samples.sample_id` on delete cascade
+  - FK `parent_artifact_id -> artifacts.artifact_id` on delete set null
   - FK `artifact_group_id -> artifact_groups.artifact_group_id` on delete set null
 - Indexes
   - `artifact_name`
   - `originating_sample_id`
+  - `parent_artifact_id`
   - `artifact_group_id`
   - `artifact_category`
 - Notes
@@ -128,6 +130,7 @@
   - `artifact_category` simply denotes if an artifact represents the whole sample or just one part within a more granular decomposition.
   - `artifact_id` is the database identity; `artifact_name` is the UI/display label.
   - Keep `artifact_name` unique within a sample so the UI can resolve it cleanly.
+  - Preserve lineage through `parent_artifact_id`.
   - After creation, artifact identity, blob content, category, originating sample, parent lineage, and creation timestamp are immutable.
   - Metadata fields such as `artifact_name`, `artifact_group_id`, and `updated_at` remain configurable.
   - Replacing artifact content or lineage creates a new artifact object.
@@ -329,7 +332,6 @@ case_sensitive = false
 - Fields
   - `workflow_step_id: int`
   - `step_name: string`
-  - `model_family: string`
   - `model: string`
   - `payload_template_id: int`
   - `output_spec_id: int`
@@ -344,17 +346,17 @@ case_sensitive = false
   - `step_name`
   - `payload_template_id`
   - `output_spec_id`
-  - `model_family`
   - `status`
 - Notes
   - `workflow_steps` are shared step templates that can be referenced by multiple workflows and multiple DAG nodes.
   - `workflow_step_id` is the database identity; `step_name` is the UI/display label.
-  - `model_family` and `model` stay on the step template because execution choice belongs there.
+  - `model` stays on the step template because the concrete model choice belongs to execution configuration.
+  - The model family is derived from the referenced payload template so prompt assembly and upload handling use the same service contract as the payload definition.
   - The step is configurable while `status = draft`.
   - Activating the step makes its model selection and referenced payload/output objects immutable.
   - Changes to an active step require creating a new workflow step object.
   - Keep `step_name` unique so the UI can present stable choices.
-  - `payload_template_id` points to the reusable payload template object.
+  - `payload_template_id` points to the reusable, model-family-specific payload template object.
   - `output_spec_id` points to the model-emitted shape object.
   - Step sequencing should live on the workflow definition or workflow DAG, not on the step template itself.
 
@@ -363,6 +365,7 @@ case_sensitive = false
 - Fields
   - `payload_template_id: int`
   - `payload_template_name: string`
+  - `model_family: string`
   - `payload_template: jsonb`
   - `status: string (draft | active)`
   - `created_at: timestamptz`
@@ -371,6 +374,7 @@ case_sensitive = false
   - unique `payload_template_name`
 - Indexes
   - `payload_template_name`
+  - `model_family`
   - `status`
 - Repository Methods
   - `insert`
@@ -380,63 +384,95 @@ case_sensitive = false
 - Notes
   - The template is the reusable payload structure referenced by steps.
   - `payload_template_id` is the database identity; `payload_template_name` is the UI/display label.
-  - It should remain LLM-agnostic and hold the named binding locations used by input specs.
-  - The template and its `payload_inputs` are configurable while `status = draft`.
-  - Activating the template makes its JSON structure and owned input definitions immutable.
-  - Changes to an active template require creating a new payload template object and new payload input rows.
+  - `model_family` selects the service adapter responsible for constructing the final provider payload, resolving provider-specific upload references such as file references, and applying any family-specific request rules.
+  - `payload_template` stores the provider-facing payload skeleton outside any modeled messages.
+  - Message-oriented prompt structure may be modeled through `payload_messages`; messages are an intermediate representation and are not required to be emitted unchanged by every model family.
+  - The template, its `payload_messages`, and its `payload_inputs` are configurable while `status = draft`.
+  - Activating the template makes its model family, JSON structure, message definitions, and owned input definitions immutable.
+  - Changes to an active template require creating a new payload template object with new message and input rows.
   - Keep `payload_template_name` unique.
+
+### `payload_messages`
+
+- Fields
+  - `payload_message_id: int`
+  - `payload_template_id: int`
+  - `role: string`
+  - `position: int`
+  - `message_template: jsonb`
+  - `created_at: timestamptz`
+- Constraints
+  - PK `payload_message_id`
+  - FK `payload_template_id -> payload_template.payload_template_id` on delete cascade
+  - unique `(payload_template_id, position)`
+  - unique `(payload_template_id, payload_message_id)`
+  - `position >= 0`
+  - `role` must not be empty
+- Indexes
+  - `payload_template_id`
+  - `(payload_template_id, position)`
+  - `role`
+- Notes
+  - Stores an optional, ordered intermediate message representation for model families whose prompts are naturally assembled as role-based messages.
+  - `role` represents the message role understood by the selected model-family adapter, such as `system`, `developer`, `user`, or `assistant`.
+  - `message_template` stores the message-local structure, such as content blocks, into which message-bound inputs are written.
+  - The prompt-construction service may translate, merge, or ignore these rows when producing the actual provider payload.
+  - A payload template may have no message rows when its inputs bind directly into the root payload.
+  - These rows inherit the lifecycle of their owning payload template and are immutable once that template is active.
 
 ### `payload_inputs`
 
-* Fields
+- Fields
+  - `payload_input_id: int`
+  - `payload_template_id: int`
+  - `payload_message_id: int | null`
+  - `binding_mode: string (fixed | sample-bound)`
+  - `source_type: string`
+  - `source_object_id: text | null`
+  - `artifact_group_id: int | null`
+  - `required: bool`
+  - `template_path: jsonb`
+  - `ordering_rule: jsonb | null`
+  - `batch_limit: int | null`
+  - `created_at: timestamptz`
+- Constraints
+  - PK `payload_input_id`
+  - FK `payload_template_id -> payload_template.payload_template_id` on delete cascade
+  - composite FK `(payload_template_id, payload_message_id) -> payload_messages(payload_template_id, payload_message_id)` on delete cascade
+  - FK `artifact_group_id -> artifact_groups.artifact_group_id` on delete restrict
+  - `source_object_id IS NOT NULL` when `binding_mode = fixed`
+  - `artifact_group_id IS NOT NULL` when `binding_mode = sample-bound`
+  - `artifact_group_id IS NULL` when `binding_mode = fixed`
+  - `source_object_id IS NULL` when `binding_mode = sample-bound`
+- Indexes
+  - `payload_template_id`
+  - `payload_message_id`
+  - `binding_mode`
+  - `source_type`
+  - `source_object_id`
+  - `artifact_group_id`
+- Notes
+  - `source_type` selects the source object type: `asset`, `sample`, `artifact`, or `model_output`.
+  - `binding_mode = fixed` means the UI selects one row from the chosen source type and stores its identifier in `source_object_id`.
+  - `binding_mode = sample-bound` means the input resolves records through the selected `artifact_group_id`.
+  - The artifact group owns the membership and sample-mapping rules used to identify eligible artifacts and associate them with the current sample.
+  - Matching logic is not duplicated in `payload_inputs`.
+  - For sample-bound inputs, the prompt-construction layer evaluates the referenced artifact group and selects the artifacts resolved to the current sample.
+  - When `payload_message_id` is set, the input belongs to that message and `template_path` is resolved relative to the message's `message_template`.
+  - When `payload_message_id` is null, the input binds directly to the root `payload_template` and `template_path` is resolved relative to that root object.
+  - The composite foreign key prevents an input from referencing a message owned by a different payload template.
+  - The model-family adapter converts resolved source objects into the correct provider representation, including upload/file references where required.
+  - `ordering_rule` controls how resolved records are sorted before batching or zipping.
+  - Alphabetical ordering is the default when `ordering_rule` is null.
+  - `ordering_rule` is stored in the database only and is not exposed in the prompt definition interface.
+  - `batch_limit` is the maximum number of resolved records that may be bound into one prompt batch for this input.
+  - If the artifact group resolves more than `batch_limit` records, the prompt-construction layer splits them into additional batches.
+  - If the artifact group resolves fewer than `batch_limit` records, the final batch may be smaller.
+  - If a template has multiple sample-bound inputs, their batches are zipped together by batch index rather than treated independently or cross-producted.
+  - The zip-together behavior is a design note and is not required for the first implementation.
+  - These rows inherit the lifecycle of their owning payload template and are immutable once that template is active.
 
-  * `payload_input_id: int`
-  * `payload_template_id: int`
-  * `binding_mode: string (fixed | sample-bound)`
-  * `source_type: string`
-  * `source_object_id: text | null`
-  * `artifact_group_id: int | null`
-  * `required: bool`
-  * `template_path: jsonb`
-  * `ordering_rule: jsonb | null`
-  * `batch_limit: int | null`
-  * `created_at: timestamptz`
-* Constraints
 
-  * PK `payload_input_id`
-  * FK `payload_template_id -> payload_template.payload_template_id` on delete cascade
-  * FK `artifact_group_id -> artifact_groups.artifact_group_id` on delete restrict
-  * `source_object_id IS NOT NULL` when `binding_mode = fixed`
-  * `artifact_group_id IS NOT NULL` when `binding_mode = sample-bound`
-  * `artifact_group_id IS NULL` when `binding_mode = fixed`
-  * `source_object_id IS NULL` when `binding_mode = sample-bound`
-* Indexes
-
-  * `payload_template_id`
-  * `binding_mode`
-  * `source_type`
-  * `source_object_id`
-  * `artifact_group_id`
-* Notes
-
-  * `source_type` selects the source object type: `asset`, `sample`, `artifact`, or `model_output`.
-  * `binding_mode = fixed` means the UI selects one row from the chosen source type and stores its identifier in `source_object_id`.
-  * `binding_mode = sample-bound` means the input resolves records through the selected `artifact_group_id`.
-  * The artifact group owns the membership and sample-mapping rules used to identify eligible artifacts and associate them with the current sample.
-  * Matching logic is not duplicated in `payload_inputs`.
-  * For sample-bound inputs, the prompt construction layer evaluates the referenced artifact group and selects the artifacts resolved to the current sample.
-  * `template_path` points to the field location inside the payload template where the resolved value should be written.
-  * `ordering_rule` controls how resolved records are sorted before batching or zipping.
-  * Alphabetical ordering is the default when `ordering_rule` is null.
-  * `ordering_rule` is stored in the database only and is not exposed in the prompt definition interface.
-  * `batch_limit` is the maximum number of resolved records that may be bound into one prompt batch for this input.
-  * If the artifact group resolves more than `batch_limit` records, the prompt construction layer splits them into additional batches.
-  * If the artifact group resolves fewer than `batch_limit` records, the final batch may be smaller.
-  * If a template has multiple sample-bound inputs, their batches are zipped together by batch index rather than treated independently or cross-producted.
-  * The zip-together behavior is a design note and is not required for the first implementation.
-  * These rows inherit the lifecycle of their owning payload template and are immutable once that template is active.
-
-  
 ### `output_specs`
 
 - Fields

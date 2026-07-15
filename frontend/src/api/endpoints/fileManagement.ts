@@ -120,18 +120,18 @@ export interface AssetsResponse {
 }
 
 export interface ArtifactMapItem {
-  artifact_id?: number;
+  artifact_id: number;
   artifact_name: string;
-  artifact_mime_type?: string | null;
-  artifact_category?: string | null;
-  originating_sample_id?: string | null;
-  artifact_group_id?: number | null;
-  artifact_group_name?: string | null;
-  artifact_blob_base64?: string | null;
-  artifact_blob_size?: number | null;
 }
 
 export interface ArtifactMapResult extends ArtifactMapItem {
+  originating_sample_id?: string | null;
+  artifact_group_id?: number | null;
+  artifact_group_name?: string | null;
+  artifact_category?: string | null;
+  artifact_mime_type?: string | null;
+  artifact_blob_base64?: string | null;
+  artifact_blob_size?: number | null;
   mapping_type?: string | null;
   errors?: string[];
 }
@@ -144,7 +144,6 @@ export interface ArtifactMapResponse {
 }
 
 export interface ArtifactCreateResult extends ArtifactMapItem {
-  artifact_id?: number;
   artifact_group_id?: number | null;
   artifact_group_name?: string | null;
   artifact_category?: string | null;
@@ -153,10 +152,7 @@ export interface ArtifactCreateResult extends ArtifactMapItem {
 
 export interface ArtifactCreateRequestItem {
   artifact_name: string;
-  originating_sample_id?: string | null;
-  artifact_category?: string | null;
-  artifact_mime_type?: string | null;
-  artifact_blob_base64: string;
+  artifact_mime_type: string;
 }
 
 export interface ArtifactPatchRequestItem {
@@ -164,10 +160,32 @@ export interface ArtifactPatchRequestItem {
   artifact_group_id?: number | null;
   artifact_group_name?: string | null;
   originating_sample_id?: string | null;
+  artifact_category?: string | null;
+  artifact_mime_type?: string | null;
+}
+
+export interface ArtifactMapApiResponse {
+  success: boolean;
+  message: string;
+  data?: ArtifactMapResponse | null;
 }
 
 export interface ArtifactCreateResponse {
+  success: boolean;
+  message: string;
   data?: ArtifactCreateResult[] | null;
+}
+
+export interface ArtifactPatchResponse {
+  success: boolean;
+  message: string;
+  data?: ArtifactRecord[] | null;
+}
+
+export interface ArtifactUploadBlobResponse {
+  success: boolean;
+  message: string;
+  data?: ArtifactRecord[] | null;
 }
 
 export interface FileUploadQueueResponse {
@@ -331,26 +349,44 @@ export const fileManagementApi = {
     }
     return response.data;
   },
-  mapArtifacts: (artifacts: ArtifactMapItem[]) =>
-    apiFetch<ApiResponse<ArtifactMapResponse>>(directBackendUrl("/api/v2/artifacts/map"), {
+  mapArtifacts: async (artifacts: ArtifactMapItem[]) => {
+    const response = await apiFetch<ArtifactMapApiResponse>(directBackendUrl("/api/v2/artifacts/map"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ artifacts }),
-    }),
-  createArtifacts: (artifacts: ArtifactCreateRequestItem[]) =>
-    apiFetch<ApiResponse<ArtifactCreateResult[]>>(directBackendUrl("/api/v2/artifacts"), {
+    });
+    return {
+      data: response.data || null,
+      message: response.message,
+      success: response.success,
+    };
+  },
+  createArtifacts: async (artifacts: ArtifactCreateRequestItem[]) => {
+    const response = await apiFetch<ArtifactCreateResponse>(directBackendUrl("/api/v2/artifacts"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ artifacts }),
-    }),
-  patchArtifacts: (artifacts: ArtifactPatchRequestItem[]) =>
-    apiFetch<ApiResponse<ArtifactCreateResult[]>>(directBackendUrl("/api/v2/artifacts"), {
+    });
+    return {
+      data: response.data || [],
+      message: response.message,
+      success: response.success,
+    };
+  },
+  patchArtifacts: async (artifacts: ArtifactPatchRequestItem[]) => {
+    const response = await apiFetch<ArtifactPatchResponse>(directBackendUrl("/api/v2/artifacts"), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ artifacts }),
-    }),
+    });
+    return {
+      data: response.data || [],
+      message: response.message,
+      success: response.success,
+    };
+  },
   uploadArtifactBlob: (artifactId: ApiId, formData: FormData) =>
-    apiFetch<FileUploadQueueResponse>(directBackendUrl(`/api/v2/artifacts/${encodeId(artifactId)}/blob`), {
+    apiFetch<ArtifactUploadBlobResponse>(directBackendUrl(`/api/v2/artifacts/${encodeId(artifactId)}/blob`), {
       method: "PUT",
       body: formData,
     }),

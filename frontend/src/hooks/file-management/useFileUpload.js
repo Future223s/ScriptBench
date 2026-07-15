@@ -15,41 +15,10 @@ function fileStem(fileName) {
   return stripExtension(String(fileName || "").split("/").pop() || "");
 }
 
-async function fileToBase64(file) {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index]);
-  }
-  return btoa(binary);
-}
-
-function firstFolderSegment(relativePath) {
-  return String(relativePath || "")
-    .replace(/\\/g, "/")
-    .split("/")
-    .filter(Boolean)[0] || "";
-}
-
-function deriveFolderOriginatingSampleId(item, explicitValue) {
-  const explicit = String(explicitValue || "").trim();
-  if (explicit) return explicit;
-  const relativePath = String(item.file?.webkitRelativePath || item.file?.name || "");
-  return firstFolderSegment(relativePath);
-}
-
 function artifactMapPayload(artifacts) {
   return artifacts.map((artifact) => ({
     artifact_id: artifact.artifact_id,
     artifact_name: artifact.artifact_name,
-    originating_sample_id: artifact.originating_sample_id,
-    artifact_mime_type: artifact.artifact_mime_type,
-    artifact_category: artifact.artifact_category,
-    artifact_group_id: artifact.artifact_group_id,
-    artifact_group_name: artifact.artifact_group_name,
-    artifact_blob_base64: artifact.artifact_blob_base64,
-    artifact_blob_size: artifact.artifact_blob_size,
   }));
 }
 
@@ -57,9 +26,6 @@ function artifactCreatePayload(artifacts) {
   return artifacts.map((artifact) => ({
     artifact_name: artifact.artifact_name,
     artifact_mime_type: artifact.artifact_mime_type,
-    artifact_category: artifact.artifact_category,
-    originating_sample_id: artifact.originating_sample_id,
-    artifact_blob_base64: artifact.artifact_blob_base64,
   }));
 }
 
@@ -69,6 +35,8 @@ function artifactPatchPayload(artifacts) {
     artifact_group_id: artifact.artifact_group_id,
     artifact_group_name: artifact.artifact_group_name,
     originating_sample_id: artifact.originating_sample_id,
+    artifact_category: artifact.artifact_category,
+    artifact_mime_type: artifact.artifact_mime_type,
   }));
 }
 
@@ -229,21 +197,15 @@ export function useFileUpload() {
           const artifacts = folderFiles.map((item) => ({
             artifact_name: item.recordId || fileStem(item.file.name),
             artifact_mime_type: item.file.type || null,
-            artifact_category: "companion",
-            originating_sample_id: deriveFolderOriginatingSampleId(item, activeDraft.originatingSampleId) || null,
-            artifact_blob_base64: null,
           }));
-          const createPayload = await Promise.all(artifacts.map(async (artifact, index) => ({
-            ...artifact,
-            artifact_blob_base64: await fileToBase64(folderFiles[index].file),
-          })));
-          const created = await fileManagementApi.createArtifacts(artifactCreatePayload(createPayload));
+          const created = await fileManagementApi.createArtifacts(artifactCreatePayload(artifacts));
           const createdArtifacts = created.data || [];
+          await Promise.all(createdArtifacts.map((artifact, index) => fileManagementApi.uploadArtifactBlob(
+            artifact.artifact_id,
+            createArtifactBlobFormData(folderFiles[index].file, artifacts[index].artifact_mime_type),
+          )));
           const mappedResponse = await fileManagementApi.mapArtifacts(
-            artifactMapPayload(createdArtifacts.map((artifact) => ({
-              ...artifact,
-              artifact_blob_base64: null,
-            }))),
+            artifactMapPayload(createdArtifacts),
           );
           const mapped = mappedResponse.data?.mapped_artifacts || [];
           const failedMappings = mappedResponse.data?.rejected_artifacts || [];
@@ -252,10 +214,6 @@ export function useFileUpload() {
             throw new Error(String(firstFailure?.reason || `Artifact mapping failed for ${firstFailure?.artifact_name || "artifact"}.`));
           }
           await fileManagementApi.patchArtifacts(artifactPatchPayload(mapped));
-          await Promise.all((createdArtifacts || []).map((artifact, index) => fileManagementApi.uploadArtifactBlob(
-            artifact.artifact_id,
-            createArtifactBlobFormData(folderFiles[index].file, artifact.artifact_mime_type || artifacts[index].artifact_mime_type),
-          )));
           markFolderUploadProgress({
             fileName: folderFiles.at(-1)?.file?.name || null,
             completedFiles: folderFiles.length,
@@ -271,9 +229,6 @@ export function useFileUpload() {
             {
               artifact_name: derivedName,
               artifact_mime_type: file.type || null,
-              artifact_category: "companion",
-              originating_sample_id: activeDraft.originatingSampleId.trim() || null,
-              artifact_blob_base64: await fileToBase64(file),
             },
           ];
           const created = await fileManagementApi.createArtifacts(artifactCreatePayload(artifacts));
@@ -281,12 +236,11 @@ export function useFileUpload() {
           if (!createdArtifact?.artifact_id) {
             throw new Error("Artifact metadata was created, but no artifact ID was returned.");
           }
-          const mappedResponse = await fileManagementApi.mapArtifacts(
-            artifactMapPayload([{
-              ...createdArtifact,
-              artifact_blob_base64: null,
-            }]),
+          await fileManagementApi.uploadArtifactBlob(
+            createdArtifact.artifact_id,
+            createArtifactBlobFormData(file, artifacts[0].artifact_mime_type),
           );
+          const mappedResponse = await fileManagementApi.mapArtifacts(artifactMapPayload([createdArtifact]));
           const mapped = mappedResponse.data?.mapped_artifacts || [];
           const failedMappings = mappedResponse.data?.rejected_artifacts || [];
           if (failedMappings.length) {
@@ -294,10 +248,6 @@ export function useFileUpload() {
             throw new Error(String(firstFailure?.reason || `Artifact mapping failed for ${derivedName}.`));
           }
           await fileManagementApi.patchArtifacts(artifactPatchPayload(mapped));
-          await fileManagementApi.uploadArtifactBlob(
-            createdArtifact.artifact_id,
-            createArtifactBlobFormData(file, artifacts[0].artifact_mime_type),
-          );
         }
 
         effects.setNotice(uploadMode === "folder" ? "Artifacts queued for upload." : "Artifact queued for upload.");

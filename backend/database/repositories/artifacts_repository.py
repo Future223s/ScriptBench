@@ -94,6 +94,18 @@ class ArtifactsRepository:
             result = conn.execute(update(artifacts).where(artifacts.c.artifact_id == artifact_id).values(**row))
         return int(result.rowcount or 0)
 
+    def update_artifact_blob(self, *, artifact_id: int, artifact_blob: bytes, artifact_mime_type: str | None) -> int:
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                update(artifacts)
+                .where(artifacts.c.artifact_id == artifact_id)
+                .values(
+                    artifact_blob=artifact_blob,
+                    artifact_mime_type=artifact_mime_type,
+                )
+            )
+        return int(result.rowcount or 0)
+
     def delete_artifact(self, artifact_id: int) -> int:
         with self.engine.begin() as conn:
             result = conn.execute(delete(artifacts).where(artifacts.c.artifact_id == artifact_id))

@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import logging
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path as FastAPIPath, Query, Response
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Path as FastAPIPath, Query, Response, UploadFile
 from backend.api.dependencies import get_engine, row_to_dict
 from backend.database.repositories.artifacts_repository import ArtifactsRepository
 from backend.database.repositories.artifact_groups_repository import ArtifactGroupsRepository
@@ -11,12 +11,15 @@ from backend.database.repositories.samples_repository import SamplesRepository
 from backend.models.api import ApiListResponse, ApiResponse
 from backend.models.artifacts import (
     ArtifactCreateRequest,
+    ArtifactCreateResponse,
     ArtifactDeleteRequest,
     ArtifactMapRequest,
     ArtifactMapResponse,
-    ArtifactMappedRecord,
+    ArtifactMapResult,
     ArtifactResponse,
     ArtifactPatchRequest,
+    ArtifactPatchResponse,
+    ArtifactUploadBlobResponse,
     ArtifactSummaryResponse,
 )
 
@@ -68,15 +71,15 @@ def get_artifact(
     )
 
 
-@router.post("/api/v2/artifacts/map", response_model=ApiResponse[ArtifactMapResponse])
+@router.post("/api/v2/artifacts/map", response_model=ArtifactMapApiResponse)
 def map_artifacts(
     payload: ArtifactMapRequest,
     engine=Depends(get_engine),
-) -> ApiResponse[ArtifactMapResponse]:
+) -> ArtifactMapApiResponse:
     artifacts_repository = ArtifactsRepository(engine)
     artifact_groups_repository = ArtifactGroupsRepository(engine)
 
-    mapped_artifacts: list[ArtifactMappedRecord] = []
+    mapped_artifacts: list[ArtifactMapResult] = []
     rejected_artifacts: list[dict[str, object]] = []
 
     for item in payload.artifacts:
@@ -188,7 +191,7 @@ def map_artifacts(
 
             sample_row = sample_rows_for_mapping[0] if sample_rows_for_mapping else None
         mapped_artifacts.append(
-            ArtifactMappedRecord(
+            ArtifactMapResult(
                 artifact_id=item.artifact_id,
                 artifact_name=artifact_name,
                 originating_sample_id=originating_sample_id or (str(sample_row["sample_id"]) if sample_row is not None else None),
@@ -214,50 +217,31 @@ def map_artifacts(
         response.mapped_count,
         response.rejected_count,
     )
-    return ApiResponse[ArtifactMapResponse](
+    return ArtifactMapApiResponse(
         message="Artifacts mapped successfully.",
         data=response,
     )
 
-
-@router.post("/api/v2/artifacts", response_model=ApiResponse[list[ArtifactResponse]])
+@router.post("/api/v2/artifacts", response_model=ArtifactCreateResponse)
 def create_artifacts(
     payload: ArtifactCreateRequest,
     engine=Depends(get_engine),
-) -> ApiResponse[list[ArtifactResponse]]:
+) -> ArtifactCreateResponse:
     artifacts_repository = ArtifactsRepository(engine)
-    artifact_groups_repository = ArtifactGroupsRepository(engine)
-    samples_repository = SamplesRepository(engine)
     created_rows: list[ArtifactResponse] = []
 
     for item in payload.artifacts:
         if not item.artifact_name.strip():
             raise HTTPException(status_code=400, detail="artifact_name is required")
-        if not item.artifact_blob_base64.strip():
-            raise HTTPException(status_code=400, detail="artifact_blob_base64 is required")
         if not item.artifact_mime_type:
             raise HTTPException(status_code=400, detail="artifact_mime_type is required")
-        if item.artifact_id is not None:
-            raise HTTPException(status_code=400, detail="artifact_id is not allowed on artifact create")
-
-        artifact_group_row = None
-        if item.artifact_group_id is not None:
-            artifact_group_row = artifact_groups_repository.fetch_artifact_group(item.artifact_group_id)
-            if artifact_group_row is None:
-                raise HTTPException(status_code=404, detail=f"Artifact group not found: {item.artifact_group_id}")
-
-        originating_sample_id = item.originating_sample_id.strip() if item.originating_sample_id else None
-        if originating_sample_id is not None and samples_repository.fetch_sample(originating_sample_id) is None:
-            originating_sample_id = None
-
-        artifact_blob = base64.b64decode(item.artifact_blob_base64)
         artifact_row = {
             "artifact_name": item.artifact_name.strip(),
-            "originating_sample_id": originating_sample_id,
-            "artifact_group_id": item.artifact_group_id,
-            "artifact_group_name": item.artifact_group_name or (artifact_group_row or {}).get("artifact_group_name"),
-            "artifact_category": item.artifact_category,
-            "artifact_blob": artifact_blob,
+            "originating_sample_id": None,
+            "artifact_group_id": None,
+            "artifact_group_name": None,
+            "artifact_category": "companion",
+            "artifact_blob": b"",
             "artifact_mime_type": item.artifact_mime_type,
         }
 
@@ -269,17 +253,47 @@ def create_artifacts(
         created_rows.append(ArtifactResponse.model_validate(_artifact_detail_payload(row)))
 
     logger.info("Created or updated artifact records in v2 artifacts endpoint (artifact_count=%s)", len(created_rows))
-    return ApiResponse[list[ArtifactResponse]](
+    return ArtifactCreateResponse(
         message="Artifacts persisted successfully.",
         data=created_rows,
     )
 
 
-@router.patch("/api/v2/artifacts", response_model=ApiResponse[list[ArtifactResponse]])
+@router.put("/api/v2/artifacts/{artifact_id}/blob", response_model=ArtifactUploadBlobResponse)
+async def upload_artifact_blob(
+    artifact_id: int = FastAPIPath(..., ge=1),
+    engine=Depends(get_engine),
+    file: UploadFile = File(...),
+) -> ArtifactUploadBlobResponse:
+    artifacts_repository = ArtifactsRepository(engine)
+    row = artifacts_repository.fetch_artifact(artifact_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    artifact_blob = await file.read()
+    if not artifact_blob:
+        raise HTTPException(status_code=400, detail="Artifact file is empty")
+
+    updated = artifacts_repository.update_artifact_blob(
+        artifact_id=artifact_id,
+        artifact_blob=artifact_blob,
+        artifact_mime_type=file.content_type,
+    )
+    if updated != 1:
+        raise HTTPException(status_code=409, detail=f"Failed to update artifact blob: {artifact_id}")
+
+    logger.info("Updated artifact blob in v2 artifacts endpoint (artifact_id=%s)", artifact_id)
+    return ArtifactUploadBlobResponse(
+        message="Artifact blob uploaded successfully.",
+        data=[ArtifactResponse.model_validate(_artifact_detail_payload(artifacts_repository.fetch_artifact(artifact_id) or {}))],
+    )
+
+
+@router.patch("/api/v2/artifacts", response_model=ArtifactPatchResponse)
 def patch_artifacts(
     payload: ArtifactPatchRequest,
     engine=Depends(get_engine),
-) -> ApiResponse[list[ArtifactResponse]]:
+) -> ArtifactPatchResponse:
     artifacts_repository = ArtifactsRepository(engine)
     artifact_groups_repository = ArtifactGroupsRepository(engine)
     samples_repository = SamplesRepository(engine)
@@ -318,7 +332,7 @@ def patch_artifacts(
         updated_rows.append(ArtifactResponse.model_validate(_artifact_detail_payload(row)))
 
     logger.info("Patched artifact records in v2 artifacts endpoint (artifact_count=%s)", len(updated_rows))
-    return ApiResponse[list[ArtifactResponse]](
+    return ArtifactPatchResponse(
         message="Artifacts updated successfully.",
         data=updated_rows,
     )

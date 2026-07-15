@@ -13,6 +13,8 @@
     - request payloads
     - response payloads
     - database record shapes
+  - Ensure models are grouped by each endpoint reading item (if applicable) → request (if applicable) → response
+  - Endpoint specific response models should always wrap one of the generic api.py response models
   - Realign models when they diverge from the persistence schema.
 
 - If the current iteration includes frontend integration:
