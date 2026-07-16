@@ -91,6 +91,14 @@ export function ResourceCatalogPageView({ state, actions }) {
           <p>Browse shared resources used across workflows without leaving the shell.</p>
         </div>
         <div className="resource-catalog-page-header-right">
+          {state.resourceType === "artifact-group" ? (
+            <button className="btn-primary btn-tight resource-catalog-create-button" type="button" onClick={actions.openCreateArtifactGroup}>
+              Create artifact group
+            </button>
+          ) : (
+            <span className="resource-catalog-create-spacer" aria-hidden="true" />
+          )}
+
           <div className="resource-catalog-page-header-center" role="tablist" aria-label="Resource catalog mode">
             {Object.entries(resourceModes).map(([key, item]) => (
               <button
@@ -104,11 +112,6 @@ export function ResourceCatalogPageView({ state, actions }) {
               </button>
             ))}
           </div>
-          {state.resourceType === "artifact-group" ? (
-            <button className="btn-primary btn-tight" type="button" onClick={actions.openCreateArtifactGroup}>
-              Create artifact group
-            </button>
-          ) : null}
         </div>
       </header>
       <section className="resource-catalog-grid">

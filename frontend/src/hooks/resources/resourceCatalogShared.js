@@ -19,7 +19,7 @@ export const resourceModes = {
     detailLabel: "Workflow step",
   },
   "output-spec": {
-    title: "Output Specifications",
+    title: "Output Specs",
     shortTitle: "Output specifications",
     detailLabel: "Output specification",
   },
