@@ -9,6 +9,8 @@ Prerequisites:
 - Node.js 18 or newer
 - Python installed on your machine
 - `GEMINI_API_KEY` if you want transcription workflows to call Gemini
+- Make sure your .env file is on the same hierarchy as the backend folder, not within it.
+- Also check that the database folder is not within the .gitignore file
 
 Start the backend and frontend in separate terminals from the repository root:
 
