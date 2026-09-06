@@ -2,9 +2,17 @@
 
 import { useState } from "react";
 
-import { createArtifactBlobFormData, createSampleBlobFormData, fileManagementApi } from "../../api/endpoints/fileManagement.ts";
+import {
+  createArtifactBlobFormData,
+  createSampleBlobFormData,
+  fileManagementApi,
+} from "../../api/endpoints/fileManagement.ts";
 import { APP_DATA_CHANGED_EVENT } from "../../utils/appEvents.js";
-import { collectFolderFiles, collectGroundTruthFolderFiles, collectImageFolderFiles } from "../../utils/upload.js";
+import {
+  collectFolderFiles,
+  collectGroundTruthFolderFiles,
+  collectImageFolderFiles,
+} from "../../utils/upload.js";
 import { createEmptyFolderUploadProgress } from "./fileManagementShared.js";
 
 function stripExtension(fileName) {
@@ -12,7 +20,11 @@ function stripExtension(fileName) {
 }
 
 function fileStem(fileName) {
-  return stripExtension(String(fileName || "").split("/").pop() || "");
+  return stripExtension(
+    String(fileName || "")
+      .split("/")
+      .pop() || "",
+  );
 }
 
 function artifactMapPayload(artifacts) {
@@ -70,17 +82,22 @@ export function useFileUpload() {
   const [uploadDrafts, setUploadDrafts] = useState(createUploadDrafts);
   const [uploadInputResetKey, setUploadInputResetKey] = useState(0);
   const [uploadLoading, setUploadLoading] = useState(false);
-  const [folderUploadProgress, setFolderUploadProgress] = useState(createEmptyFolderUploadProgress);
+  const [folderUploadProgress, setFolderUploadProgress] = useState(
+    createEmptyFolderUploadProgress,
+  );
 
   function setUploadType(type) {
-    setUploadTypeState(type === "artifact" || type === "asset" ? type : "sample");
+    setUploadTypeState(
+      type === "artifact" || type === "asset" ? type : "sample",
+    );
   }
 
   function setUploadMode(mode) {
     setUploadModeState(mode === "folder" ? "folder" : "single");
   }
 
-  function openUploadPanel() {
+  function openUploadPanel(type = "sample") {
+    setUploadType(type);
     setUploadPanelOpen(true);
   }
 
@@ -124,7 +141,12 @@ export function useFileUpload() {
     });
   }
 
-  function markFolderUploadProgress({ fileName, completedFiles, failedFiles, totalFiles }) {
+  function markFolderUploadProgress({
+    fileName,
+    completedFiles,
+    failedFiles,
+    totalFiles,
+  }) {
     setFolderUploadProgress({
       totalFiles,
       completedFiles,
@@ -142,14 +164,20 @@ export function useFileUpload() {
 
       if (uploadType === "sample") {
         if (uploadMode === "folder") {
-          const imageFiles = collectImageFolderFiles(activeDraft.sampleFolderFiles || []);
+          const imageFiles = collectImageFolderFiles(
+            activeDraft.sampleFolderFiles || [],
+          );
           let textFiles = new Map();
           if (activeDraft.groundTruthFolderFiles?.length) {
-            textFiles = await collectGroundTruthFolderFiles(activeDraft.groundTruthFolderFiles);
+            textFiles = await collectGroundTruthFolderFiles(
+              activeDraft.groundTruthFolderFiles,
+            );
           }
 
           if (!imageFiles.length) {
-            throw new Error("The selected folder does not contain any supported sample files.");
+            throw new Error(
+              "The selected folder does not contain any supported sample files.",
+            );
           }
           startFolderUpload(imageFiles.length);
           for (let index = 0; index < imageFiles.length; index += 1) {
@@ -174,7 +202,8 @@ export function useFileUpload() {
           const file = activeDraft.sampleFile?.[0] || null;
           if (!file) throw new Error("Select a sample file first.");
 
-          const derivedName = activeDraft.sampleName.trim() || fileStem(file.name);
+          const derivedName =
+            activeDraft.sampleName.trim() || fileStem(file.name);
           const created = await fileManagementApi.createSample({
             sample_name: derivedName,
             sample_id: derivedName,
@@ -186,24 +215,45 @@ export function useFileUpload() {
           );
         }
 
-        effects.setNotice(uploadMode === "folder" ? "Samples uploaded." : "Sample uploaded.");
+        effects.setNotice(
+          uploadMode === "folder" ? "Samples uploaded." : "Sample uploaded.",
+        );
       } else if (uploadType === "artifact") {
         if (uploadMode === "folder") {
-          const folderFiles = collectFolderFiles(activeDraft.artifactFolderFiles || []);
+          const folderFiles = collectFolderFiles(
+            activeDraft.artifactFolderFiles || [],
+          );
           if (!folderFiles.length) {
-            throw new Error("The selected folder does not contain any artifact files.");
+            throw new Error(
+              "The selected folder does not contain any artifact files.",
+            );
           }
           startFolderUpload(folderFiles.length);
           const artifacts = folderFiles.map((item) => ({
             artifact_name: item.recordId || fileStem(item.file.name),
             artifact_mime_type: item.file.type || null,
           }));
-          const created = await fileManagementApi.createArtifacts(artifactCreatePayload(artifacts));
+          const created = await fileManagementApi.createArtifacts(
+            artifactCreatePayload(artifacts),
+          );
           const createdArtifacts = created.data || [];
-          await Promise.all(createdArtifacts.map((artifact, index) => fileManagementApi.uploadArtifactBlob(
-            artifact.artifact_id,
-            createArtifactBlobFormData(folderFiles[index].file, artifacts[index].artifact_mime_type),
-          )));
+          for (let index = 0; index < createdArtifacts.length; index += 1) {
+            const artifact = createdArtifacts[index];
+            const folderFile = folderFiles[index];
+            await fileManagementApi.uploadArtifactBlob(
+              artifact.artifact_id,
+              createArtifactBlobFormData(
+                folderFile.file,
+                artifacts[index].artifact_mime_type,
+              ),
+            );
+            markFolderUploadProgress({
+              fileName: folderFile.file.name || null,
+              completedFiles: index + 1,
+              failedFiles: 0,
+              totalFiles: folderFiles.length,
+            });
+          }
           const mappedResponse = await fileManagementApi.mapArtifacts(
             artifactMapPayload(createdArtifacts),
           );
@@ -211,51 +261,70 @@ export function useFileUpload() {
           const failedMappings = mappedResponse.data?.rejected_artifacts || [];
           if (failedMappings.length) {
             const firstFailure = failedMappings[0];
-            throw new Error(String(firstFailure?.reason || `Artifact mapping failed for ${firstFailure?.artifact_name || "artifact"}.`));
+            throw new Error(
+              String(
+                firstFailure?.reason ||
+                  `Artifact mapping failed for ${firstFailure?.artifact_name || "artifact"}.`,
+              ),
+            );
           }
           await fileManagementApi.patchArtifacts(artifactPatchPayload(mapped));
-          markFolderUploadProgress({
-            fileName: folderFiles.at(-1)?.file?.name || null,
-            completedFiles: folderFiles.length,
-            failedFiles: 0,
-            totalFiles: folderFiles.length,
-          });
         } else {
           const file = activeDraft.artifactFile?.[0] || null;
           if (!file) throw new Error("Select an artifact file first.");
 
-          const derivedName = activeDraft.artifactName.trim() || fileStem(file.name);
+          const derivedName =
+            activeDraft.artifactName.trim() || fileStem(file.name);
           const artifacts = [
             {
               artifact_name: derivedName,
               artifact_mime_type: file.type || null,
             },
           ];
-          const created = await fileManagementApi.createArtifacts(artifactCreatePayload(artifacts));
+          const created = await fileManagementApi.createArtifacts(
+            artifactCreatePayload(artifacts),
+          );
           const createdArtifact = created.data?.[0];
           if (!createdArtifact?.artifact_id) {
-            throw new Error("Artifact metadata was created, but no artifact ID was returned.");
+            throw new Error(
+              "Artifact metadata was created, but no artifact ID was returned.",
+            );
           }
           await fileManagementApi.uploadArtifactBlob(
             createdArtifact.artifact_id,
             createArtifactBlobFormData(file, artifacts[0].artifact_mime_type),
           );
-          const mappedResponse = await fileManagementApi.mapArtifacts(artifactMapPayload([createdArtifact]));
+          const mappedResponse = await fileManagementApi.mapArtifacts(
+            artifactMapPayload([createdArtifact]),
+          );
           const mapped = mappedResponse.data?.mapped_artifacts || [];
           const failedMappings = mappedResponse.data?.rejected_artifacts || [];
           if (failedMappings.length) {
             const firstFailure = failedMappings[0];
-            throw new Error(String(firstFailure?.reason || `Artifact mapping failed for ${derivedName}.`));
+            throw new Error(
+              String(
+                firstFailure?.reason ||
+                  `Artifact mapping failed for ${derivedName}.`,
+              ),
+            );
           }
           await fileManagementApi.patchArtifacts(artifactPatchPayload(mapped));
         }
 
-        effects.setNotice(uploadMode === "folder" ? "Artifacts queued for upload." : "Artifact queued for upload.");
+        effects.setNotice(
+          uploadMode === "folder"
+            ? "Artifacts queued for upload."
+            : "Artifact queued for upload.",
+        );
       } else {
         if (uploadMode === "folder") {
-          const folderFiles = collectFolderFiles(activeDraft.assetFolderFiles || []);
+          const folderFiles = collectFolderFiles(
+            activeDraft.assetFolderFiles || [],
+          );
           if (!folderFiles.length) {
-            throw new Error("The selected folder does not contain any asset files.");
+            throw new Error(
+              "The selected folder does not contain any asset files.",
+            );
           }
           startFolderUpload(folderFiles.length);
           for (let index = 0; index < folderFiles.length; index += 1) {
@@ -279,7 +348,8 @@ export function useFileUpload() {
           const file = activeDraft.assetFile?.[0] || null;
           if (!file) throw new Error("Select an asset file first.");
 
-          const derivedName = activeDraft.assetName.trim() || fileStem(file.name);
+          const derivedName =
+            activeDraft.assetName.trim() || fileStem(file.name);
           const created = await fileManagementApi.createAsset({
             asset_name: derivedName,
             asset_type: file.type || "application/octet-stream",
@@ -289,7 +359,9 @@ export function useFileUpload() {
           await fileManagementApi.uploadAssetBlob(created.asset_id, formData);
         }
 
-        effects.setNotice(uploadMode === "folder" ? "Assets uploaded." : "Asset uploaded.");
+        effects.setNotice(
+          uploadMode === "folder" ? "Assets uploaded." : "Asset uploaded.",
+        );
       }
 
       await effects.refresh();

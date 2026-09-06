@@ -21,5 +21,4 @@ database/*.db-wal
 database/*.db-shm
 scripts/__pycache__
 **/__pycache__
-scripts/
 services/

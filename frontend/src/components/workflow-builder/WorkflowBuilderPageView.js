@@ -1,32 +1,41 @@
 "use client";
 
-import { EmptyState } from "../common/EmptyState.js";
-import { Panel } from "../common/Panel.js";
+import { EmptyState, Panel } from "../../ui/primitives/index.js";
 import { WorkflowBuilderCanvas } from "./WorkflowBuilderCanvas.js";
 import { WorkflowBuilderMetadataForm } from "./WorkflowBuilderMetadataForm.js";
 import { WorkflowBuilderPageHeader } from "./WorkflowBuilderPageHeader.js";
 import { WorkflowStepAssignmentModal } from "./WorkflowStepAssignmentModal.js";
-import { WorkflowStepCreationWizardModal } from "./WorkflowStepCreationWizardModal.js";
 import { WorkflowStepDetailModal } from "./WorkflowStepDetailModal.js";
 
 export function WorkflowBuilderPageView({ state, actions }) {
   if (state.loading) {
     return (
-      <div className="page-surface workflow-builder-page">
+      <main className="workflow-builder-page">
         <WorkflowBuilderPageHeader disabled saving={false} />
         <Panel>
           <EmptyState>Loading Workflow Builder...</EmptyState>
         </Panel>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="page-surface workflow-builder-page">
+    <main className="workflow-builder-page">
       <WorkflowBuilderPageHeader
         saving={state.saving}
+        finalizing={state.finalizing}
         disabled={state.saving || !state.workflowDraft.sample_set_id}
+        finalizeDisabled={
+          state.saving ||
+          state.finalizing ||
+          !state.selectedWorkflowId ||
+          state.workflowDraft.status === "finalized"
+        }
+        workflows={state.workflows}
+        selectedWorkflowId={state.selectedWorkflowId || ""}
+        onSelectWorkflow={actions.selectWorkflow}
         onSave={actions.saveWorkflow}
+        onFinalize={actions.finalizeWorkflow}
       />
       <div className="workflow-builder-grid">
         <aside className="workflow-builder-sidebar">
@@ -37,8 +46,7 @@ export function WorkflowBuilderPageView({ state, actions }) {
         </section>
       </div>
       <WorkflowStepAssignmentModal state={state} actions={actions} />
-      <WorkflowStepCreationWizardModal state={state} actions={actions} />
       <WorkflowStepDetailModal state={state} actions={actions} />
-    </div>
+    </main>
   );
 }

@@ -1,7 +1,10 @@
 "use client";
 
-import { EmptyState } from "../common/EmptyState.js";
-import { Panel } from "../common/Panel.js";
+import {
+  EmptyState,
+  LoadingPlaceholder,
+  Panel,
+} from "../../ui/primitives/index.js";
 import { DashboardIntro } from "./DashboardIntro.js";
 import { SampleSetAnalyticsPanel } from "./SampleSetAnalyticsPanel.js";
 import { SampleSetsPanel } from "./SampleSetsPanel.js";
@@ -12,29 +15,33 @@ export function DashboardPageView({
   selectedSampleSetId,
   sampleSetAnalytics,
   sampleSetAnalyticsLoading,
+  sampleSetAnalyticsError,
   onSelectSampleSet,
   onDeleteSampleSet,
   onDeleteWorkflow,
   onNavigateFileManagement,
 }) {
   const selectedSampleSet =
-    sampleSets.find((sampleSet) => Number(sampleSet.sample_set_id) === Number(selectedSampleSetId)) || null;
+    sampleSets.find(
+      (sampleSet) =>
+        Number(sampleSet.sample_set_id) === Number(selectedSampleSetId),
+    ) || null;
   const hasSampleSets = sampleSets.length > 0;
 
   return (
     <div className="page-surface">
       {loading ? (
-        <main className="dashboard-grid dashboard-grid-intro">
-          <Panel className="dashboard-intro-panel" style={{ gridColumn: "1 / -1" }}>
-            <EmptyState>Loading dashboard...</EmptyState>
+        <main className="dashboard-page">
+          <Panel title="Dashboard">
+            <LoadingPlaceholder label="Loading dashboard" />
           </Panel>
         </main>
       ) : !hasSampleSets ? (
-        <main className="dashboard-grid dashboard-grid-intro">
+        <main className="dashboard-page dashboard-page--empty">
           <DashboardIntro onNavigateFileManagement={onNavigateFileManagement} />
         </main>
       ) : (
-        <main className="dashboard-grid">
+        <main className="dashboard-page">
           <SampleSetsPanel
             sampleSets={sampleSets}
             selectedSampleSetId={selectedSampleSetId}
@@ -43,8 +50,8 @@ export function DashboardPageView({
           />
           <div className="main-area">
             {sampleSetAnalyticsLoading ? (
-              <Panel>
-                <EmptyState className="dashboard-analytics-empty-state">Loading analytics...</EmptyState>
+              <Panel title="Analytics">
+                <LoadingPlaceholder label="Loading analytics" />
               </Panel>
             ) : selectedSampleSet ? (
               <SampleSetAnalyticsPanel
@@ -52,13 +59,13 @@ export function DashboardPageView({
                 sampleSet={selectedSampleSet}
                 sampleSetAnalytics={sampleSetAnalytics}
                 analyticsLoading={false}
-                analyticsError=""
+                analyticsError={sampleSetAnalyticsError}
                 onDeleteWorkflow={onDeleteWorkflow}
               />
             ) : (
-              <Panel>
-                <EmptyState className="dashboard-analytics-empty-state">
-                  Please select a sample set to view analytics.
+              <Panel title="Analytics">
+                <EmptyState title="Select a sample set">
+                  Choose a set from the list to view its analytics.
                 </EmptyState>
               </Panel>
             )}

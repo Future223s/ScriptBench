@@ -39,14 +39,12 @@
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
   letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 .workflow-builder-status-pill {
   background: rgba(255, 244, 235, 0.96);
   color: var(--accent-strong);
   border: 1px solid rgba(212, 106, 50, 0.16);
-  text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 10px;
   font-weight: var(--font-weight-bold);

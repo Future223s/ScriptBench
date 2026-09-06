@@ -48,49 +48,8 @@ export function getCellKey(row, col) {
   return `${row}:${col}`;
 }
 
-export function getPlacementTargets(state, bounds) {
-  const targets = new Set();
-
-  if (!state.nodes.length) {
-    targets.add(getCellKey(2, 4));
-    return targets;
-  }
-
-  if (state.mode !== "add-step" || !state.selectedNodeId) {
-    return targets;
-  }
-
-  const selectedNode = state.nodes.find((node) => Number(node.id) === Number(state.selectedNodeId)) || null;
-  if (!selectedNode) return targets;
-
-  const candidateCells = [
-    [Number(selectedNode.row) - 1, Number(selectedNode.col)],
-    [Number(selectedNode.row) + 1, Number(selectedNode.col)],
-    [Number(selectedNode.row), Number(selectedNode.col) - 1],
-    [Number(selectedNode.row), Number(selectedNode.col) + 1],
-  ];
-
-  const occupied = new Set(state.nodes.map((node) => getCellKey(Number(node.row), Number(node.col))));
-  candidateCells.forEach(([row, col]) => {
-    const key = getCellKey(row, col);
-    if (row >= bounds.minRow && row <= bounds.maxRow && col >= bounds.minCol && col <= bounds.maxCol && !occupied.has(key)) {
-      targets.add(key);
-    }
-  });
-
-  return targets;
-}
-
 export function findNode(nodes, nodeId) {
   return nodes.find((node) => Number(node.id) === Number(nodeId)) || null;
-}
-
-export function findTemplate(templates, templateId) {
-  return templates.find((template) => template.id === templateId) || null;
-}
-
-export function findOutputSpec(specs, specId) {
-  return specs.find((spec) => spec.id === specId) || null;
 }
 
 export function formatFamilyLabel(value) {
@@ -109,15 +68,4 @@ export function formatStepOptionLabel(step) {
 export function formatStepSummary(step) {
   if (!step) return "";
   return `${formatFamilyLabel(step.model_family)} · ${step.model || "Unknown"} · Version ${Number(step.version) || 1}`;
-}
-
-export function formatTemplateOptionLabel(template) {
-  if (!template) return "Choose a payload template";
-  return template.name;
-}
-
-export function formatTemplateSummary(template) {
-  if (!template) return "";
-  const inputCount = Array.isArray(template.inputs) ? template.inputs.length : 0;
-  return `${template.description || "No description provided."} · ${inputCount} input${inputCount === 1 ? "" : "s"}`;
 }

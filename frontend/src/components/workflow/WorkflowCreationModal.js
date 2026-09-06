@@ -1,5 +1,6 @@
 "use client";
 
+import { Dialog, Stack } from "../../ui/primitives/index.js";
 import { WorkflowIdentityStep } from "./WorkflowIdentityStep.js";
 import { WorkflowPromptSpecStep } from "./WorkflowPromptSpecStep.js";
 import { WorkflowSampleSetStep } from "./WorkflowSampleSetStep.js";
@@ -10,64 +11,56 @@ export function WorkflowCreationModal({ state, actions }) {
   function handleClick(event) {
     const target = event.target.closest("[data-action]");
     if (!target) return;
-
-    const action = target.dataset.action;
-    if (action === "close-modals") {
-      actions.closeWorkflowWizard();
-      return;
-    }
-    if (action === "wizard-next") {
-      actions.nextWorkflowStep();
-      return;
-    }
-    if (action === "wizard-back") {
-      actions.previousWorkflowStep();
-      return;
-    }
-    if (action === "add-example") {
-      actions.addWorkflowExample();
-      return;
-    }
-    if (action === "remove-example") {
+    if (target.dataset.action === "add-example") actions.addWorkflowExample();
+    if (target.dataset.action === "remove-example")
       actions.removeWorkflowExample(Number(target.dataset.exampleIndex));
-      return;
-    }
-    if (action === "add-schema-field") {
+    if (target.dataset.action === "add-schema-field")
       actions.addWorkflowSchemaField();
-      return;
-    }
-    if (action === "remove-schema-field") {
+    if (target.dataset.action === "remove-schema-field")
       actions.removeWorkflowSchemaField(Number(target.dataset.schemaIndex));
-    }
-  }
-
-  function handleSubmit(event) {
-    if (event.target.id !== "workflow-form") return;
-    event.preventDefault();
-    void actions.submitWorkflow();
   }
 
   return (
-    <div className={["modal-backdrop", state.open ? "" : "is-hidden"].filter(Boolean).join(" ")} data-modal="workflow">
-      <form className="modal" id="workflow-form" onClick={handleClick} onSubmit={handleSubmit}>
-        <div className="modal-header">
-          <h2>Create workflow</h2>
-          <button className="btn-ghost" type="button" data-action="close-modals">
-            Close workflow
-          </button>
-        </div>
-        <div className="modal-body">
+    <Dialog
+      open={state.open}
+      title="Create workflow"
+      onClose={actions.closeWorkflowWizard}
+      size="wide"
+      footer={
+        <WorkflowWizardFooter wizardStep={state.wizardStep} actions={actions} />
+      }
+    >
+      <form
+        id="workflow-form"
+        onClick={handleClick}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void actions.submitWorkflow();
+        }}
+      >
+        <Stack gap="default">
           <WorkflowWizardStepper wizardStep={state.wizardStep} />
           {state.wizardStep === 0 ? (
-            <WorkflowIdentityStep workflowDraft={state.workflowDraft} actions={actions} />
-          ) : state.wizardStep === 1 ? (
-            <WorkflowSampleSetStep workflowDraft={state.workflowDraft} sampleSets={state.sampleSets} actions={actions} />
-          ) : (
-            <WorkflowPromptSpecStep workflowDraft={state.workflowDraft} actions={actions} />
-          )}
-        </div>
-        <WorkflowWizardFooter wizardStep={state.wizardStep} />
+            <WorkflowIdentityStep
+              workflowDraft={state.workflowDraft}
+              actions={actions}
+            />
+          ) : null}
+          {state.wizardStep === 1 ? (
+            <WorkflowSampleSetStep
+              workflowDraft={state.workflowDraft}
+              sampleSets={state.sampleSets}
+              actions={actions}
+            />
+          ) : null}
+          {state.wizardStep === 2 ? (
+            <WorkflowPromptSpecStep
+              workflowDraft={state.workflowDraft}
+              actions={actions}
+            />
+          ) : null}
+        </Stack>
       </form>
-    </div>
+    </Dialog>
   );
 }

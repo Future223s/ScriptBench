@@ -1,17 +1,59 @@
 "use client";
 
-import { Badge } from "../common/Badge.js";
+import {
+  Button,
+  Inline,
+  PageTitle,
+  Select,
+} from "../../ui/primitives/index.js";
 
-export function WorkflowBuilderPageHeader({ saving = false, disabled = false, onSave }) {
+export function WorkflowBuilderPageHeader({
+  saving = false,
+  finalizing = false,
+  disabled = false,
+  finalizeDisabled = false,
+  workflows = [],
+  selectedWorkflowId = "",
+  onSelectWorkflow,
+  onSave,
+  onFinalize,
+}) {
   return (
-    <header className="workflow-builder-page-header">
-      <div className="workflow-builder-page-header-copy">
-        <div className="workflow-builder-page-title">Workflow Builder</div>
-        <Badge className="workflow-builder-status-pill">Draft</Badge>
-      </div>
-      <button className="btn-primary btn-tight workflow-builder-save-button" type="button" onClick={onSave} disabled={disabled}>
-        {saving ? "Saving..." : "Save Workflow"}
-      </button>
+    <header className="workflow-builder-header">
+      <Inline gap="compact">
+        <PageTitle>Workflow Builder</PageTitle>
+        <Select
+          inline
+          value={selectedWorkflowId || ""}
+          onChange={(event) => onSelectWorkflow?.(event.target.value)}
+          aria-label="Select workflow"
+        >
+          <option value="">New workflow</option>
+          {workflows.map((workflow) => (
+            <option key={workflow.workflow_id} value={workflow.workflow_id}>
+              {workflow.workflow_name}
+            </option>
+          ))}
+        </Select>
+      </Inline>
+      <Inline gap="compact" justify="end">
+        <Button
+          size="compact"
+          variant="primary"
+          onClick={onFinalize}
+          disabled={finalizeDisabled}
+        >
+          {finalizing ? "Finalizing..." : "Finalize workflow"}
+        </Button>
+        <Button
+          size="compact"
+          variant="primary"
+          onClick={onSave}
+          disabled={disabled}
+        >
+          {saving ? "Saving..." : "Save workflow"}
+        </Button>
+      </Inline>
     </header>
   );
 }

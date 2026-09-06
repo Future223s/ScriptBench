@@ -7,6 +7,10 @@ export default function WorkspaceRoute() {
   const workspace = useWorkspacePage();
 
   return (
-    <WorkspacePageView state={workspace.state} actions={workspace.actions} rootRef={workspace.rootRef} />
+    <WorkspacePageView
+      state={workspace.state}
+      actions={workspace.actions}
+      rootRef={workspace.rootRef}
+    />
   );
 }

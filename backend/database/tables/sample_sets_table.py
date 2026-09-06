@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Integer, String, Table, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    Table,
+    Text,
+    func,
+)
 
 from ..schema import STATUS_CHECK_SQL, metadata
 

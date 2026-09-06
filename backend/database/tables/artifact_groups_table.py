@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, JSON, String, Table, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Table,
+    Text,
+    func,
+)
 
 from ..schema import MAPPING_TYPE_CHECK_SQL, STATUS_CHECK_SQL, metadata
 
@@ -24,7 +35,13 @@ artifact_groups = Table(
         index=True,
     ),
     Column("position_rule", JSON, nullable=True),
-    Column("mapping_type", String(32), nullable=False, server_default="one-to-one", index=True),
+    Column(
+        "mapping_type",
+        String(32),
+        nullable=False,
+        server_default="one-to-one",
+        index=True,
+    ),
     Column("artifact_group_description", Text, nullable=True),
     Column("status", String(32), nullable=False, server_default="draft", index=True),
     Column(

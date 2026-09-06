@@ -36,7 +36,13 @@ artifacts = Table(
         index=True,
     ),
     Column("artifact_group_name", String(255), nullable=True),
-    Column("artifact_category", String(64), nullable=False, server_default="companion", index=True),
+    Column(
+        "artifact_category",
+        String(64),
+        nullable=False,
+        server_default="companion",
+        index=True,
+    ),
     Column("artifact_blob", LargeBinary, nullable=False),
     Column("artifact_mime_type", String(255), nullable=False),
     Column(

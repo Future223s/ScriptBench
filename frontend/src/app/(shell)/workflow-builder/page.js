@@ -6,5 +6,10 @@ import { useWorkflowBuilderPage } from "../../../hooks/workflow-builder/useWorkf
 export default function WorkflowBuilderRoute() {
   const workflowBuilder = useWorkflowBuilderPage();
 
-  return <WorkflowBuilderPageView state={workflowBuilder.state} actions={workflowBuilder.actions} />;
+  return (
+    <WorkflowBuilderPageView
+      state={workflowBuilder.state}
+      actions={workflowBuilder.actions}
+    />
+  );
 }

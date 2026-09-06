@@ -1,62 +1,58 @@
 "use client";
 
+import {
+  Button,
+  EmptyState,
+  Inline,
+  Panel,
+  Stack,
+  StatusBadge,
+} from "../../ui/primitives/index.js";
 import { selectedJobIds } from "../../domains/workspace/selectors.js";
 import { WorkspaceJobCard } from "./WorkspaceJobCard.js";
 
-function WorkspaceJobPanel({
-  kind,
-  title,
-  description,
-  jobs,
-  selection,
-  primaryActionLabel,
-  onPrimaryAction,
-  onSelectAll,
-  onToggleJobSelection,
-  onOpenJob,
-}) {
-  const selectedIds = selectedJobIds(selection, kind);
-  const selectedCount = selectedIds.length;
-  const allSelected = jobs.length > 0 && selectedCount === jobs.length;
-
+function JobPanel({ kind, title, jobs, selection, label, onAction, actions }) {
+  const ids = selectedJobIds(selection, kind);
   return (
-    <section className="panel workspace-job-panel">
-      <div className="panel-header">
-        <div className="panel-title">
-          <h2>{title}</h2>
-          <span>{description}</span>
-        </div>
-      </div>
-      <div className="workspace-panel-toolbar">
-        <button
-          className={`btn-${allSelected ? "secondary" : "ghost"} btn-tight`}
-          type="button"
-          onClick={() => onSelectAll?.(kind)}
-          aria-pressed={allSelected ? "true" : "false"}
-        >
-          {allSelected ? "Unselect all" : "Select all"}
-        </button>
-        <button className="btn-primary btn-tight" type="button" onClick={onPrimaryAction} disabled={!selectedCount}>
-          {primaryActionLabel}
-        </button>
-      </div>
-      <div className="workspace-job-list" data-preserve-scroll-key={`workspace-job-list-${kind}`}>
+    <Panel
+      title={title}
+      meta={<StatusBadge>{jobs.length}</StatusBadge>}
+      actions={
+        <Inline gap="compact">
+          <Button
+            size="compact"
+            onClick={() => actions?.selectVisibleWorkspaceJobs?.(kind)}
+          >
+            {ids.length === jobs.length && jobs.length ? "Clear" : "Select all"}
+          </Button>
+          <Button
+            size="compact"
+            variant="primary"
+            disabled={!ids.length}
+            onClick={onAction}
+          >
+            {label}
+          </Button>
+        </Inline>
+      }
+    >
+      <Stack gap="compact">
         {jobs.length ? (
           jobs.map((job) => (
             <WorkspaceJobCard
               key={job.job_id}
               job={job}
               kind={kind}
-              selected={selectedIds.includes(Number(job.job_id))}
-              onToggle={onToggleJobSelection}
-              onOpen={onOpenJob}
+              selected={ids.includes(Number(job.job_id))}
+              onToggle={actions?.toggleWorkspaceJobSelection}
+              onOpen={actions?.openJobDetail}
             />
           ))
         ) : (
-          <div className="empty-state">No {title.toLowerCase()} yet.</div>
+          <EmptyState title={`No ${title.toLowerCase()}`} />
         )}
-      </div>
-    </section>
+      </Stack>
+    </Panel>
   );
 }
 
@@ -68,45 +64,34 @@ export function WorkspaceJobsMode({
   actions,
 }) {
   return (
-    <section className="workspace-execution-grid">
-      <div className="workspace-job-grid">
-        <WorkspaceJobPanel
-          kind="pending"
-          title="Pending jobs"
-          description="Ready to queue and send to model."
-          jobs={pendingJobs}
-          selection={jobSelection}
-          primaryActionLabel="Queue selected"
-          onPrimaryAction={actions?.queueSelectedJobs}
-          onSelectAll={actions?.selectVisibleWorkspaceJobs}
-          onToggleJobSelection={actions?.toggleWorkspaceJobSelection}
-          onOpenJob={actions?.openJobDetail}
-        />
-        <WorkspaceJobPanel
-          kind="queued"
-          title="Queued jobs"
-          description="In flight or waiting on execution."
-          jobs={queuedJobs}
-          selection={jobSelection}
-          primaryActionLabel="Unqueue selected"
-          onPrimaryAction={actions?.unqueueSelectedJobs}
-          onSelectAll={actions?.selectVisibleWorkspaceJobs}
-          onToggleJobSelection={actions?.toggleWorkspaceJobSelection}
-          onOpenJob={actions?.openJobDetail}
-        />
-        <WorkspaceJobPanel
-          kind="completed"
-          title="Completed jobs"
-          description="Finished jobs which can be retried."
-          jobs={completedJobs}
-          selection={jobSelection}
-          primaryActionLabel="Retry selected"
-          onPrimaryAction={actions?.retrySelectedJobs}
-          onSelectAll={actions?.selectVisibleWorkspaceJobs}
-          onToggleJobSelection={actions?.toggleWorkspaceJobSelection}
-          onOpenJob={actions?.openJobDetail}
-        />
-      </div>
-    </section>
+    <Stack>
+      <JobPanel
+        kind="pending"
+        title="Pending jobs"
+        jobs={pendingJobs}
+        selection={jobSelection}
+        label="Queue"
+        onAction={actions?.queueSelectedJobs}
+        actions={actions}
+      />
+      <JobPanel
+        kind="queued"
+        title="Queued jobs"
+        jobs={queuedJobs}
+        selection={jobSelection}
+        label="Unqueue"
+        onAction={actions?.unqueueSelectedJobs}
+        actions={actions}
+      />
+      <JobPanel
+        kind="completed"
+        title="Completed jobs"
+        jobs={completedJobs}
+        selection={jobSelection}
+        label="Retry"
+        onAction={actions?.retrySelectedJobs}
+        actions={actions}
+      />
+    </Stack>
   );
 }

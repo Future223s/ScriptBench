@@ -5,10 +5,12 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class JobEventPayload(BaseModel):
+class EventPayload(BaseModel):
+    """Canonical event envelope for changed records."""
+
     event: str
     message: str
-    job: dict[str, Any] = Field(default_factory=dict)
+    rows: list[dict[str, Any]] = Field(default_factory=list)
 
     @classmethod
     def build(
@@ -16,10 +18,10 @@ class JobEventPayload(BaseModel):
         *,
         event: str,
         message: str,
-        job_payload: dict[str, Any] | None = None,
-    ) -> "JobEventPayload":
+        rows: list[dict[str, Any]] | None = None,
+    ) -> "EventPayload":
         return cls(
             event=event,
             message=message,
-            job=dict(job_payload or {}),
+            rows=[dict(row) for row in (rows or [])],
         )

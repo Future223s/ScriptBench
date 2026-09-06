@@ -3,14 +3,19 @@
 @import "./tokens.css";
 @import "./reset.css";
 @import "./utilities.css";
+@import "../../ui/primitives/primitives.css";
+@import "../../ui/library/themes.css";
 
 @import "./components/buttons.css";
 @import "./components/forms.css";
 @import "./components/panels.css";
 @import "./components/badges.css";
 @import "./components/modals.css";
+@import "./components/page-layouts.css";
+@import "./components/shell.css";
 
 @import "./pages/file-management.css";
 @import "./pages/resources.css";
-@import "./pages/analytics.css";
+@import "./pages/dashboard.css";
 @import "./pages/workflow-builder.css";
+@import "./pages/workspace.css";

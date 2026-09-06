@@ -5,9 +5,15 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Path as FastAPIPath, Query
 
 from backend.api.dependencies import get_engine
-from backend.database.repositories.artifact_groups_repository import ArtifactGroupsRepository
-from backend.database.repositories.membership_mapping_repository import MembershipMappingRepository
-from backend.database.repositories.sample_mapping_repository import SampleMappingRepository
+from backend.database.repositories.artifact_groups_repository import (
+    ArtifactGroupsRepository,
+)
+from backend.database.repositories.membership_mapping_repository import (
+    MembershipMappingRepository,
+)
+from backend.database.repositories.sample_mapping_repository import (
+    SampleMappingRepository,
+)
 from backend.models.api import ApiDeleteResponse, ApiListResponse, ApiResponse
 from backend.models.artifact_groups import (
     ArtifactGroupCreateRequest,
@@ -20,7 +26,10 @@ router = APIRouter(tags=["artifact-groups-v2"])
 logger = logging.getLogger(__name__)
 
 
-@router.get("/api/v2/artifact-groups", response_model=ApiListResponse[ArtifactGroupSummaryResponse])
+@router.get(
+    "/api/v2/artifact-groups",
+    response_model=ApiListResponse[ArtifactGroupSummaryResponse],
+)
 def list_artifact_groups(
     engine=Depends(get_engine),
     query: str | None = Query(default=None),
@@ -51,7 +60,10 @@ def list_artifact_groups(
     )
 
 
-@router.get("/api/v2/artifact-groups/{artifact_group_id}", response_model=ApiResponse[ArtifactGroupResponse])
+@router.get(
+    "/api/v2/artifact-groups/{artifact_group_id}",
+    response_model=ApiResponse[ArtifactGroupResponse],
+)
 def get_artifact_group(
     artifact_group_id: int = FastAPIPath(..., ge=1),
     engine=Depends(get_engine),
@@ -72,7 +84,9 @@ def get_artifact_group(
     )
 
 
-@router.post("/api/v2/artifact-groups", response_model=ApiResponse[ArtifactGroupResponse])
+@router.post(
+    "/api/v2/artifact-groups", response_model=ApiResponse[ArtifactGroupResponse]
+)
 def create_artifact_group(
     payload: ArtifactGroupCreateRequest,
     engine=Depends(get_engine),
@@ -100,20 +114,30 @@ def create_artifact_group(
     position_rule = payload.position_rule or {}
     membership_row = {
         "artifact_group_id": None,
-        "artifact_field": str(position_rule.get("membership_artifact_field") or "artifact_name"),
+        "artifact_field": str(
+            position_rule.get("membership_artifact_field") or "artifact_name"
+        ),
         "operator": str(position_rule.get("membership_operator") or "contains"),
         "pattern": str(position_rule.get("membership_pattern") or "").strip(),
         "case_sensitive": bool(position_rule.get("membership_case_sensitive", False)),
     }
     sample_row = {
         "artifact_group_id": None,
-        "artifact_field": str(position_rule.get("sample_mapping_artifact_field") or "artifact_name"),
-        "sample_field": str(position_rule.get("sample_mapping_sample_field") or "sample_name"),
+        "artifact_field": str(
+            position_rule.get("sample_mapping_artifact_field") or "artifact_name"
+        ),
+        "sample_field": str(
+            position_rule.get("sample_mapping_sample_field") or "sample_name"
+        ),
         "operator": str(position_rule.get("sample_mapping_operator") or "contains"),
-        "case_sensitive": bool(position_rule.get("sample_mapping_case_sensitive", False)),
+        "case_sensitive": bool(
+            position_rule.get("sample_mapping_case_sensitive", False)
+        ),
     }
     if not membership_row["pattern"]:
-        raise HTTPException(status_code=400, detail="position_rule.membership_pattern is required")
+        raise HTTPException(
+            status_code=400, detail="position_rule.membership_pattern is required"
+        )
 
     membership_mapping_repository = MembershipMappingRepository(engine)
     sample_mapping_repository = SampleMappingRepository(engine)
@@ -133,7 +157,9 @@ def create_artifact_group(
         )
         membership_row["artifact_group_id"] = artifact_group_id
         sample_row["artifact_group_id"] = artifact_group_id
-        membership_mapping_id = membership_mapping_repository.insert(membership_row, conn=conn)
+        membership_mapping_id = membership_mapping_repository.insert(
+            membership_row, conn=conn
+        )
         sample_mapping_id = sample_mapping_repository.insert(sample_row, conn=conn)
         updated_count = artifact_groups_repository.update(
             artifact_group_id,
@@ -144,11 +170,16 @@ def create_artifact_group(
             conn=conn,
         )
         if updated_count != 1:
-            raise HTTPException(status_code=409, detail=f"Failed to link mappings for artifact group: {artifact_group_id}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Failed to link mappings for artifact group: {artifact_group_id}",
+            )
 
     row = artifact_groups_repository.fetch_artifact_group(artifact_group_id)
     if row is None:
-        raise HTTPException(status_code=500, detail="Failed to load artifact group after create")
+        raise HTTPException(
+            status_code=500, detail="Failed to load artifact group after create"
+        )
 
     artifact_group_response = ArtifactGroupResponse.model_validate(row)
     logger.info(
@@ -162,7 +193,9 @@ def create_artifact_group(
     )
 
 
-@router.delete("/api/v2/artifact-groups/{artifact_group_id}", response_model=ApiDeleteResponse)
+@router.delete(
+    "/api/v2/artifact-groups/{artifact_group_id}", response_model=ApiDeleteResponse
+)
 def delete_artifact_group(
     artifact_group_id: int = FastAPIPath(..., ge=1),
     engine=Depends(get_engine),
@@ -175,11 +208,20 @@ def delete_artifact_group(
         raise HTTPException(status_code=404, detail="Artifact group not found")
 
     with engine.begin() as conn:
-        membership_deleted = membership_mapping_repository.delete_by_artifact_group_ids([artifact_group_id], conn=conn)
-        sample_deleted = sample_mapping_repository.delete_by_artifact_group_ids([artifact_group_id], conn=conn)
-        deleted = artifact_groups_repository.delete_artifact_group(artifact_group_id, conn=conn)
+        membership_deleted = membership_mapping_repository.delete_by_artifact_group_ids(
+            [artifact_group_id], conn=conn
+        )
+        sample_deleted = sample_mapping_repository.delete_by_artifact_group_ids(
+            [artifact_group_id], conn=conn
+        )
+        deleted = artifact_groups_repository.delete_artifact_group(
+            artifact_group_id, conn=conn
+        )
         if deleted != 1:
-            raise HTTPException(status_code=409, detail=f"Failed to delete artifact group: {artifact_group_id}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Failed to delete artifact group: {artifact_group_id}",
+            )
 
     logger.info(
         "Deleted artifact group record from v2 artifact groups endpoint (artifact_group_id=%s, membership_deleted=%s, sample_deleted=%s)",
@@ -195,7 +237,9 @@ def delete_artifact_groups(
     payload: ArtifactGroupDeleteRequest,
     engine=Depends(get_engine),
 ) -> ApiDeleteResponse:
-    artifact_group_ids = [int(artifact_group_id) for artifact_group_id in payload.artifact_group_ids]
+    artifact_group_ids = [
+        int(artifact_group_id) for artifact_group_id in payload.artifact_group_ids
+    ]
     if not artifact_group_ids:
         raise HTTPException(status_code=400, detail="artifact_group_ids is required")
 
@@ -203,16 +247,32 @@ def delete_artifact_groups(
     membership_mapping_repository = MembershipMappingRepository(engine)
     sample_mapping_repository = SampleMappingRepository(engine)
     unique_ids = list(dict.fromkeys(artifact_group_ids))
-    missing_ids = [artifact_group_id for artifact_group_id in unique_ids if artifact_groups_repository.fetch_artifact_group(artifact_group_id) is None]
+    missing_ids = [
+        artifact_group_id
+        for artifact_group_id in unique_ids
+        if artifact_groups_repository.fetch_artifact_group(artifact_group_id) is None
+    ]
     if missing_ids:
-        raise HTTPException(status_code=404, detail=f"Unknown artifact_group_id(s): {', '.join(map(str, missing_ids))}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown artifact_group_id(s): {', '.join(map(str, missing_ids))}",
+        )
 
     with engine.begin() as conn:
-        membership_mapping_repository.delete_by_artifact_group_ids(unique_ids, conn=conn)
+        membership_mapping_repository.delete_by_artifact_group_ids(
+            unique_ids, conn=conn
+        )
         sample_mapping_repository.delete_by_artifact_group_ids(unique_ids, conn=conn)
-        deleted_count = artifact_groups_repository.delete_artifact_groups(unique_ids, conn=conn)
+        deleted_count = artifact_groups_repository.delete_artifact_groups(
+            unique_ids, conn=conn
+        )
     if deleted_count != len(unique_ids):
-        raise HTTPException(status_code=409, detail="Failed to delete all requested artifact groups")
+        raise HTTPException(
+            status_code=409, detail="Failed to delete all requested artifact groups"
+        )
 
-    logger.info("Deleted artifact group records from v2 artifact groups endpoint (artifact_group_count=%s)", deleted_count)
+    logger.info(
+        "Deleted artifact group records from v2 artifact groups endpoint (artifact_group_count=%s)",
+        deleted_count,
+    )
     return ApiDeleteResponse(message="Artifact groups deleted successfully.")

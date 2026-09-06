@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 
+
 class ApiResponse(BaseModel, Generic[T]):
     success: bool = True
     message: str

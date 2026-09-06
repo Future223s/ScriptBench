@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Table, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+    func,
+)
 
 from ..schema import WORKFLOW_STATUS_CHECK_SQL, metadata
 
@@ -12,8 +22,8 @@ workflows = Table(
     Column(
         "sample_set_id",
         Integer,
-        ForeignKey("sample_sets.sample_set_id", ondelete="SET NULL"),
-        nullable=True,
+        ForeignKey("sample_sets.sample_set_id", ondelete="CASCADE"),
+        nullable=False,
     ),
     Column("workflow_description", Text, nullable=True),
     Column("status", String(32), nullable=False, server_default="draft", index=True),

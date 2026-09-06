@@ -6,9 +6,25 @@ from backend.api.v2.endpoints.artifacts import router as artifacts_router
 from backend.api.v2.endpoints.artifact_groups import router as artifact_groups_router
 from backend.api.v2.endpoints.assets import router as assets_router
 from backend.api.v2.endpoints.samples import router as samples_router
+from backend.api.v2.endpoints.sample_sets import router as sample_sets_router
+from backend.api.v2.endpoints.payload_templates import (
+    router as payload_templates_router,
+)
+from backend.api.v2.endpoints.output_specs import router as output_specs_router
+from backend.api.v2.endpoints.workflow_steps import router as workflow_steps_router
+from backend.api.v2.endpoints.workflows import router as workflows_router
+from backend.api.v2.endpoints.workflow_dag import router as workflow_dag_router
+from backend.api.v2.endpoints.execution import router as execution_router
 
 router = APIRouter()
 router.include_router(samples_router)
+router.include_router(sample_sets_router)
 router.include_router(assets_router)
 router.include_router(artifact_groups_router)
 router.include_router(artifacts_router)
+router.include_router(payload_templates_router)
+router.include_router(output_specs_router)
+router.include_router(workflow_steps_router)
+router.include_router(workflows_router)
+router.include_router(workflow_dag_router)
+router.include_router(execution_router)

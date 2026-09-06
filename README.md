@@ -32,11 +32,11 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000` in your browser.
+Open `http://127.0.0.1:3001` in your browser.
 
 ## Open the app
 
-- Frontend: `http://127.0.0.1:3000`
+- Frontend: `http://127.0.0.1:3001`
 - API: `http://127.0.0.1:8000`
 
 The frontend is already configured to send `/api` requests to the backend.
@@ -56,9 +56,19 @@ From the repository root, run:
 docker compose -f docker-compose-dev.yml up --build
 ```
 
+Compose starts PostgreSQL, runs the Economic Upheaval seed script, and then starts the
+backend. The seed is safe to rerun: it refreshes the 19 source samples, 523 line-crop
+artifacts, the `Test` sample set, and the `Line Crops` mapping group without duplicating
+them. Its source files live in `seed-data/economic-upheaval`, so Docker does not need
+access to the Box folder. To run the seed again after changing the source files, use:
+
+```powershell
+docker compose -f docker-compose-dev.yml run --rm db-seed
+```
+
 Then open:
 
-- Frontend: `http://127.0.0.1:3000`
+- Frontend: `http://127.0.0.1:3001`
 - API: `http://127.0.0.1:8000`
 
 To stop the stack, press `Ctrl+C` and then run:

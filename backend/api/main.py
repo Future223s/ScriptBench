@@ -8,42 +8,62 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from backend.api.dependencies import get_engine
 from backend.api.v2.router import router as v2_router
-from backend.services.file_upload_worker import FileUploadWorker
-from backend.services.upload_events import FileUploadEventHub
+from backend.database.repositories.execution_jobs_repository import ExecutionJobsRepository
+from backend.services.execution_coordinator import ExecutionCoordinator
+from backend.services.execution_worker import ExecutionWorker
+from backend.services.payload_builder import PayloadBuilder
+from backend.services.model_client_factory import ModelClientFactory
+from backend.services.output_validator import OutputValidator
+from backend.services.job_events import JobEventHub
 
 import logging
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.file_upload_event_hub = FileUploadEventHub()
-    app.state.file_upload_event_hub.bind_loop(asyncio.get_running_loop())
-    app.state.file_upload_worker = None
-
-    engine = get_engine()
-    file_upload_worker = FileUploadWorker(
-        engine=engine,
-        event_hub=app.state.file_upload_event_hub,
+    app.state.engine = get_engine()
+    app.state.job_events = JobEventHub()
+    app.state.job_events.bind_loop(asyncio.get_running_loop())
+    execution_repository = ExecutionJobsRepository(app.state.engine)
+    payload_builder = PayloadBuilder(app.state.engine)
+    app.state.execution_worker = ExecutionWorker(
+        execution_repository,
+        ExecutionCoordinator(
+            repository=execution_repository,
+            output_validator=OutputValidator(app.state.engine),
+            client_factory=ModelClientFactory(),
+            payload_builder=payload_builder,
+            event_hub=app.state.job_events,
+        ),
+        event_hub=app.state.job_events,
     )
-    file_upload_worker.start()
-    app.state.file_upload_worker = file_upload_worker
-
     try:
         yield
     finally:
-        file_upload_worker = getattr(app.state, "file_upload_worker", None)
-        if file_upload_worker is not None:
-            await file_upload_worker.stop()
+        await app.state.execution_worker.shutdown()
+        app.state.engine.dispose()
+        del app.state.engine
+        del app.state.execution_worker
+        del app.state.job_events
 
 
 app = FastAPI(title="Economic Upheaval API", lifespan=lifespan)
+
+
+def get_lifecycle_engine(request: Request):
+    return request.app.state.engine
+
+
+app.dependency_overrides[get_engine] = get_lifecycle_engine
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,4 +75,5 @@ app.include_router(v2_router)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("backend.api.main:app", host="127.0.0.1", port=8000, reload=False)

@@ -13,7 +13,17 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    linear-gradient(135deg, rgba(255, 251, 242, 0.96) 0%, rgba(246, 228, 211, 0.74) 48%, rgba(238, 244, 236, 0.82) 100%);
+    radial-gradient(
+      circle at 12% -10%,
+      rgba(255, 255, 255, 0.96),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(231, 242, 235, 0.72),
+      transparent 32%
+    ),
+    linear-gradient(145deg, #f8f5ef, var(--bg));
   color: var(--text-primary);
   font-family: var(--font-family-body);
   font-size: var(--font-size-body);
@@ -29,7 +39,7 @@ textarea {
 
 button {
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-weight: var(--font-weight-semibold);
 }

@@ -54,7 +54,9 @@ class ArtifactsRepository:
                 or_(
                     func.lower(artifacts.c.artifact_name).like(pattern),
                     func.lower(artifacts.c.originating_sample_id).like(pattern),
-                    func.lower(func.coalesce(artifacts.c.artifact_group_name, "")).like(pattern),
+                    func.lower(func.coalesce(artifacts.c.artifact_group_name, "")).like(
+                        pattern
+                    ),
                 )
             )
         if limit is not None:
@@ -65,7 +67,9 @@ class ArtifactsRepository:
 
     def fetch_artifact(self, artifact_id: int) -> dict[str, Any] | None:
         with self.engine.begin() as conn:
-            row = conn.execute(select(artifacts).where(artifacts.c.artifact_id == artifact_id)).fetchone()
+            row = conn.execute(
+                select(artifacts).where(artifacts.c.artifact_id == artifact_id)
+            ).fetchone()
         return dict(row._mapping) if row is not None else None
 
     def fetch_artifacts_by_name_and_sample(
@@ -76,7 +80,9 @@ class ArtifactsRepository:
     ) -> list[dict[str, Any]]:
         stmt = select(artifacts).where(artifacts.c.artifact_name == artifact_name)
         if originating_sample_id is not None:
-            stmt = stmt.where(artifacts.c.originating_sample_id == originating_sample_id)
+            stmt = stmt.where(
+                artifacts.c.originating_sample_id == originating_sample_id
+            )
         with self.engine.begin() as conn:
             rows = conn.execute(stmt).fetchall()
         return [dict(row._mapping) for row in rows]
@@ -84,17 +90,25 @@ class ArtifactsRepository:
     def insert_artifact(self, row: dict[str, object]) -> int:
         with self.engine.begin() as conn:
             result = conn.execute(insert(artifacts).values(**row))
-            inserted_id = result.inserted_primary_key[0] if result.inserted_primary_key else None
+            inserted_id = (
+                result.inserted_primary_key[0] if result.inserted_primary_key else None
+            )
         if inserted_id is None:
             raise ValueError("Failed to insert artifact")
         return int(inserted_id)
 
     def update_artifact(self, artifact_id: int, row: dict[str, object]) -> int:
         with self.engine.begin() as conn:
-            result = conn.execute(update(artifacts).where(artifacts.c.artifact_id == artifact_id).values(**row))
+            result = conn.execute(
+                update(artifacts)
+                .where(artifacts.c.artifact_id == artifact_id)
+                .values(**row)
+            )
         return int(result.rowcount or 0)
 
-    def update_artifact_blob(self, *, artifact_id: int, artifact_blob: bytes, artifact_mime_type: str | None) -> int:
+    def update_artifact_blob(
+        self, *, artifact_id: int, artifact_blob: bytes, artifact_mime_type: str | None
+    ) -> int:
         with self.engine.begin() as conn:
             result = conn.execute(
                 update(artifacts)
@@ -108,7 +122,9 @@ class ArtifactsRepository:
 
     def delete_artifact(self, artifact_id: int) -> int:
         with self.engine.begin() as conn:
-            result = conn.execute(delete(artifacts).where(artifacts.c.artifact_id == artifact_id))
+            result = conn.execute(
+                delete(artifacts).where(artifacts.c.artifact_id == artifact_id)
+            )
         return int(result.rowcount or 0)
 
     def delete_artifacts(self, artifact_ids: Sequence[int]) -> int:
@@ -116,10 +132,14 @@ class ArtifactsRepository:
         if not ids:
             return 0
         with self.engine.begin() as conn:
-            result = conn.execute(delete(artifacts).where(artifacts.c.artifact_id.in_(ids)))
+            result = conn.execute(
+                delete(artifacts).where(artifacts.c.artifact_id.in_(ids))
+            )
         return int(result.rowcount or 0)
 
-    def fetch_membership_mapping_candidates(self, artifact_name: str) -> list[dict[str, Any]]:
+    def fetch_membership_mapping_candidates(
+        self, artifact_name: str
+    ) -> list[dict[str, Any]]:
         with self.engine.begin() as conn:
             rows = conn.execute(select(membership_mapping)).fetchall()
         candidates = []
@@ -129,7 +149,12 @@ class ArtifactsRepository:
             pattern = str(mapping.get("pattern") or "")
             operator = str(mapping.get("operator") or "")
             for comparison_value in comparison_candidates:
-                if _matches_text(comparison_value, pattern, operator, bool(mapping.get("case_sensitive"))):
+                if _matches_text(
+                    comparison_value,
+                    pattern,
+                    operator,
+                    bool(mapping.get("case_sensitive")),
+                ):
                     logger.info(
                         "Artifact membership comparison matched (artifact_name=%s, comparison_value=%s, pattern=%s, operator=%s, case_sensitive=%s, artifact_group_id=%s)",
                         artifact_name,
@@ -157,12 +182,18 @@ class ArtifactsRepository:
             rows = conn.execute(select(membership_mapping)).fetchall()
         return [dict(row._mapping) for row in rows]
 
-    def fetch_sample_mapping_by_group_ids(self, artifact_group_ids: Sequence[int]) -> list[dict[str, Any]]:
+    def fetch_sample_mapping_by_group_ids(
+        self, artifact_group_ids: Sequence[int]
+    ) -> list[dict[str, Any]]:
         ids = [int(artifact_group_id) for artifact_group_id in artifact_group_ids]
         if not ids:
             return []
         with self.engine.begin() as conn:
-            rows = conn.execute(select(sample_mapping).where(sample_mapping.c.artifact_group_id.in_(ids))).fetchall()
+            rows = conn.execute(
+                select(sample_mapping).where(
+                    sample_mapping.c.artifact_group_id.in_(ids)
+                )
+            ).fetchall()
         return [dict(row._mapping) for row in rows]
 
     def fetch_sample_mappings(self) -> list[dict[str, Any]]:
@@ -170,12 +201,20 @@ class ArtifactsRepository:
             rows = conn.execute(select(sample_mapping)).fetchall()
         return [dict(row._mapping) for row in rows]
 
-    def fetch_samples_for_names(self, sample_names: Sequence[str]) -> list[dict[str, Any]]:
-        names = [str(sample_name).strip() for sample_name in sample_names if str(sample_name).strip()]
+    def fetch_samples_for_names(
+        self, sample_names: Sequence[str]
+    ) -> list[dict[str, Any]]:
+        names = [
+            str(sample_name).strip()
+            for sample_name in sample_names
+            if str(sample_name).strip()
+        ]
         if not names:
             return []
         with self.engine.begin() as conn:
-            rows = conn.execute(select(samples).where(samples.c.sample_name.in_(names))).fetchall()
+            rows = conn.execute(
+                select(samples).where(samples.c.sample_name.in_(names))
+            ).fetchall()
         return [dict(row._mapping) for row in rows]
 
     def fetch_samples(self) -> list[dict[str, Any]]:
@@ -184,7 +223,9 @@ class ArtifactsRepository:
         return [dict(row._mapping) for row in rows]
 
 
-def _matches_text(value: str, pattern: str, operator: str, case_sensitive: bool) -> bool:
+def _matches_text(
+    value: str, pattern: str, operator: str, case_sensitive: bool
+) -> bool:
     lhs = value if case_sensitive else value.casefold()
     rhs = pattern if case_sensitive else pattern.casefold()
     if operator == "equals":

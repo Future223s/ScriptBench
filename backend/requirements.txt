@@ -2,6 +2,7 @@ google-genai
 pandas
 matplotlib
 SQLAlchemy
+psycopg[binary]
 fastapi
 uvicorn
 watchfiles

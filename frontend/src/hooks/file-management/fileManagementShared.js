@@ -41,6 +41,15 @@ export const DEFAULT_FILTERS = {
     queryMode: "contains",
     assetType: "",
   },
+  sampleSet: {
+    query: "",
+    status: "",
+  },
+  artifactGroup: {
+    query: "",
+    queryMode: "contains",
+    mappingType: "",
+  },
 };
 
 export const DEFAULT_DRAFTS = {
@@ -76,6 +85,8 @@ export function cloneFilters(filters = DEFAULT_FILTERS) {
     sample: { ...filters.sample },
     artifact: { ...filters.artifact },
     asset: { ...filters.asset },
+    sampleSet: { ...filters.sampleSet },
+    artifactGroup: { ...filters.artifactGroup },
   };
 }
 
@@ -119,7 +130,12 @@ export function recordIdForType(type, record) {
 
 function metadataEntriesFromObject(source, excludedKeys) {
   return Object.entries(source || {}).filter(([key, value]) => {
-    return !excludedKeys.has(key) && value !== undefined && value !== null && value !== "";
+    return (
+      !excludedKeys.has(key) &&
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    );
   });
 }
 
@@ -134,8 +150,13 @@ export function normalizeRecordPreview(type, record) {
       ["Group", record.artifact_group_name || "Ungrouped"],
       ["Category", record.artifact_category],
       ["Mime", record.artifact_mime_type],
-      ["Size", record.artifact_blob_size ? `${record.artifact_blob_size} bytes` : ""],
-    ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+      [
+        "Size",
+        record.artifact_blob_size ? `${record.artifact_blob_size} bytes` : "",
+      ],
+    ].filter(
+      ([, value]) => value !== undefined && value !== null && value !== "",
+    );
 
     return {
       id: recordIdToString(record.artifact_id),
@@ -161,17 +182,20 @@ export function normalizeRecordPreview(type, record) {
           ),
         },
       ],
-      additionalMetadata: metadataEntriesFromObject(record, new Set([
-        "artifact_id",
-        "artifact_name",
-        "originating_sample_id",
-        "artifact_group_id",
-        "artifact_group_name",
-        "artifact_category",
-        "artifact_mime_type",
-        "artifact_blob_size",
-        "artifact_blob_base64",
-      ])),
+      additionalMetadata: metadataEntriesFromObject(
+        record,
+        new Set([
+          "artifact_id",
+          "artifact_name",
+          "originating_sample_id",
+          "artifact_group_id",
+          "artifact_group_name",
+          "artifact_category",
+          "artifact_mime_type",
+          "artifact_blob_size",
+          "artifact_blob_base64",
+        ]),
+      ),
       raw: record,
     };
   }
@@ -182,7 +206,9 @@ export function normalizeRecordPreview(type, record) {
       ["Type", record.asset_type],
       ["Mime", record.asset_mime_type],
       ["Size", record.asset_blob_size ? `${record.asset_blob_size} bytes` : ""],
-    ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+    ].filter(
+      ([, value]) => value !== undefined && value !== null && value !== "",
+    );
 
     return {
       id: recordIdToString(record.asset_id),
@@ -193,14 +219,17 @@ export function normalizeRecordPreview(type, record) {
       blobBase64: record.asset_blob_base64 || "",
       blobSize: record.asset_blob_size || 0,
       metadata,
-      additionalMetadata: metadataEntriesFromObject(record, new Set([
-        "asset_id",
-        "asset_name",
-        "asset_type",
-        "asset_mime_type",
-        "asset_blob_size",
-        "asset_blob_base64",
-      ])),
+      additionalMetadata: metadataEntriesFromObject(
+        record,
+        new Set([
+          "asset_id",
+          "asset_name",
+          "asset_type",
+          "asset_mime_type",
+          "asset_blob_size",
+          "asset_blob_base64",
+        ]),
+      ),
       raw: record,
     };
   }
@@ -209,7 +238,9 @@ export function normalizeRecordPreview(type, record) {
     ["ID", record.sample_id],
     ["Mime", record.sample_mime_type],
     ["Size", record.sample_blob_size ? `${record.sample_blob_size} bytes` : ""],
-  ].filter(([, value]) => value !== undefined && value !== null && value !== "");
+  ].filter(
+    ([, value]) => value !== undefined && value !== null && value !== "",
+  );
 
   return {
     id: recordIdToString(record.sample_id),
@@ -226,21 +257,30 @@ export function normalizeRecordPreview(type, record) {
         content: record.ground_truth_text || "",
       },
     ],
-    additionalMetadata: metadataEntriesFromObject(record, new Set([
-      "sample_id",
-      "sample_name",
-      "sample_mime_type",
-      "sample_blob_size",
-      "sample_blob_base64",
-      "ground_truth_text",
-    ])),
+    additionalMetadata: metadataEntriesFromObject(
+      record,
+      new Set([
+        "sample_id",
+        "sample_name",
+        "sample_mime_type",
+        "sample_blob_size",
+        "sample_blob_base64",
+        "ground_truth_text",
+      ]),
+    ),
     groundTruthText: record.ground_truth_text || "",
     raw: record,
   };
 }
 
 export function uniqueList(values) {
-  return [...new Set(values.filter((value) => value !== "" && value !== null && value !== undefined))];
+  return [
+    ...new Set(
+      values.filter(
+        (value) => value !== "" && value !== null && value !== undefined,
+      ),
+    ),
+  ];
 }
 
 export function buildSelectionSet(values) {
@@ -249,33 +289,167 @@ export function buildSelectionSet(values) {
 
 function matchesTextMode(value, query, mode) {
   const normalizedValue = String(value ?? "").toLowerCase();
-  const normalizedQuery = String(query ?? "").trim().toLowerCase();
+  const normalizedQuery = String(query ?? "")
+    .trim()
+    .toLowerCase();
   if (!normalizedQuery) return true;
   if (mode === "exact") return normalizedValue === normalizedQuery;
-  if (mode === "starts-with") return normalizedValue.startsWith(normalizedQuery);
+  if (mode === "starts-with")
+    return normalizedValue.startsWith(normalizedQuery);
   return normalizedValue.includes(normalizedQuery);
 }
 
+export function createSampleFilterConfig({ filters, sampleSets, onChange }) {
+  return [
+    {
+      id: "sample-search",
+      label: "Search",
+      kind: "text",
+      value: filters.query,
+      placeholder: "Sample ID, name, or ground truth",
+      onChange: (value) => onChange("query", value),
+    },
+    {
+      id: "sample-match-mode",
+      label: "Match",
+      kind: "select",
+      value: filters.queryMode,
+      onChange: (value) => onChange("queryMode", value),
+      options: [
+        { value: "contains", label: "Contains" },
+        { value: "starts-with", label: "Begins with" },
+        { value: "exact", label: "Exact" },
+      ],
+    },
+    {
+      id: "sample-set-filter",
+      label: "Sample set",
+      kind: "select",
+      value: filters.sampleSetId,
+      onChange: (value) => onChange("sampleSetId", value),
+      options: [
+        { value: "", label: "All sample sets" },
+        ...(sampleSets || []).map((sampleSet) => ({
+          value: String(sampleSet.sample_set_id),
+          label: sampleSet.sample_set_name,
+        })),
+      ],
+    },
+  ];
+}
+
+export function createSampleSetFilterConfig({ filters, onChange }) {
+  return [
+    {
+      id: "sample-set-search",
+      label: "Search",
+      kind: "text",
+      value: filters.query,
+      placeholder: "Name or description",
+      onChange: (value) => onChange("query", value),
+    },
+    {
+      id: "sample-set-status",
+      label: "Status",
+      kind: "select",
+      value: filters.status,
+      onChange: (value) => onChange("status", value),
+      options: [
+        { value: "", label: "All statuses" },
+        { value: "draft", label: "Draft" },
+        { value: "active", label: "Active" },
+      ],
+    },
+  ];
+}
+
+export function createArtifactGroupFilterConfig({
+  filters,
+  artifactGroups,
+  onChange,
+}) {
+  const mappingTypes = [
+    ...new Set(
+      (artifactGroups || []).map((group) => group.mapping_type).filter(Boolean),
+    ),
+  ].sort();
+  return [
+    {
+      id: "artifact-group-search",
+      label: "Search",
+      kind: "text",
+      value: filters.query,
+      placeholder: "Name or description",
+      onChange: (value) => onChange("query", value),
+    },
+    {
+      id: "artifact-group-mapping-type",
+      label: "Mapping type",
+      kind: "select",
+      value: filters.mappingType,
+      onChange: (value) => onChange("mappingType", value),
+      options: [
+        { value: "", label: "All mapping types" },
+        ...mappingTypes.map((value) => ({ value, label: value })),
+      ],
+    },
+    {
+      id: "artifact-group-match-mode",
+      label: "Match",
+      kind: "select",
+      value: filters.queryMode,
+      onChange: (value) => onChange("queryMode", value),
+      options: [
+        { value: "contains", label: "Contains" },
+        { value: "starts-with", label: "Begins with" },
+        { value: "exact", label: "Exact" },
+      ],
+    },
+  ];
+}
+
 function sampleSetLookup(sampleSets) {
-  return new Map((sampleSets || []).map((sampleSet) => [String(sampleSet.sample_set_id), sampleSet]));
+  return new Map(
+    (sampleSets || []).map((sampleSet) => [
+      String(sampleSet.sample_set_id),
+      sampleSet,
+    ]),
+  );
 }
 
 function artifactGroupLookup(artifactGroups) {
-  return new Map((artifactGroups || []).map((group) => [String(group.artifact_group_id), group]));
+  return new Map(
+    (artifactGroups || []).map((group) => [
+      String(group.artifact_group_id),
+      group,
+    ]),
+  );
 }
 
 function visibleSamples(state) {
   const filters = state.appliedFilters.sample;
   const sampleSetMap = sampleSetLookup(state.sampleSets);
-  const selectedSampleSet = filters.sampleSetId ? sampleSetMap.get(String(filters.sampleSetId)) : null;
-  const sampleIdsInSet = selectedSampleSet ? new Set(selectedSampleSet.sample_ids || []) : null;
+  const selectedSampleSet = filters.sampleSetId
+    ? sampleSetMap.get(String(filters.sampleSetId))
+    : null;
+  const sampleIdsInSet = selectedSampleSet
+    ? new Set(selectedSampleSet.sample_ids || [])
+    : null;
 
   return (state.samples || []).filter((sample) => {
     if (sampleIdsInSet && !sampleIdsInSet.has(sample.sample_id)) return false;
     return (
-      matchesTextMode(sample.sample_name || sample.sample_id, filters.query, filters.queryMode)
-      || matchesTextMode(sample.sample_id, filters.query, filters.queryMode)
-      || matchesTextMode(sample.ground_truth_text || "", filters.query, filters.queryMode)
+      matchesTextMode(
+        sample.sample_name || sample.sample_id,
+        filters.query,
+        filters.queryMode,
+      ) ||
+      matchesTextMode(sample.sample_id, filters.query, filters.queryMode) ||
+      matchesTextMode(
+        sample.ground_truth_text || "",
+        filters.query,
+        filters.queryMode,
+      )
     );
   });
 }
@@ -285,18 +459,42 @@ function visibleArtifacts(state) {
   const groupLookup = artifactGroupLookup(state.artifactGroups);
 
   return (state.artifacts || []).filter((artifact) => {
-    if (filters.artifactGroupId && String(artifact.artifact_group_id || "") !== String(filters.artifactGroupId)) {
+    if (
+      filters.artifactGroupId &&
+      String(artifact.artifact_group_id || "") !==
+        String(filters.artifactGroupId)
+    ) {
       return false;
     }
-    if (filters.artifactCategory && String(artifact.artifact_category || "").toLowerCase() !== String(filters.artifactCategory).toLowerCase()) {
+    if (
+      filters.artifactCategory &&
+      String(artifact.artifact_category || "").toLowerCase() !==
+        String(filters.artifactCategory).toLowerCase()
+    ) {
       return false;
     }
-    const groupName = artifact.artifact_group_name || groupLookup.get(String(artifact.artifact_group_id || ""))?.artifact_group_name || "";
+    const groupName =
+      artifact.artifact_group_name ||
+      groupLookup.get(String(artifact.artifact_group_id || ""))
+        ?.artifact_group_name ||
+      "";
     return (
-      matchesTextMode(artifact.artifact_name, filters.query, filters.queryMode)
-      || matchesTextMode(artifact.originating_sample_id, filters.query, filters.queryMode)
-      || matchesTextMode(groupName, filters.query, filters.queryMode)
-      || matchesTextMode(artifact.artifact_category, filters.query, filters.queryMode)
+      matchesTextMode(
+        artifact.artifact_name,
+        filters.query,
+        filters.queryMode,
+      ) ||
+      matchesTextMode(
+        artifact.originating_sample_id,
+        filters.query,
+        filters.queryMode,
+      ) ||
+      matchesTextMode(groupName, filters.query, filters.queryMode) ||
+      matchesTextMode(
+        artifact.artifact_category,
+        filters.query,
+        filters.queryMode,
+      )
     );
   });
 }
@@ -305,18 +503,54 @@ function visibleAssets(state) {
   const filters = state.appliedFilters.asset;
 
   return (state.assets || []).filter((asset) => {
-    if (filters.assetType && String(asset.asset_type || "").toLowerCase() !== String(filters.assetType).toLowerCase()) {
+    if (
+      filters.assetType &&
+      String(asset.asset_type || "").toLowerCase() !==
+        String(filters.assetType).toLowerCase()
+    ) {
       return false;
     }
     return (
-      matchesTextMode(asset.asset_name, filters.query, filters.queryMode)
-      || matchesTextMode(asset.asset_type, filters.query, filters.queryMode)
-      || matchesTextMode(asset.asset_mime_type || "", filters.query, filters.queryMode)
+      matchesTextMode(asset.asset_name, filters.query, filters.queryMode) ||
+      matchesTextMode(asset.asset_type, filters.query, filters.queryMode) ||
+      matchesTextMode(
+        asset.asset_mime_type || "",
+        filters.query,
+        filters.queryMode,
+      )
     );
   });
 }
 
+function visibleSampleSets(state) {
+  const filters = state.appliedFilters.sampleSet;
+  return (state.sampleSets || []).filter(
+    (sampleSet) =>
+      matchesTextMode(
+        `${sampleSet.sample_set_name || ""} ${sampleSet.sample_set_description || ""}`,
+        filters.query,
+        "contains",
+      ) &&
+      (!filters.status || sampleSet.status === filters.status),
+  );
+}
+
+function visibleArtifactGroups(state) {
+  const filters = state.appliedFilters.artifactGroup;
+  return (state.artifactGroups || []).filter(
+    (group) =>
+      matchesTextMode(
+        `${group.artifact_group_name || ""} ${group.artifact_group_description || ""}`,
+        filters.query,
+        filters.queryMode,
+      ) &&
+      (!filters.mappingType || group.mapping_type === filters.mappingType),
+  );
+}
+
 export function visibleRecordsForType(state, type) {
+  if (type === "sampleSet") return visibleSampleSets(state);
+  if (type === "artifactGroup") return visibleArtifactGroups(state);
   if (type === "artifact") return visibleArtifacts(state);
   if (type === "asset") return visibleAssets(state);
   return visibleSamples(state);

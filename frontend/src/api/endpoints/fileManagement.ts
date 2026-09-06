@@ -209,7 +209,8 @@ export interface ApiListResponse<T> {
 
 function browserBackendBaseUrl() {
   const configured =
-    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL) || "";
+    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL) ||
+    "";
   if (configured && !configured.includes("://backend:")) {
     return configured.replace(/\/+$/, "");
   }
@@ -227,7 +228,11 @@ function encodeId(value: ApiId) {
   return encodeURIComponent(String(value));
 }
 
-function appendListEntries(formData: FormData, key: string, values: Array<string | Blob | File | null | undefined>) {
+function appendListEntries(
+  formData: FormData,
+  key: string,
+  values: Array<string | Blob | File | null | undefined>,
+) {
   for (const value of values) {
     if (value === undefined || value === null) continue;
     formData.append(key, value);
@@ -240,19 +245,36 @@ export function createSampleBlobFormData(file: File) {
   return formData;
 }
 
-export function createAssetsFormData(items: Array<{
-  asset_name: string;
-  asset_type?: string | null;
-  file: File;
-}>) {
+export function createAssetsFormData(
+  items: Array<{
+    asset_name: string;
+    asset_type?: string | null;
+    file: File;
+  }>,
+) {
   const formData = new FormData();
-  appendListEntries(formData, "asset_names", items.map((item) => item.asset_name));
-  appendListEntries(formData, "asset_types", items.map((item) => item.asset_type ?? ""));
-  appendListEntries(formData, "files", items.map((item) => item.file));
+  appendListEntries(
+    formData,
+    "asset_names",
+    items.map((item) => item.asset_name),
+  );
+  appendListEntries(
+    formData,
+    "asset_types",
+    items.map((item) => item.asset_type ?? ""),
+  );
+  appendListEntries(
+    formData,
+    "files",
+    items.map((item) => item.file),
+  );
   return formData;
 }
 
-export function createArtifactBlobFormData(file: File, artifactMimeType?: string | null) {
+export function createArtifactBlobFormData(
+  file: File,
+  artifactMimeType?: string | null,
+) {
   const formData = new FormData();
   formData.append("file", file);
   if (artifactMimeType) {
@@ -263,37 +285,48 @@ export function createArtifactBlobFormData(file: File, artifactMimeType?: string
 
 export const fileManagementApi = {
   getSamples: async () => {
-    const response = await apiFetch<ApiListResponse<SampleRecord>>("/api/v2/samples");
+    const response =
+      await apiFetch<ApiListResponse<SampleRecord>>("/api/v2/samples");
     return {
       samples: response.items || [],
       sample_count: response.count || 0,
     } satisfies SamplesResponse;
   },
   getSample: async (sampleId: ApiId) => {
-    const response = await apiFetch<ApiResponse<SampleRecord>>(`/api/v2/samples/${encodeId(sampleId)}`);
+    const response = await apiFetch<ApiResponse<SampleRecord>>(
+      `/api/v2/samples/${encodeId(sampleId)}`,
+    );
     if (!response.data) {
       throw new Error("Sample response did not include sample data.");
     }
     return response.data;
   },
   createSample: async (payload: CreateSamplePayload) => {
-    const response = await apiFetch<ApiResponse<SampleRecord>>("/api/v2/samples", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const response = await apiFetch<ApiResponse<SampleRecord>>(
+      "/api/v2/samples",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
     if (!response.data) {
       throw new Error("Sample create response did not include sample data.");
     }
     return response.data;
   },
   uploadSampleBlob: async (sampleId: ApiId, formData: FormData) => {
-    const response = await apiFetch<ApiResponse<{ sample_id: ApiId }>>(`/api/v2/samples/${encodeId(sampleId)}/blob`, {
-      method: "PUT",
-      body: formData,
-    });
+    const response = await apiFetch<ApiResponse<{ sample_id: ApiId }>>(
+      `/api/v2/samples/${encodeId(sampleId)}/blob`,
+      {
+        method: "PUT",
+        body: formData,
+      },
+    );
     if (!response.data) {
-      throw new Error("Sample blob upload response did not include sample data.");
+      throw new Error(
+        "Sample blob upload response did not include sample data.",
+      );
     }
     return response.data;
   },
@@ -308,7 +341,15 @@ export const fileManagementApi = {
       method: "DELETE",
     }),
 
-  getSampleSets: () => apiFetch<SampleSetsResponse>("/api/v2/sample-sets"),
+  getSampleSets: async () => {
+    const response = await apiFetch<ApiListResponse<SampleSetSummary>>(
+      "/api/v2/sample-sets",
+    );
+    return {
+      sample_sets: response.items || [],
+      sample_set_count: response.count || 0,
+    } satisfies SampleSetsResponse;
+  },
   createSampleSet: (payload: CreateSampleSetPayload) =>
     apiFetch<SampleSetSummary>("/api/v2/sample-sets", {
       method: "POST",
@@ -316,11 +357,22 @@ export const fileManagementApi = {
       body: JSON.stringify(payload),
     }),
   deleteSampleSet: (sampleSetId: ApiId) =>
-    apiFetch<{ sample_set_id: ApiId; deleted: true }>(`/api/v2/sample-sets/${encodeId(sampleSetId)}`, {
-      method: "DELETE",
-    }),
+    apiFetch<{ sample_set_id: ApiId; deleted: true }>(
+      `/api/v2/sample-sets/${encodeId(sampleSetId)}`,
+      {
+        method: "DELETE",
+      },
+    ),
 
-  getArtifactGroups: () => apiFetch<ArtifactGroupsResponse>("/api/v2/artifact-groups"),
+  getArtifactGroups: async () => {
+    const response = await apiFetch<ApiListResponse<ArtifactGroupRecord>>(
+      "/api/v2/artifact-groups",
+    );
+    return {
+      artifact_groups: response.items || [],
+      artifact_group_count: response.count || 0,
+    } satisfies ArtifactGroupsResponse;
+  },
   createArtifactGroup: (payload: CreateArtifactGroupPayload) =>
     apiFetch<ArtifactGroupRecord>("/api/v2/artifact-groups", {
       method: "POST",
@@ -336,25 +388,31 @@ export const fileManagementApi = {
     ),
 
   getArtifacts: async () => {
-    const response = await apiFetch<ApiListResponse<ArtifactRecord>>("/api/v2/artifacts");
+    const response =
+      await apiFetch<ApiListResponse<ArtifactRecord>>("/api/v2/artifacts");
     return {
       artifacts: response.items || [],
       artifact_count: response.count || 0,
     } satisfies ArtifactsResponse;
   },
   getArtifact: async (artifactId: ApiId) => {
-    const response = await apiFetch<ApiResponse<ArtifactRecord>>(`/api/v2/artifacts/${encodeId(artifactId)}`);
+    const response = await apiFetch<ApiResponse<ArtifactRecord>>(
+      `/api/v2/artifacts/${encodeId(artifactId)}`,
+    );
     if (!response.data) {
       throw new Error("Artifact response did not include artifact data.");
     }
     return response.data;
   },
   mapArtifacts: async (artifacts: ArtifactMapItem[]) => {
-    const response = await apiFetch<ArtifactMapApiResponse>(directBackendUrl("/api/v2/artifacts/map"), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ artifacts }),
-    });
+    const response = await apiFetch<ArtifactMapApiResponse>(
+      directBackendUrl("/api/v2/artifacts/map"),
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ artifacts }),
+      },
+    );
     return {
       data: response.data || null,
       message: response.message,
@@ -362,11 +420,14 @@ export const fileManagementApi = {
     };
   },
   createArtifacts: async (artifacts: ArtifactCreateRequestItem[]) => {
-    const response = await apiFetch<ArtifactCreateResponse>(directBackendUrl("/api/v2/artifacts"), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ artifacts }),
-    });
+    const response = await apiFetch<ArtifactCreateResponse>(
+      directBackendUrl("/api/v2/artifacts"),
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ artifacts }),
+      },
+    );
     return {
       data: response.data || [],
       message: response.message,
@@ -374,11 +435,14 @@ export const fileManagementApi = {
     };
   },
   patchArtifacts: async (artifacts: ArtifactPatchRequestItem[]) => {
-    const response = await apiFetch<ArtifactPatchResponse>(directBackendUrl("/api/v2/artifacts"), {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ artifacts }),
-    });
+    const response = await apiFetch<ArtifactPatchResponse>(
+      directBackendUrl("/api/v2/artifacts"),
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ artifacts }),
+      },
+    );
     return {
       data: response.data || [],
       message: response.message,
@@ -386,10 +450,13 @@ export const fileManagementApi = {
     };
   },
   uploadArtifactBlob: (artifactId: ApiId, formData: FormData) =>
-    apiFetch<ArtifactUploadBlobResponse>(directBackendUrl(`/api/v2/artifacts/${encodeId(artifactId)}/blob`), {
-      method: "PUT",
-      body: formData,
-    }),
+    apiFetch<ArtifactUploadBlobResponse>(
+      directBackendUrl(`/api/v2/artifacts/${encodeId(artifactId)}/blob`),
+      {
+        method: "PUT",
+        body: formData,
+      },
+    ),
   deleteArtifacts: (artifactIds: number[]) =>
     apiFetch<void>("/api/v2/artifacts", {
       method: "DELETE",
@@ -402,25 +469,31 @@ export const fileManagementApi = {
     }),
 
   getAssets: async () => {
-    const response = await apiFetch<ApiListResponse<AssetRecord>>("/api/v2/assets");
+    const response =
+      await apiFetch<ApiListResponse<AssetRecord>>("/api/v2/assets");
     return {
       assets: response.items || [],
       asset_count: response.count || 0,
     } satisfies AssetsResponse;
   },
   getAsset: async (assetId: ApiId) => {
-    const response = await apiFetch<ApiResponse<AssetRecord>>(`/api/v2/assets/${encodeId(assetId)}`);
+    const response = await apiFetch<ApiResponse<AssetRecord>>(
+      `/api/v2/assets/${encodeId(assetId)}`,
+    );
     if (!response.data) {
       throw new Error("Asset response did not include asset data.");
     }
     return response.data;
   },
   createAsset: async (payload: CreateAssetPayload) => {
-    const response = await apiFetch<ApiResponse<AssetRecord>>("/api/v2/assets", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const response = await apiFetch<ApiResponse<AssetRecord>>(
+      "/api/v2/assets",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
     if (!response.data) {
       throw new Error("Asset create response did not include asset data.");
     }

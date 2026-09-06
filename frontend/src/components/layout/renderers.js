@@ -33,7 +33,9 @@ export function renderTopBar({ prototypeNav }) {
         </div>
       </div>
       <nav class="prototype-nav" aria-label="Primary navigation">
-        ${prototypeNavItems.map((item) => `
+        ${prototypeNavItems
+          .map(
+            (item) => `
           <button
             class="prototype-nav-item ${prototypeNav === item.key ? "is-active" : ""}"
             type="button"
@@ -42,7 +44,9 @@ export function renderTopBar({ prototypeNav }) {
           >
             <span class="prototype-nav-title">${escapeHtml(item.title)}</span>
           </button>
-        `).join("")}
+        `,
+          )
+          .join("")}
       </nav>
     </header>
   `;

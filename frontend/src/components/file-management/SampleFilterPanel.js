@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  EmptyState,
+  Field,
+  Grid,
+  Inline,
+  Select,
+  Stack,
+  StatusBadge,
+  TextInput,
+} from "../../ui/primitives/index.js";
+
 export function SampleFilterPanel({
   filters = [],
   actions = "",
@@ -8,48 +19,54 @@ export function SampleFilterPanel({
   emptyState = "No samples match the current filters.",
   listClass = "sample-picker",
   listAttributes = {},
+  actionsClassName = "",
 }) {
   return (
-    <div className="selection-summary">
-      {(summary || actions) ? (
-        <div className="selection-summary__bar">
-          {summary ? <div className="count-label">{summary}</div> : <span />}
-          {actions ? <div className="inline-actions workflow-selection-actions">{actions}</div> : null}
-        </div>
+    <Stack gap="compact">
+      {summary || actions ? (
+        <Inline align="center" justify={summary ? "between" : "end"}>
+          {summary ? <StatusBadge>{summary}</StatusBadge> : null}
+          {actions ? <Inline gap="default">{actions}</Inline> : null}
+        </Inline>
       ) : null}
-      <div className="sample-filter-grid">
+      <Grid columns={Math.min(filters.length, 4)}>
         {filters.map((filter) => {
           const fieldProps = {
             id: filter.id,
             ...(filter.kind === "select"
-              ? { value: filter.value ?? "", onChange: (event) => filter.onChange(event.target.value) }
-              : { value: filter.value ?? "", onChange: (event) => filter.onChange(event.target.value) }),
+              ? {
+                  value: filter.value ?? "",
+                  onChange: (event) => filter.onChange(event.target.value),
+                }
+              : {
+                  value: filter.value ?? "",
+                  onChange: (event) => filter.onChange(event.target.value),
+                }),
             disabled: filter.disabled || false,
             required: filter.required || false,
             placeholder: filter.placeholder || undefined,
           };
 
           return (
-            <div className="field" key={filter.id}>
-              <label htmlFor={filter.id}>{filter.label}</label>
+            <Field key={filter.id} label={filter.label} action={filter.action}>
               {filter.kind === "select" ? (
-                <select {...fieldProps}>
+                <Select {...fieldProps}>
                   {(filter.options || []).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               ) : (
-                <input type="text" {...fieldProps} />
+                <TextInput type="text" {...fieldProps} />
               )}
-            </div>
+            </Field>
           );
         })}
-      </div>
-      <div className={listClass} {...listAttributes}>
-        {rows || <div className="empty-state">{emptyState}</div>}
-      </div>
-    </div>
+      </Grid>
+      <Stack gap="compact" {...listAttributes}>
+        {rows || <EmptyState title={emptyState} />}
+      </Stack>
+    </Stack>
   );
 }

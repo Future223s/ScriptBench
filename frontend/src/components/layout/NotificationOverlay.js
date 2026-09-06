@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 const NotificationOverlayContext = createContext(null);
 const NOTIFICATION_TTL_MS = 10_000;
@@ -29,35 +37,45 @@ export function NotificationOverlayProvider({ children }) {
     }
   }, []);
 
-  const syncNotifications = useCallback((source, nextNotifications) => {
-    const normalized = Array.isArray(nextNotifications)
-      ? nextNotifications.map(normalizeNotification).filter(Boolean)
-      : [];
+  const syncNotifications = useCallback(
+    (source, nextNotifications) => {
+      const normalized = Array.isArray(nextNotifications)
+        ? nextNotifications.map(normalizeNotification).filter(Boolean)
+        : [];
 
-    clearTimer(source);
-    setNotifications((current) => {
-      const remaining = current.filter((item) => item.source !== source);
-      const nextItems = normalized.map((item, index) => ({
-        id: `${source}:${index}:${item.kind}:${item.message}`,
-        source,
-        ...item,
-      }));
-      return [...remaining, ...nextItems];
-    });
+      clearTimer(source);
+      setNotifications((current) => {
+        const remaining = current.filter((item) => item.source !== source);
+        const nextItems = normalized.map((item, index) => ({
+          id: `${source}:${index}:${item.kind}:${item.message}`,
+          source,
+          ...item,
+        }));
+        return [...remaining, ...nextItems];
+      });
 
-    if (normalized.length) {
-      const timerId = window.setTimeout(() => {
-        clearTimer(source);
-        setNotifications((current) => current.filter((item) => item.source !== source));
-      }, NOTIFICATION_TTL_MS);
-      timersRef.current.set(source, timerId);
-    }
-  }, [clearTimer]);
+      if (normalized.length) {
+        const timerId = window.setTimeout(() => {
+          clearTimer(source);
+          setNotifications((current) =>
+            current.filter((item) => item.source !== source),
+          );
+        }, NOTIFICATION_TTL_MS);
+        timersRef.current.set(source, timerId);
+      }
+    },
+    [clearTimer],
+  );
 
-  const clearNotifications = useCallback((source) => {
-    clearTimer(source);
-    setNotifications((current) => current.filter((item) => item.source !== source));
-  }, [clearTimer]);
+  const clearNotifications = useCallback(
+    (source) => {
+      clearTimer(source);
+      setNotifications((current) =>
+        current.filter((item) => item.source !== source),
+      );
+    },
+    [clearTimer],
+  );
 
   useEffect(() => {
     return () => {
@@ -75,5 +93,9 @@ export function NotificationOverlayProvider({ children }) {
     [clearNotifications, notifications, syncNotifications],
   );
 
-  return <NotificationOverlayContext.Provider value={value}>{children}</NotificationOverlayContext.Provider>;
+  return (
+    <NotificationOverlayContext.Provider value={value}>
+      {children}
+    </NotificationOverlayContext.Provider>
+  );
 }

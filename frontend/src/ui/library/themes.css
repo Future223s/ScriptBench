@@ -1,0 +1,96 @@
+[data-ui-theme] {
+  min-height: 100vh;
+}
+[data-ui-theme="atelier"] {
+  --bg: #f6f0e6;
+  --surface: rgba(255, 252, 246, 0.9);
+  --surface-solid: #fffdf9;
+  --surface-2: #eee3d4;
+  --text-primary: #2c2924;
+  --text-secondary: #63594e;
+  --text-muted: #867a6e;
+  --line: rgba(86, 65, 47, 0.16);
+  --line-strong: rgba(86, 65, 47, 0.32);
+  --accent: #ad5636;
+  --accent-strong: #833b27;
+  --accent-soft: #f6ddcf;
+  --green: #356f57;
+  --green-soft: #dcece2;
+  --blue: #3d6380;
+  --blue-soft: #dce9f1;
+  --amber: #a75a1d;
+  --amber-soft: #fff0d8;
+  --red: #ad3c32;
+  --red-soft: #fae2dd;
+  background: linear-gradient(145deg, #fbf7f0, var(--bg));
+}
+[data-ui-theme="console"] {
+  --bg: #f3f6f8;
+  --surface: rgba(255, 255, 255, 0.94);
+  --surface-solid: #fff;
+  --surface-2: #e9eef2;
+  --text-primary: #17222d;
+  --text-secondary: #4b5d6d;
+  --text-muted: #718190;
+  --line: rgba(30, 52, 70, 0.16);
+  --line-strong: rgba(30, 52, 70, 0.3);
+  --accent: #1d5f91;
+  --accent-strong: #12486f;
+  --accent-soft: #d9eaf7;
+  --green: #177263;
+  --green-soft: #d9eee9;
+  --blue: #1d5f91;
+  --blue-soft: #d9eaf7;
+  --amber: #a96812;
+  --amber-soft: #fff0d4;
+  --red: #b13d4b;
+  --red-soft: #fbe1e5;
+  --font-family-display: var(--font-family-body);
+  background: linear-gradient(145deg, #f8fafb, var(--bg));
+}
+[data-ui-theme="night"] {
+  color-scheme: dark;
+  --bg: #172027;
+  --surface: rgba(29, 39, 47, 0.92);
+  --surface-solid: #202b33;
+  --surface-2: #2a3740;
+  --text-primary: #f2eadc;
+  --text-secondary: #c4bdb1;
+  --text-muted: #9d9b96;
+  --line: rgba(231, 220, 201, 0.16);
+  --line-strong: rgba(231, 220, 201, 0.3);
+  --accent: #cc7650;
+  --accent-strong: #e39468;
+  --accent-soft: #4c2f29;
+  --green: #74b99d;
+  --green-soft: #213f38;
+  --blue: #86b9d4;
+  --blue-soft: #233c4b;
+  --amber: #e0ae67;
+  --amber-soft: #493923;
+  --red: #ed8e82;
+  --red-soft: #4c292b;
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.25);
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  background:
+    radial-gradient(circle at top left, #293d43, transparent 45%), var(--bg);
+}
+.ui-library-theme-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.ui-library-theme-nav a {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.ui-library-theme-nav a:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}

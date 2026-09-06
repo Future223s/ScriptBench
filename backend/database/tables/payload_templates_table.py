@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Integer, JSON, String, Table, UniqueConstraint, func
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    Integer,
+    JSON,
+    String,
+    Table,
+    UniqueConstraint,
+    func,
+)
 
 from ..schema import STATUS_CHECK_SQL, metadata
 
@@ -8,7 +18,10 @@ payload_template = Table(
     "payload_template",
     metadata,
     Column("payload_template_id", Integer, primary_key=True, autoincrement=True),
-    Column("payload_template_name", String(255), nullable=False, unique=True, index=True),
+    Column(
+        "payload_template_name", String(255), nullable=False, unique=True, index=True
+    ),
+    Column("model_family", String(64), nullable=False, index=True),
     Column("payload_template", JSON, nullable=False),
     Column("status", String(32), nullable=False, server_default="draft", index=True),
     Column(

@@ -1,0 +1,53 @@
+.app-shell {
+  min-height: 100vh;
+  background: transparent;
+}
+
+.topbar {
+  z-index: var(--layer-sticky);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--page-gutter) var(--space-2);
+  border-bottom-color: var(--border-subtle);
+  background: rgba(255, 253, 248, 0.78);
+  box-shadow: 0 8px 28px rgba(52, 38, 27, 0.07);
+}
+
+.topbar-header {
+  gap: var(--space-3);
+}
+
+.brand-title {
+  color: var(--accent-strong);
+  letter-spacing: 0.12em;
+}
+
+.prototype-nav {
+  gap: var(--space-1);
+  border-bottom-color: var(--border-subtle);
+}
+
+.prototype-nav-item {
+  min-height: 40px;
+  padding: 8px var(--space-3) 9px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: var(--text-secondary);
+}
+
+.prototype-nav-item:hover {
+  border-color: rgba(184, 87, 50, 0.24);
+  background: var(--surface-solid);
+}
+
+.prototype-nav-item.is-active {
+  border-color: rgba(184, 87, 50, 0.36);
+  background: var(--surface-solid);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.prototype-nav-title {
+  color: inherit;
+}
+
+.page-surface {
+  min-width: 0;
+}

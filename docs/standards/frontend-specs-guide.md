@@ -69,6 +69,7 @@ Provides the primary dashboard workspace.
 Structure:
 
 - Application shell
+
   - Global navigation
   - Main content region
 
@@ -78,16 +79,15 @@ Structure:
 
 Positioning:
 
-- Two-column desktop layout. 
-- Left navigation rail occupies approximately 25% width. 
+- Two-column desktop layout.
+- Left navigation rail occupies approximately 25% width.
 - Right analytics workspace occupies remaining space.
-  
+
 Behavior:
 
 - Analytics workspace is the primary visual focus.
 - Navigation remains compact.
 - Empty and loading states preserve the same page framing.
-
 ```
 
 # 2. Regions
@@ -116,7 +116,8 @@ A region may eventually be implemented by one or many components.
 | Behavior      | Region-specific behavior         |
 | Empty State   | What happens when no data exists |
 | Loading State | What happens while unavailable   |
-## Example 
+
+## Example
 
 ```
 ## Regions
@@ -252,7 +253,6 @@ Failure Behavior:
 - Preserve existing page state.
 ```
 
-
 # 4. State
 
 ## Purpose
@@ -274,13 +274,13 @@ State should describe:
 
 ## Fields
 
-| Field | Description |
-|---|---|
-| Name | State variable or state group |
-| Type | Data type or conceptual type |
-| Description | What the state represents |
-| Source | Where the value originates |
-| Consumers | Which regions use it |
+| Field       | Description                   |
+| ----------- | ----------------------------- |
+| Name        | State variable or state group |
+| Type        | Data type or conceptual type  |
+| Description | What the state represents     |
+| Source      | Where the value originates    |
+| Consumers   | Which regions use it          |
 
 ---
 
@@ -291,31 +291,30 @@ State should describe:
 
 ### Dashboard Data
 
-| State | Type | Description |
-|---|---|---|
-| sampleSets | SampleSet[] | Available sample sets |
-| selectedSampleSetId | ID \| null | Currently active sample set |
-| analytics | Analytics \| null | Analytics for selected sample set |
+| State               | Type              | Description                       |
+| ------------------- | ----------------- | --------------------------------- |
+| sampleSets          | SampleSet[]       | Available sample sets             |
+| selectedSampleSetId | ID \| null        | Currently active sample set       |
+| analytics           | Analytics \| null | Analytics for selected sample set |
 
 ---
 
 ### Async State
 
-| State | Type | Description |
-|---|---|---|
-| isLoadingDashboard | boolean | Initial dashboard loading status |
-| isLoadingAnalytics | boolean | Analytics refresh status |
-| error | Error \| null | Current page-level error |
+| State              | Type          | Description                      |
+| ------------------ | ------------- | -------------------------------- |
+| isLoadingDashboard | boolean       | Initial dashboard loading status |
+| isLoadingAnalytics | boolean       | Analytics refresh status         |
+| error              | Error \| null | Current page-level error         |
 
 ---
 
 ### UI State
 
-| State | Type | Description |
-|---|---|---|
+| State        | Type              | Description                                   |
+| ------------ | ----------------- | --------------------------------------------- |
 | deleteTarget | SampleSet \| null | Item currently awaiting deletion confirmation |
-| activePanel | string | Currently expanded analytics section |
-
+| activePanel  | string            | Currently expanded analytics section          |
 ```
 
 # 5. Hooks
@@ -339,6 +338,7 @@ The hook specification focuses on:
 Actions are the primary behavioral unit. State exists to define the boundary of responsibility, while state transition flows describe how actions modify that state.
 
 ---
+
 # Hooks Overview
 
 Provides a high-level index of all hooks involved in the feature.
@@ -370,6 +370,7 @@ A hook specification contains:
 - Actions
 
 ---
+
 ### Purpose
 
 Describes the responsibility and behavioral boundary of the hook.
@@ -381,6 +382,7 @@ The purpose should explain:
 - What behavior is intentionally outside its responsibility.
 
 ---
+
 ### State
 
 Defines the state owned and managed by the hook.
@@ -397,13 +399,14 @@ State may include:
 
 #### Fields
 
-|Field|Description|
-|---|---|
-|State|State value or state group owned by the hook|
-|Type|Data type or conceptual shape|
-|Purpose|What the state represents and why this hook owns it|
+| Field   | Description                                         |
+| ------- | --------------------------------------------------- |
+| State   | State value or state group owned by the hook        |
+| Type    | Data type or conceptual shape                       |
+| Purpose | What the state represents and why this hook owns it |
 
 ---
+
 ### Action Overview
 
 Provides a high-level index of the hook's available actions.
@@ -416,12 +419,13 @@ The overview should summarize:
 
 #### Fields
 
-|Field|Description|
-|---|---|
-|Action|Hook action name|
-|Purpose|Responsibility of the action|
+| Field   | Description                  |
+| ------- | ---------------------------- |
+| Action  | Hook action name             |
+| Purpose | Responsibility of the action |
 
 ---
+
 ### Actions
 
 Actions define the primary behavioral units of the hook.
@@ -451,6 +455,7 @@ They should capture:
 - Final resulting state.
 
 State transitions should be written as ordered steps.
+
 ## Example
 
 ```
@@ -580,6 +585,7 @@ Return the canvas to its neutral editing state.
 3. Clear temporary node and edge selections.
 4. Return the canvas to standard browsing mode.
 ```
+
 # 6. Components
 
 ## Purpose
@@ -602,11 +608,13 @@ Only top-level components should receive full specifications. Child elements sho
 The goals of this section are:
 
 1. **Component Decomposition**
+
    - Define the major UI building blocks.
    - Establish ownership boundaries between components.
    - Identify which UI elements belong together.
 
 2. **Visual Design**
+
    - Describe how the component should look and be arranged.
    - Capture hierarchy, emphasis, grouping, spacing philosophy, and layout relationships.
    - Provide an ASCII UI outline to communicate the intended composition.
@@ -619,18 +627,18 @@ The goals of this section are:
 
 ## Fields
 
-| Field | Description |
-|---|---|
-| Name | Top-level component name |
-| Purpose | Responsibility of the component within the page |
-| UI Outline | Character-based diagram showing the intended visual structure and hierarchy |
-| UI | Detailed description of visual composition, layout, emphasis, grouping, and presentation behavior |
-| Props | Data and callbacks required by the component |
-| Children | Internal subdivisions of the component, described briefly |
+| Field      | Description                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| Name       | Top-level component name                                                                          |
+| Purpose    | Responsibility of the component within the page                                                   |
+| UI Outline | Character-based diagram showing the intended visual structure and hierarchy                       |
+| UI         | Detailed description of visual composition, layout, emphasis, grouping, and presentation behavior |
+| Props      | Data and callbacks required by the component                                                      |
+| Children   | Internal subdivisions of the component, described briefly                                         |
 
 ## Example
 
-```
+````
 ## Components
 
 ### SampleSetAnalyticsPanel
@@ -692,7 +700,7 @@ Displays analytics for the currently selected sample set.
 - **Metrics Section** — Presents quality metrics and summary statistics.
 - **Workflow List** — Displays workflows associated with the sample set.
 - **Sample Inventory** — Displays the samples belonging to the selected sample set.
-```
+````
 
 # Specification Flow
 

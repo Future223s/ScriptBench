@@ -36,10 +36,12 @@ class SamplesRepository:
                 or_(
                     func.lower(samples.c.sample_id).like(pattern),
                     func.lower(samples.c.sample_name).like(pattern),
-                    func.lower(func.coalesce(samples.c.ground_truth_text, "")).like(pattern),
-                ) 
+                    func.lower(func.coalesce(samples.c.ground_truth_text, "")).like(
+                        pattern
+                    ),
+                )
             )
-            
+
         if limit is not None:
             stmt = stmt.limit(limit)
 
@@ -49,15 +51,25 @@ class SamplesRepository:
 
     def fetch_sample(self, sample_id: str) -> dict[str, Any] | None:
         with self.engine.begin() as conn:
-            row = conn.execute(select(samples).where(samples.c.sample_id == sample_id)).fetchone()
+            row = conn.execute(
+                select(samples).where(samples.c.sample_id == sample_id)
+            ).fetchone()
         return dict(row._mapping) if row is not None else None
 
-    def fetch_samples_by_names(self, sample_names: Sequence[str]) -> list[dict[str, Any]]:
-        names = [str(sample_name).strip() for sample_name in sample_names if str(sample_name).strip()]
+    def fetch_samples_by_names(
+        self, sample_names: Sequence[str]
+    ) -> list[dict[str, Any]]:
+        names = [
+            str(sample_name).strip()
+            for sample_name in sample_names
+            if str(sample_name).strip()
+        ]
         if not names:
             return []
         with self.engine.begin() as conn:
-            rows = conn.execute(select(samples).where(samples.c.sample_name.in_(names))).fetchall()
+            rows = conn.execute(
+                select(samples).where(samples.c.sample_name.in_(names))
+            ).fetchall()
         return [dict(row._mapping) for row in rows]
 
     def insert_sample_metadata(
@@ -98,5 +110,7 @@ class SamplesRepository:
 
     def delete_sample(self, sample_id: str) -> int:
         with self.engine.begin() as conn:
-            result = conn.execute(delete(samples).where(samples.c.sample_id == sample_id))
+            result = conn.execute(
+                delete(samples).where(samples.c.sample_id == sample_id)
+            )
         return int(result.rowcount or 0)

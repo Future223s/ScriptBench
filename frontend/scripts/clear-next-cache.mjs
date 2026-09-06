@@ -7,5 +7,8 @@ try {
   rmSync(nextDir, { recursive: true, force: true });
   console.log("[startup] cleared .next cache");
 } catch (error) {
-  console.warn("[startup] failed to clear .next cache:", error instanceof Error ? error.message : String(error));
+  console.warn(
+    "[startup] failed to clear .next cache:",
+    error instanceof Error ? error.message : String(error),
+  );
 }

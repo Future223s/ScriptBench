@@ -1,709 +1,412 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-
 import { workspaceApi } from "../../api/endpoints/workspace.ts";
 import { useNotificationOverlay } from "../../components/layout/NotificationOverlay.js";
 
-function initialWorkspaceState() {
+const initialSelection = {
+  pending: [],
+  queued: [],
+  running: [],
+  completed: [],
+};
+
+function initialState() {
   return {
-    loading: true,
-    error: "",
-    notice: "",
     workflows: [],
     selectedWorkflowId: null,
     workspacePickerWorkflowId: null,
-    workspace: null,
-    workspaceLoading: false,
+    selectedWorkflowSummary: null,
+    rows: [],
+    selectedRowIdsByColumn: initialSelection,
+    loadingWorkflows: true,
+    loadingWorkspace: false,
+    applyingExecutionAction: false,
     workspaceError: "",
-    workspaceActionStatus: "",
-    workspacePane: "jobs",
-    workspaceTranscriptionSet: "default",
-    workspaceJobSelection: { pending: [], queued: [], completed: [] },
-    workspaceReviewQuery: "",
-    workspaceReviewSort: "score",
-    workspaceReviewCompareExpanded: false,
-    selectedWorkspaceTranscriptionId: null,
-    selectedWorkspaceTranscription: null,
-    selectedJob: null,
-    jobDetailOpen: false,
+    workspaceNotice: "",
+    liveRowUpdateStatus: "disconnected",
+    selectedExecutionRowId: null,
+    selectedExecutionRow: null,
+    failureOverlay: null,
+    acknowledgedFailureRowIds: [],
   };
+}
+
+function visibleRows(rows) {
+  return (rows || []).filter(
+    (row) => row.execution_scope !== "decomposed_item",
+  );
+}
+
+function columnFor(row) {
+  const status = String(row.status || "pending").toLowerCase();
+  return ["pending", "queued", "running", "completed"].includes(status)
+    ? status
+    : "pending";
 }
 
 export function useWorkspacePage() {
   const router = useRouter();
   const { syncNotifications } = useNotificationOverlay() || {};
-  const [state, setState] = useState(() => initialWorkspaceState());
+  const [state, setState] = useState(initialState);
   const stateRef = useRef(state);
-  const rootRef = useRef(null);
-  const scrollPositionsRef = useRef(new Map());
-  const workspaceEventSocketRef = useRef(null);
-  const workspaceEventReconnectTimerRef = useRef(null);
-
-  function captureWorkspaceScrollPositions() {
-    const root = rootRef.current;
-    const positions = new Map();
-    if (root instanceof HTMLElement) {
-      root.querySelectorAll("[data-preserve-scroll-key]").forEach((element) => {
-        if (!(element instanceof HTMLElement)) return;
-        const key = element.dataset.preserveScrollKey;
-        if (!key) return;
-        positions.set(key, element.scrollTop);
-      });
-    }
-    scrollPositionsRef.current = positions;
-  }
+  const socketRef = useRef(null);
 
   function patchState(patch) {
-    captureWorkspaceScrollPositions();
     setState((current) => ({
       ...current,
       ...(typeof patch === "function" ? patch(current) : patch),
     }));
   }
 
-  function resetWorkspaceState({ keepSelectedWorkflowId = true, preserveWorkspaceUi = false } = {}) {
-    const current = stateRef.current;
-    return {
-      selectedWorkflowId: keepSelectedWorkflowId ? current.selectedWorkflowId : null,
-      workspace: null,
-      workspaceLoading: false,
-      workspaceError: "",
-      workspacePane: preserveWorkspaceUi ? current.workspacePane : "jobs",
-      workspaceTranscriptionSet: preserveWorkspaceUi ? current.workspaceTranscriptionSet : "default",
-      workspaceJobSelection: { pending: [], queued: [], completed: [] },
-      workspaceReviewQuery: preserveWorkspaceUi ? current.workspaceReviewQuery : "",
-      workspaceReviewSort: preserveWorkspaceUi ? current.workspaceReviewSort : "score",
-      workspaceReviewCompareExpanded: preserveWorkspaceUi ? current.workspaceReviewCompareExpanded : false,
-      selectedWorkspaceTranscriptionId: null,
-      selectedWorkspaceTranscription: null,
-      selectedJob: null,
-      jobDetailOpen: false,
-      workspaceActionStatus: "",
-    };
+  function closeSocket() {
+    socketRef.current?.close();
+    socketRef.current = null;
   }
 
-  function workspaceJobSelection(status) {
-    const selection = stateRef.current.workspaceJobSelection || {};
-    return Array.isArray(selection[status]) ? selection[status] : [];
-  }
-
-  function workspaceJobsByKind(kind) {
-    const workspace = stateRef.current.workspace || {};
-    if (kind === "pending") return Array.isArray(workspace.pending_jobs) ? workspace.pending_jobs : [];
-    if (kind === "queued") return Array.isArray(workspace.queued_jobs) ? workspace.queued_jobs : [];
-    if (kind === "completed") return Array.isArray(workspace.completed_jobs) ? workspace.completed_jobs : [];
-    return [];
-  }
-
-  function closeWorkspaceEventSocket() {
-    if (workspaceEventReconnectTimerRef.current != null) {
-      window.clearTimeout(workspaceEventReconnectTimerRef.current);
-      workspaceEventReconnectTimerRef.current = null;
-    }
-    if (workspaceEventSocketRef.current) {
-      const socket = workspaceEventSocketRef.current;
-      socket.onopen = null;
-      socket.onmessage = null;
-      socket.onerror = null;
-      socket.onclose = null;
-      socket.close();
-      workspaceEventSocketRef.current = null;
-    }
-  }
-
-  function scheduleWorkspaceEventReconnect() {
-    if (!stateRef.current.selectedWorkflowId || workspaceEventReconnectTimerRef.current != null) return;
-    workspaceEventReconnectTimerRef.current = window.setTimeout(() => {
-      workspaceEventReconnectTimerRef.current = null;
-      void connectWorkspaceEventSocket();
-    }, 1500);
-  }
-
-  function patchWorkspaceJob(jobPayload) {
-    const jobId = Number(jobPayload?.job_id);
-    if (!Number.isFinite(jobId)) return;
-
+  function applyRowsEvent({ event, message, rows }) {
+    if (!Array.isArray(rows) || !rows.length) return;
     patchState((current) => {
-      const replaceJob = (jobs) =>
-        jobs.map((job) => (Number(job.job_id) === jobId ? { ...job, ...jobPayload } : job));
-
-      const nextState = {
-        workspace: current.workspace
-          ? {
-              ...current.workspace,
-              pending_jobs: replaceJob(Array.isArray(current.workspace.pending_jobs) ? current.workspace.pending_jobs : []),
-              queued_jobs: replaceJob(Array.isArray(current.workspace.queued_jobs) ? current.workspace.queued_jobs : []),
-              completed_jobs: replaceJob(Array.isArray(current.workspace.completed_jobs) ? current.workspace.completed_jobs : []),
-            }
-          : current.workspace,
-      };
-
-      if (current.selectedJob && Number(current.selectedJob.job_id) === jobId) {
-        nextState.selectedJob = { ...current.selectedJob, ...jobPayload };
+      const changed = new Map(
+        rows.map((row) => [String(row.execution_job_id), row]),
+      );
+      const nextRows = current.rows.map((row) =>
+        changed.has(String(row.execution_job_id))
+          ? { ...row, ...changed.get(String(row.execution_job_id)) }
+          : row,
+      );
+      for (const row of rows) {
+        if (
+          !current.rows.some(
+            (item) =>
+              String(item.execution_job_id) === String(row.execution_job_id),
+          )
+        )
+          nextRows.push(row);
       }
-
-      return nextState;
+      const failed = event === "FAILED" ? rows[0] : null;
+      const next = { rows: nextRows };
+      if (failed) {
+        const errorMessage =
+          failed.error_message || message || "The execution job failed.";
+        next.failureOverlay = {
+          ...failed,
+          error_message: errorMessage,
+          raw_payload: { event, message, rows },
+        };
+        next.workspaceError = `Execution job ${failed.execution_job_id} failed: ${errorMessage}`;
+      }
+      return next;
     });
   }
 
-  async function connectWorkspaceEventSocket(workflowId = stateRef.current.selectedWorkflowId) {
-    if (!workflowId) return;
-    closeWorkspaceEventSocket();
-
-    const eventsUrl = workspaceApi.getWorkspaceEventsUrl();
-    if (!eventsUrl) return;
-
-    const socket = new WebSocket(eventsUrl);
-    workspaceEventSocketRef.current = socket;
-
+  function connectEvents(workflowId) {
+    const url = workspaceApi.getExecutionJobsEventsUrl(workflowId);
+    if (!url) return;
+    closeSocket();
+    const socket = new WebSocket(url);
+    socketRef.current = socket;
+    patchState({ liveRowUpdateStatus: "connecting" });
+    socket.onopen = () => patchState({ liveRowUpdateStatus: "connected" });
     socket.onmessage = (event) => {
       try {
-        const payload = JSON.parse(String(event.data || "{}"));
-        if (Number(payload.workflow_id) !== Number(workflowId)) return;
-
-        if (payload.event === "job.running" || payload.type === "job.running") {
-          patchWorkspaceJob({
-            ...(payload.job || {}),
-            status: "running",
-          });
-          patchState({ notice: payload.message || "Model request sent.", error: "", workspaceError: "" });
-          return;
-        }
-
-        if (payload.event === "job.queued" || payload.type === "job.queued") {
-          patchWorkspaceJob(payload.job || {});
-          patchState({ notice: payload.message || "Job queued.", error: "", workspaceError: "" });
-          loadWorkspace(workflowId);
-          return;
-        }
-
-        if (payload.event === "job.file_refs_uploaded" || payload.type === "job.file_refs_uploaded") {
-          patchState({ workspaceActionStatus: payload.message || "File refs uploaded.", error: "", workspaceError: "" });
-          return;
-        }
-
-        if (payload.event === "job.created" || payload.type === "job.created") {
-          patchState({ notice: payload.message || "Job created.", workspaceActionStatus: "", error: "", workspaceError: "" });
-          return;
-        }
-
-        if (payload.event === "job.completed" || payload.type === "job.completed") {
-          patchState({ notice: payload.message || "Transcription completed.", error: "", workspaceError: "" });
-          const openJobId = stateRef.current.selectedJob?.job_id;
-          void (async () => {
-            await loadWorkspace(workflowId);
-            if (openJobId != null) {
-              await openJobDetail(openJobId);
-            }
-          })();
-          return;
-        }
-
-        if (payload.event === "job.failed" || payload.type === "job.failed") {
-          patchState({ workspaceError: payload.message || "Transcription failed." });
-          const openJobId = stateRef.current.selectedJob?.job_id;
-          void (async () => {
-            await loadWorkspace(workflowId);
-            if (openJobId != null) {
-              await openJobDetail(openJobId);
-            }
-          })();
-        }
+        applyRowsEvent(JSON.parse(event.data));
       } catch {
-        // Keep the socket alive for malformed payloads.
+        /* Ignore malformed events. */
       }
     };
-
-    socket.onclose = () => {
-      if (workspaceEventSocketRef.current === socket) {
-        workspaceEventSocketRef.current = null;
-      }
-      scheduleWorkspaceEventReconnect();
-    };
-
-    socket.onerror = () => {
-      scheduleWorkspaceEventReconnect();
-    };
+    socket.onerror = () => patchState({ liveRowUpdateStatus: "error" });
+    socket.onclose = () => patchState({ liveRowUpdateStatus: "disconnected" });
   }
 
-  async function loadWorkflows({ keepSelection = true } = {}) {
-    patchState({ loading: true, error: "" });
-
-    try {
-      const response = await workspaceApi.getWorkflows();
-      console.log(response.workflows);
-      setState((current) => {
-        const workflows = response.workflows || [];
-        const selectedWorkflowId =
-          keepSelection &&
-          workflows.some((workflow) => Number(workflow.workflow_id) === Number(current.selectedWorkflowId))
-            ? current.selectedWorkflowId
-            : null;
-        const workspacePickerWorkflowId =
-          keepSelection &&
-          workflows.some((workflow) => Number(workflow.workflow_id) === Number(current.workspacePickerWorkflowId))
-            ? current.workspacePickerWorkflowId
-            : null;
-
-        return {
-          ...current,
-          loading: false,
-          error: "",
-          workflows,
-          selectedWorkflowId,
-          workspacePickerWorkflowId,
-          workspace: selectedWorkflowId == null ? null : current.workspace,
-          workspaceLoading: selectedWorkflowId == null ? false : current.workspaceLoading,
-          workspaceError: selectedWorkflowId == null ? "" : current.workspaceError,
-          selectedWorkspaceTranscriptionId: selectedWorkflowId == null ? null : current.selectedWorkspaceTranscriptionId,
-          selectedWorkspaceTranscription: selectedWorkflowId == null ? null : current.selectedWorkspaceTranscription,
-          selectedJob: selectedWorkflowId == null ? null : current.selectedJob,
-          jobDetailOpen: selectedWorkflowId == null ? false : current.jobDetailOpen,
-          workspaceActionStatus: selectedWorkflowId == null ? "" : current.workspaceActionStatus,
-        };
-      });
-    } catch (error) {
-      setState((current) => ({
-        ...current,
-        loading: false,
-        error: error instanceof Error ? error.message : String(error),
-        workflows: [],
-        selectedWorkflowId: null,
-        workspacePickerWorkflowId: null,
-        workspace: null,
-        workspaceLoading: false,
-        workspaceError: "",
-        workspaceActionStatus: "",
-        selectedWorkspaceTranscriptionId: null,
-        selectedWorkspaceTranscription: null,
-        selectedJob: null,
-        jobDetailOpen: false,
-      }));
-    }
-  }
-
-  async function loadWorkspace(workflowId = stateRef.current.selectedWorkflowId) {
-    const workflow = stateRef.current.workflows.find((item) => Number(item.workflow_id) === Number(workflowId));
-    if (!workflow) {
-      patchState({
-        ...resetWorkspaceState({ keepSelectedWorkflowId: false }),
-        workspaceError: "Select a workflow first.",
-      });
-      return;
-    }
-
-    patchState({
-      ...resetWorkspaceState({ preserveWorkspaceUi: true }),
-      selectedWorkflowId: workflow.workflow_id,
-      workspaceLoading: true,
+  function applyRows(rows, patch = {}) {
+    patchState((current) => {
+      const acknowledgedFailureRowIds = current.acknowledgedFailureRowIds || [];
+      const failedRow = rows.find(
+        (row) =>
+          row.error_message &&
+          !acknowledgedFailureRowIds.some(
+            (id) => String(id) === String(row.execution_job_id),
+          ),
+      );
+      return {
+        rows,
+        ...patch,
+        ...(failedRow && !current.failureOverlay
+          ? {
+              failureOverlay: failedRow,
+              workspaceError: `Execution job ${failedRow.execution_job_id} failed: ${failedRow.error_message}`,
+            }
+          : {}),
+      };
     });
-
-    try {
-      const workspace = await workspaceApi.getWorkspace(workflow.workflow_id);
-      const initialTranscription =
-        Array.isArray(workspace?.transcriptions) && workspace.transcriptions.length ? workspace.transcriptions[0] : null;
-
-      patchState({
-        workspace,
-        workspaceLoading: false,
-        workspaceError: "",
-        selectedWorkflowId: workflow.workflow_id,
-        selectedWorkspaceTranscriptionId: initialTranscription ? Number(initialTranscription.transcription_id) : null,
-        selectedWorkspaceTranscription: null,
-        workspaceReviewCompareExpanded: false,
-      });
-
-      void connectWorkspaceEventSocket(workflow.workflow_id);
-      if (initialTranscription) {
-        await loadWorkspaceTranscriptionDetail(initialTranscription.transcription_id);
-      }
-    } catch (error) {
-      patchState({
-        workspace: null,
-        workspaceLoading: false,
-        workspaceError: error instanceof Error ? error.message : String(error),
-        selectedWorkflowId: workflow.workflow_id,
-        selectedWorkspaceTranscriptionId: null,
-        selectedWorkspaceTranscription: null,
-        selectedJob: null,
-        jobDetailOpen: false,
-      });
-      closeWorkspaceEventSocket();
-    }
   }
 
-  async function openWorkspaceForWorkflow(workflowId) {
-    closeWorkspaceEventSocket();
-    patchState({
-      ...resetWorkspaceState({ keepSelectedWorkflowId: false }),
-      selectedWorkflowId: Number(workflowId),
-    });
-    await loadWorkspace(Number(workflowId));
+  async function refreshRows(workflowId) {
+    const rows = visibleRows(await workspaceApi.getExecutionJobs(workflowId));
+    applyRows(rows);
+    return rows;
   }
 
-  async function refreshCurrentView() {
-    if (stateRef.current.selectedWorkflowId) {
-      await loadWorkspace(stateRef.current.selectedWorkflowId);
-      return;
-    }
-    await loadWorkflows();
-  }
-
-  async function loadWorkspaceTranscriptionDetail(transcriptionId) {
-    if (!stateRef.current.selectedWorkflowId || transcriptionId == null) return;
-    try {
-      const detail = await workspaceApi.getWorkspaceTranscription(stateRef.current.selectedWorkflowId, transcriptionId);
-      patchState({
-        selectedWorkspaceTranscriptionId: Number(transcriptionId),
-        selectedWorkspaceTranscription: detail,
-        workspaceReviewCompareExpanded: stateRef.current.workspaceReviewCompareExpanded,
-      });
-    } catch (error) {
-      patchState({ workspaceError: error instanceof Error ? error.message : String(error) });
-    }
-  }
-
-  async function openJobDetail(jobId) {
-    try {
-      const workflowId = stateRef.current.selectedWorkflowId;
-      if (!workflowId) return;
-      const job = await workspaceApi.getWorkspaceJob(workflowId, jobId);
-      patchState({
-        selectedJob: job,
-        jobDetailOpen: true,
-        workspaceError: "",
-        error: "",
-      });
-    } catch (error) {
-      patchState({ error: error instanceof Error ? error.message : String(error) });
-    }
-  }
-
-  async function updateWorkspaceJobs({ action, jobIds = [], notice }) {
-    try {
-      const workflowId = stateRef.current.selectedWorkflowId;
-      if (!workflowId) {
-        patchState({ workspaceError: "Select a workflow first." });
+  async function refreshUntilSettled(workflowId) {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+      const rows = await refreshRows(workflowId);
+      if (!rows.some((row) => ["queued", "running"].includes(row.status))) {
         return;
       }
-
-      if (action === "queue") {
-        await workspaceApi.queueWorkspaceJobs(workflowId, jobIds);
-      } else {
-        await workspaceApi.retryWorkspaceJobs(workflowId, jobIds);
-      }
-
-      if (notice) {
-        patchState({ notice, error: "", workspaceError: "" });
-      } else {
-        patchState({ error: "", workspaceError: "" });
-      }
-
-      const openJobId = stateRef.current.selectedJob?.job_id;
-      patchState({ workspaceJobSelection: { pending: [], queued: [], completed: [] } });
-      await loadWorkspace(workflowId);
-      if (openJobId != null) {
-        await openJobDetail(openJobId);
-      }
-    } catch (error) {
-      patchState({
-        workspaceError: error instanceof Error ? error.message : String(error),
-      });
     }
   }
 
-  async function deleteWorkspaceJobs(kind) {
-    const workflowId = stateRef.current.selectedWorkflowId;
-    if (!workflowId) {
-      patchState({ workspaceError: "Select a workflow first." });
-      return;
-    }
-
-    const pendingJobs = workspaceJobsByKind("pending");
-    const queuedJobs = workspaceJobsByKind("queued");
-    const completedJobs = workspaceJobsByKind("completed");
-    const totalJobs = pendingJobs.length + queuedJobs.length + completedJobs.length;
-
-    if (kind === "all" && !totalJobs) {
-      patchState({ notice: "No jobs to delete.", error: "", workspaceError: "" });
-      return;
-    }
-
-    const label = kind === "pending" ? "pending" : kind === "queued" ? "queued" : kind === "completed" ? "completed" : "all";
-    const confirmMessage =
-      kind === "all"
-        ? "Delete all jobs in this workflow? This will remove the jobs and any assembled transcriptions linked to them."
-        : `Delete all ${label} jobs? This will remove the jobs and any assembled transcriptions linked to them.`;
-
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-
+  async function loadWorkflows() {
+    patchState({ loadingWorkflows: true, workspaceError: "" });
     try {
-      await workspaceApi.deleteWorkspaceJobs(workflowId, kind);
+      const response = await workspaceApi.getWorkflows();
       patchState({
-        notice: kind === "all" ? "Deleted all workflow jobs." : `Deleted ${workspaceJobsByKind(label).length} ${label} job(s).`,
-        error: "",
-        workspaceError: "",
-        workspaceJobSelection: { pending: [], queued: [], completed: [] },
-        selectedJob: null,
-        jobDetailOpen: false,
-        selectedWorkspaceTranscription: null,
-        selectedWorkspaceTranscriptionId: null,
+        workflows: response.workflows || [],
+        loadingWorkflows: false,
       });
-      await loadWorkspace(workflowId);
     } catch (error) {
       patchState({
+        workflows: [],
+        loadingWorkflows: false,
         workspaceError: error instanceof Error ? error.message : String(error),
       });
     }
   }
 
-  async function createWorkspaceJobs() {
-    const workflowId = stateRef.current.selectedWorkflowId;
-    if (!workflowId) {
-      patchState({ workspaceError: "Select a workflow first." });
-      return;
-    }
-
-    try {
-      patchState({
-        workspaceActionStatus: "Generating jobs...",
-        workspaceError: "",
-        error: "",
-        notice: "",
-      });
-      const response = await workspaceApi.createWorkspaceJobs(workflowId);
-      patchState({
-        workspaceActionStatus: "",
-        ...(response?.message ? { notice: response.message, error: "", workspaceError: "" } : {}),
-      });
-      await loadWorkspace(workflowId);
-    } catch (error) {
-      patchState({
-        workspaceActionStatus: "",
-        workspaceError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  async function assembleTranscriptions() {
-    const workflowId = stateRef.current.selectedWorkflowId;
-    if (!workflowId) {
-      patchState({ workspaceError: "Select a workflow first." });
-      return;
-    }
-
-    try {
-      await workspaceApi.createWorkspaceTranscriptions(workflowId, stateRef.current.workspaceTranscriptionSet || "default");
-      patchState({ notice: "Transcriptions assembled.", error: "", workspaceError: "" });
-      await loadWorkspace(workflowId);
-    } catch (error) {
-      patchState({
-        workspaceError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  async function scoreWorkspace() {
-    const workflowId = stateRef.current.selectedWorkflowId;
-    if (!workflowId) {
-      patchState({ workspaceError: "Select a workflow first." });
-      return;
-    }
-
-    try {
-      await workspaceApi.scoreWorkspace(workflowId);
-      patchState({ notice: "Transcriptions scored.", error: "", workspaceError: "" });
-      await loadWorkspace(workflowId);
-    } catch (error) {
-      patchState({
-        workspaceError: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  function setWorkspaceJobSelection(status, jobId, shouldInclude) {
-    const next = {
-      pending: [...workspaceJobSelection("pending")],
-      queued: [...workspaceJobSelection("queued")],
-      completed: [...workspaceJobSelection("completed")],
-    };
-    const list = next[status] || [];
-    const id = Number(jobId);
-    const index = list.indexOf(id);
-    if (shouldInclude && index === -1) list.push(id);
-    if (!shouldInclude && index !== -1) list.splice(index, 1);
-    patchState({ workspaceJobSelection: next });
-  }
-
-  function setWorkspacePane(workspacePane) {
-    if (!["jobs", "assembly", "review"].includes(workspacePane)) return;
-    patchState({ workspacePane });
-  }
-
-  function setWorkspaceTranscriptionSet(transcriptionSet) {
-    patchState({ workspaceTranscriptionSet: transcriptionSet || "default" });
-  }
-
-  function toggleReviewCompare() {
-    patchState({ workspaceReviewCompareExpanded: !stateRef.current.workspaceReviewCompareExpanded });
-  }
-
-  function setWorkspaceReviewQuery(query) {
-    patchState({ workspaceReviewQuery: query });
-  }
-
-  function setWorkspaceReviewSort(sort) {
-    patchState({ workspaceReviewSort: sort });
-  }
-
-  function setWorkspacePickerWorkflowId(workflowId) {
+  async function openWorkflowWorkspace(workflowId) {
+    const workflow = stateRef.current.workflows.find(
+      (item) => String(item.workflow_id) === String(workflowId),
+    );
+    if (!workflow)
+      return patchState({ workspaceError: "Select a workflow first." });
+    closeSocket();
     patchState({
-      workspacePickerWorkflowId: Number(workflowId) || null,
+      selectedWorkflowId: workflow.workflow_id,
+      selectedWorkflowSummary: workflow,
+      rows: [],
+      selectedRowIdsByColumn: initialSelection,
+      loadingWorkspace: true,
       workspaceError: "",
+      failureOverlay: null,
+      acknowledgedFailureRowIds: [],
     });
-  }
-
-  function selectTranscription(transcriptionId) {
-    const id = Number(transcriptionId);
-    if (!id) return;
-    patchState({ selectedWorkspaceTranscriptionId: id });
-    void loadWorkspaceTranscriptionDetail(id);
-  }
-
-  function toggleWorkspaceJobSelection(status, jobId, shouldInclude) {
-    if (!["pending", "queued", "completed"].includes(status)) return;
-    setWorkspaceJobSelection(status, jobId, shouldInclude);
-  }
-
-  function selectVisibleWorkspaceJobs(status) {
-    if (!["pending", "queued", "completed"].includes(status)) return;
-    const visibleJobs = workspaceJobsByKind(status);
-    const currentSelection = {
-      pending: workspaceJobSelection("pending"),
-      queued: workspaceJobSelection("queued"),
-      completed: workspaceJobSelection("completed"),
-    };
-    const visibleJobIds = visibleJobs.map((job) => Number(job.job_id));
-    const allSelected = visibleJobIds.length > 0 && visibleJobIds.every((jobId) => currentSelection[status].includes(jobId));
-    const nextSelection = { ...currentSelection, [status]: allSelected ? [] : visibleJobIds };
-    patchState({ workspaceJobSelection: nextSelection });
-  }
-
-  function queueSelectedJobs() {
-    void updateWorkspaceJobs({
-      action: "queue",
-      jobIds: workspaceJobSelection("pending"),
-      notice: "Pending jobs queued.",
-    });
-  }
-
-  function unqueueSelectedJobs() {
-    void updateWorkspaceJobs({
-      action: "retry",
-      jobIds: workspaceJobSelection("queued"),
-      notice: "Queued jobs moved back to pending.",
-    });
-  }
-
-  function retrySelectedJobs() {
-    void updateWorkspaceJobs({
-      action: "retry",
-      jobIds: workspaceJobSelection("completed"),
-      notice: "Completed jobs marked for retry.",
-    });
-  }
-
-  function openDashboard() {
-    router.push("/dashboard");
-  }
-
-  function closeJobDetail() {
-    patchState({
-      jobDetailOpen: false,
-      selectedJob: null,
-    });
-  }
-
-  function openSelectedWorkflow() {
-    if (!stateRef.current.workspacePickerWorkflowId) {
-      patchState({ workspaceError: "Select a workflow first." });
-      return;
+    try {
+      const rows = visibleRows(
+        await workspaceApi.getExecutionJobs(workflow.workflow_id),
+      );
+      applyRows(rows, { loadingWorkspace: false });
+      connectEvents(workflow.workflow_id);
+    } catch (error) {
+      patchState({
+        loadingWorkspace: false,
+        workspaceError: error instanceof Error ? error.message : String(error),
+      });
     }
-    void openWorkspaceForWorkflow(stateRef.current.workspacePickerWorkflowId);
+  }
+
+  function setWorkflowId(workflowId) {
+    patchState({ workspacePickerWorkflowId: workflowId || null });
+  }
+
+  async function startExecution() {
+    const workflowId = stateRef.current.selectedWorkflowId;
+    if (!workflowId) return;
+    patchState({ applyingExecutionAction: true, workspaceError: "" });
+    try {
+      await workspaceApi.startExecution(workflowId);
+      const rows = await refreshRows(workflowId);
+      patchState({ applyingExecutionAction: false });
+      if (rows.some((row) => ["queued", "running"].includes(row.status))) {
+        void refreshUntilSettled(workflowId).catch(() => {
+          /* Live events remain the fast path if polling cannot refresh. */
+        });
+      }
+    } catch (error) {
+      patchState({
+        applyingExecutionAction: false,
+        workspaceError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async function stopExecution() {
+    const workflowId = stateRef.current.selectedWorkflowId;
+    if (!workflowId) return;
+    patchState({ applyingExecutionAction: true, workspaceError: "" });
+    try {
+      await workspaceApi.stopExecution(workflowId);
+      patchState({ applyingExecutionAction: false });
+    } catch (error) {
+      patchState({
+        applyingExecutionAction: false,
+        workspaceError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async function resolveFailure(action) {
+    const workflowId = stateRef.current.selectedWorkflowId;
+    const rowId = stateRef.current.failureOverlay?.execution_job_id;
+    if (!workflowId || !rowId) return;
+    patchState({ applyingExecutionAction: true, workspaceError: "" });
+    try {
+      await workspaceApi.acknowledgeFailure(workflowId, rowId, action);
+      const rows = visibleRows(await workspaceApi.getExecutionJobs(workflowId));
+      patchState({
+        rows,
+        failureOverlay: null,
+        acknowledgedFailureRowIds: [
+          ...(stateRef.current.acknowledgedFailureRowIds || []),
+          rowId,
+        ],
+        applyingExecutionAction: false,
+      });
+    } catch (error) {
+      patchState({
+        applyingExecutionAction: false,
+        workspaceError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  function toggleRowSelection(column, rowId, selected) {
+    patchState((current) => {
+      const currentIds = current.selectedRowIdsByColumn[column] || [];
+      const id = String(rowId);
+      const ids = selected
+        ? [...new Set([...currentIds, id])]
+        : currentIds.filter((value) => value !== id);
+      return {
+        selectedRowIdsByColumn: {
+          ...current.selectedRowIdsByColumn,
+          [column]: ids,
+        },
+      };
+    });
+  }
+
+  function selectAllRows(column) {
+    const ids = stateRef.current.rows
+      .filter((row) => columnFor(row) === column)
+      .map((row) => String(row.execution_job_id));
+    patchState((current) => ({
+      selectedRowIdsByColumn: {
+        ...current.selectedRowIdsByColumn,
+        [column]:
+          current.selectedRowIdsByColumn[column]?.length === ids.length
+            ? []
+            : ids,
+      },
+    }));
+  }
+
+  async function applyAction(action, column) {
+    const workflowId = stateRef.current.selectedWorkflowId;
+    const ids = stateRef.current.selectedRowIdsByColumn[column] || [];
+    if (!workflowId || !ids.length) return;
+    patchState({
+      applyingExecutionAction: true,
+      workspaceError: "",
+      workspaceNotice: "",
+    });
+    try {
+      const response =
+        action === "queue"
+          ? await workspaceApi.queueExecutionJobs(workflowId, ids)
+          : action === "dequeue"
+            ? await workspaceApi.dequeueExecutionJobs(workflowId, ids)
+            : await workspaceApi.retryCompletedExecutionJobs(workflowId, ids);
+      const rows = visibleRows(await workspaceApi.getExecutionJobs(workflowId));
+      const count = Number(
+        response?.data?.[
+          action === "dequeue" ? "dequeued_count" : "queued_count"
+        ] || 0,
+      );
+      patchState({
+        rows,
+        selectedRowIdsByColumn: initialSelection,
+        applyingExecutionAction: false,
+        workspaceError:
+          count === 0
+            ? `No jobs were ${action === "dequeue" ? "dequeued" : "queued"}.`
+            : "",
+        workspaceNotice:
+          count > 0
+            ? `${count} job${count === 1 ? "" : "s"} ${action === "dequeue" ? "dequeued" : "queued"}.`
+            : "",
+      });
+    } catch (error) {
+      patchState({
+        applyingExecutionAction: false,
+        workspaceError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async function openRowDetail(rowId) {
+    const workflowId = stateRef.current.selectedWorkflowId;
+    const row = stateRef.current.rows.find(
+      (item) => String(item.execution_job_id) === String(rowId),
+    );
+    if (!workflowId || !row) return;
+    patchState({ selectedExecutionRowId: rowId, selectedExecutionRow: row });
+    try {
+      patchState({
+        selectedExecutionRow: await workspaceApi.getExecutionJobDetail(
+          workflowId,
+          rowId,
+        ),
+      });
+    } catch {
+      /* Keep board summary visible. */
+    }
+  }
+
+  function closeRowDetail() {
+    patchState({ selectedExecutionRowId: null, selectedExecutionRow: null });
+  }
+  function closeFailureOverlay() {
+    patchState({ failureOverlay: null });
   }
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
-
   useEffect(() => {
-    if (!syncNotifications) return undefined;
-
-    syncNotifications("workspace-page", [
-      { kind: "error", message: state.error },
-      { kind: "error", message: state.workspaceError },
-      { kind: "status", message: state.workspaceActionStatus },
-      { kind: "success", message: state.notice },
-    ]);
-  }, [syncNotifications, state.error, state.notice, state.workspaceActionStatus, state.workspaceError]);
-
-  useEffect(() => {
-    void loadWorkflows({ keepSelection: false });
-    return () => {
-      closeWorkspaceEventSocket();
-    };
+    void loadWorkflows();
+    return closeSocket;
   }, []);
-
-  useLayoutEffect(() => {
-    const positions = scrollPositionsRef.current;
-    if (!positions.size) return;
-
-    const root = rootRef.current;
-    if (!(root instanceof HTMLElement)) return;
-
-    root.querySelectorAll("[data-preserve-scroll-key]").forEach((element) => {
-      if (!(element instanceof HTMLElement)) return;
-      const key = element.dataset.preserveScrollKey;
-      if (!key || !positions.has(key)) return;
-      element.scrollTop = positions.get(key);
-    });
-
-    scrollPositionsRef.current = new Map();
-  }, [state]);
-
-  const actions = {
-    openDashboard,
-    openSelectedWorkflow,
-    setWorkspacePickerWorkflowId,
-    setWorkspacePane,
-    setWorkspaceTranscriptionSet,
-    toggleReviewCompare,
-    setWorkspaceReviewQuery,
-    setWorkspaceReviewSort,
-    selectTranscription,
-    toggleWorkspaceJobSelection,
-    selectVisibleWorkspaceJobs,
-    queueSelectedJobs,
-    unqueueSelectedJobs,
-    retrySelectedJobs,
-    createWorkspaceJobs,
-    deleteWorkspaceJobs,
-    assembleTranscriptions,
-    scoreWorkspace,
-    closeJobDetail,
-    refreshCurrentView,
-    openWorkspaceForWorkflow,
-    openJobDetail,
-    loadWorkspace,
-  };
+  useEffect(() => {
+    syncNotifications?.("workspace-page", [
+      { kind: "error", message: state.workspaceError },
+      { kind: "success", message: state.workspaceNotice },
+    ]);
+  }, [state.workspaceError, state.workspaceNotice, syncNotifications]);
 
   return {
     state,
-    actions,
-    rootRef,
+    rootRef: useRef(null),
+    actions: {
+      openDashboard: () => router.push("/dashboard"),
+      setWorkspacePickerWorkflowId: setWorkflowId,
+      openSelectedWorkflow: () =>
+        void openWorkflowWorkspace(stateRef.current.workspacePickerWorkflowId),
+      openWorkflowWorkspace,
+      startExecution,
+      stopExecution,
+      toggleRowSelection,
+      selectAllRows,
+      queueSelectedRows: () => void applyAction("queue", "pending"),
+      dequeueSelectedRows: () => void applyAction("dequeue", "queued"),
+      retryCompletedJobs: () => void applyAction("retry", "completed"),
+      openRowDetail,
+      closeRowDetail,
+      closeFailureOverlay,
+      retryFailure: () => void resolveFailure("retry"),
+      stopFailureExecution: () => void resolveFailure("stop_execution"),
+    },
   };
 }

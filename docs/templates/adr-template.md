@@ -20,4 +20,3 @@ Include only the facts needed to understand why the decision exists.
 State the chosen approach in plain language.
 If useful, include the boundary of the decision: what this ADR does and does not cover.
 -->
-

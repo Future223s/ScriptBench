@@ -16,6 +16,7 @@ export default function DashboardRoute() {
       selectedSampleSetId={dashboard.selectedSampleSetId}
       sampleSetAnalytics={dashboard.sampleSetAnalytics}
       sampleSetAnalyticsLoading={dashboard.sampleSetAnalyticsLoading}
+      sampleSetAnalyticsError={dashboard.sampleSetAnalyticsError}
       onSelectSampleSet={dashboard.selectSampleSet}
       onDeleteSampleSet={dashboard.removeSampleSet}
       onDeleteWorkflow={dashboard.removeWorkflow}

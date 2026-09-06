@@ -2,7 +2,7 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(14px);
@@ -13,8 +13,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 15px 16px;
+  gap: var(--space-3);
+  padding: var(--space-4);
   border-bottom: 1px solid var(--line);
 }
 
@@ -55,7 +55,6 @@
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
   letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 .workflow-builder-canvas-header .panel__heading,

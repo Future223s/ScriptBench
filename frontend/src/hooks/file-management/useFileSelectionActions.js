@@ -53,11 +53,15 @@ async function performDeleteRecords(type, recordIds) {
     return;
   }
 
-  await fileManagementApi.deleteSamples(recordIds.map((recordId) => recordIdToString(recordId)));
+  await fileManagementApi.deleteSamples(
+    recordIds.map((recordId) => recordIdToString(recordId)),
+  );
 }
 
 export function useFileSelectionActions() {
-  const [selections, setSelections] = useState(() => cloneSelections(DEFAULT_SELECTIONS));
+  const [selections, setSelections] = useState(() =>
+    cloneSelections(DEFAULT_SELECTIONS),
+  );
   const [drafts, setDrafts] = useState(createInitialDrafts);
   const [managementModalOpen, setManagementModalOpen] = useState(false);
 
@@ -131,26 +135,28 @@ export function useFileSelectionActions() {
   }
 
   async function submitManagement(context) {
-    const {
-      type,
-      action,
-      visibleIds,
-      effects,
-    } = context;
+    const { type, action, visibleIds, effects } = context;
     const normalizedType = normalizeManagementType(type);
     const normalizedAction = normalizeManagementAction(normalizedType, action);
     const explicitSelection = [...(selections[normalizedType] || [])];
 
     try {
-      if (normalizedType === "sample" && normalizedAction === "create-sample-set") {
+      if (
+        normalizedType === "sample" &&
+        normalizedAction === "create-sample-set"
+      ) {
         const sampleSetName = drafts.sample_set_name.trim();
         if (!sampleSetName) {
           effects.setError("Sample set name is required.");
           return;
         }
-        const selectedIds = explicitSelection.length ? explicitSelection : visibleIds;
+        const selectedIds = explicitSelection.length
+          ? explicitSelection
+          : visibleIds;
         if (!selectedIds.length) {
-          effects.setError("Select at least one sample or make sure the filter returns results.");
+          effects.setError(
+            "Select at least one sample or make sure the filter returns results.",
+          );
           return;
         }
 
@@ -174,22 +180,31 @@ export function useFileSelectionActions() {
         return;
       }
 
-      if (normalizedType === "artifact" && normalizedAction === "create-artifact-group") {
+      if (
+        normalizedType === "artifact" &&
+        normalizedAction === "create-artifact-group"
+      ) {
         const artifactGroupName = drafts.artifact_group_name.trim();
         if (!artifactGroupName) {
           effects.setError("Artifact group name is required.");
           return;
         }
-        const selectedIds = explicitSelection.length ? explicitSelection : visibleIds;
+        const selectedIds = explicitSelection.length
+          ? explicitSelection
+          : visibleIds;
         if (!selectedIds.length) {
-          effects.setError("Select at least one artifact or make sure the filter returns results.");
+          effects.setError(
+            "Select at least one artifact or make sure the filter returns results.",
+          );
           return;
         }
 
         await fileManagementApi.createArtifactGroup({
           name: artifactGroupName,
           description: drafts.artifact_group_description.trim() || null,
-          artifact_ids: selectedIds.map((artifactId) => Number(artifactId)).filter((artifactId) => Number.isFinite(artifactId)),
+          artifact_ids: selectedIds
+            .map((artifactId) => Number(artifactId))
+            .filter((artifactId) => Number.isFinite(artifactId)),
           matching_type: "manual",
           matching_rule: {},
           mapping_type: "one-to-one",
@@ -209,17 +224,26 @@ export function useFileSelectionActions() {
       }
 
       if (!explicitSelection.length) {
-        effects.setError(`Select at least one ${objectTypeLabel(normalizedType).toLowerCase().slice(0, -1)} to delete.`);
+        effects.setError(
+          `Select at least one ${objectTypeLabel(normalizedType).toLowerCase().slice(0, -1)} to delete.`,
+        );
         return;
       }
-      if (!window.confirm(`Delete ${explicitSelection.length} ${objectTypeLabel(normalizedType).toLowerCase()}? This cannot be undone.`)) return;
+      if (
+        !window.confirm(
+          `Delete ${explicitSelection.length} ${objectTypeLabel(normalizedType).toLowerCase()}? This cannot be undone.`,
+        )
+      )
+        return;
 
       await performDeleteRecords(normalizedType, explicitSelection);
 
       effects.closeDetailIfMatching(normalizedType);
       clearSelection(normalizedType);
       setManagementModalOpen(false);
-      effects.setNotice(`${explicitSelection.length} ${objectTypeLabel(normalizedType).toLowerCase()} deleted.`);
+      effects.setNotice(
+        `${explicitSelection.length} ${objectTypeLabel(normalizedType).toLowerCase()} deleted.`,
+      );
       effects.setError("");
       await effects.refresh();
       window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));

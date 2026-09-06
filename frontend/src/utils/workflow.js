@@ -1,4 +1,10 @@
-export const modelFamilies = ["gemini", "gpt", "claude", "mistral", "escriptorium"];
+export const modelFamilies = [
+  "gemini",
+  "gpt",
+  "claude",
+  "mistral",
+  "escriptorium",
+];
 
 export function defaultWorkflowDraft() {
   return {
@@ -68,7 +74,9 @@ export function imageDataUrl(sample) {
 }
 
 function matchesSampleQuery(value, query, mode) {
-  const queryText = String(query || "").trim().toLowerCase();
+  const queryText = String(query || "")
+    .trim()
+    .toLowerCase();
   if (!queryText) return true;
 
   const candidate = String(value ?? "").toLowerCase();
@@ -80,23 +88,32 @@ function matchesSampleQuery(value, query, mode) {
 export function filterSamplesForPicker(samples, query, mode = "contains") {
   return samples.filter((sample) => {
     return (
-      matchesSampleQuery(sample.sample_id, query, mode)
-      || matchesSampleQuery(sample.ground_truth_text, query, mode)
+      matchesSampleQuery(sample.sample_id, query, mode) ||
+      matchesSampleQuery(sample.ground_truth_text, query, mode)
     );
   });
 }
 
 export function sampleHasGroup(groupings, sampleId, groupName) {
   const group = groupings.find((item) => item.name === groupName);
-  return Boolean(group?.assignments && Object.hasOwn(group.assignments, sampleId));
+  return Boolean(
+    group?.assignments && Object.hasOwn(group.assignments, sampleId),
+  );
 }
 
 export function visibleSamples(samples, groupings, groupFilter) {
   if (!groupFilter) return samples;
-  return samples.filter((sample) => sampleHasGroup(groupings, sample.sample_id, groupFilter));
+  return samples.filter((sample) =>
+    sampleHasGroup(groupings, sample.sample_id, groupFilter),
+  );
 }
 
-export function visibleWorkflowSamples(samples, groupings, groupName, groupValue) {
+export function visibleWorkflowSamples(
+  samples,
+  groupings,
+  groupName,
+  groupValue,
+) {
   if (!groupName) return samples;
   const group = selectedGrouping(groupings, groupName);
   if (!group) return [];
@@ -107,13 +124,19 @@ export function visibleWorkflowSamples(samples, groupings, groupName, groupValue
   return samples.filter((sample) => {
     if (!Object.hasOwn(assignments, sample.sample_id)) return false;
     if (!groupValue) return true;
-    return normalizeGroupValue(assignments[sample.sample_id]) === normalizedGroupValue;
+    return (
+      normalizeGroupValue(assignments[sample.sample_id]) ===
+      normalizedGroupValue
+    );
   });
 }
 
 export function membershipsForSample(groupings, sampleId) {
   return groupings
-    .filter((group) => group.assignments && Object.hasOwn(group.assignments, sampleId))
+    .filter(
+      (group) =>
+        group.assignments && Object.hasOwn(group.assignments, sampleId),
+    )
     .map((group) => ({
       group: group.name,
       value: normalizeGroupValue(group.assignments[sampleId]),
@@ -138,15 +161,23 @@ export function valuesForGrouping(group) {
 
 export function buildWorkflowPayload(draft, sampleSets = []) {
   const selectionMode = draft.input_mode === "single" ? "single" : "batch";
-  const batchSize = selectionMode === "single" ? 1 : Math.max(1, Number(draft.batch_size) || 5);
+  const batchSize =
+    selectionMode === "single" ? 1 : Math.max(1, Number(draft.batch_size) || 5);
   const examples = draft.examples
-    .filter((example) => example.title.trim() || example.instruction_text.trim() || example.assets.trim())
+    .filter(
+      (example) =>
+        example.title.trim() ||
+        example.instruction_text.trim() ||
+        example.assets.trim(),
+    )
     .map((example) => ({
       title: example.title.trim(),
       instruction_text: example.instruction_text.trim(),
       assets: splitAssets(example.assets),
     }));
-  const itemSchemaEntries = Array.isArray(draft.item_schema_entries) ? draft.item_schema_entries : [];
+  const itemSchemaEntries = Array.isArray(draft.item_schema_entries)
+    ? draft.item_schema_entries
+    : [];
   const itemSchema = Object.fromEntries(
     itemSchemaEntries
       .map((entry) => ({
@@ -156,15 +187,20 @@ export function buildWorkflowPayload(draft, sampleSets = []) {
       .filter((entry) => entry.field && entry.description)
       .map((entry) => [entry.field, entry.description]),
   );
-  const normalizedItemSchema = Object.keys(itemSchema).length ? itemSchema : null;
+  const normalizedItemSchema = Object.keys(itemSchema).length
+    ? itemSchema
+    : null;
   const outputFormatType = draft.output_format_type.trim() || "plain_text";
   const sampleSetId = Number(draft.sample_set_id) || null;
-  const sampleSet = sampleSets.find((item) => Number(item.sample_set_id) === sampleSetId) || null;
-  const sampleIds = Array.isArray(draft.sample_ids) && draft.sample_ids.length
-    ? draft.sample_ids
-    : Array.isArray(sampleSet?.sample_ids)
-      ? sampleSet.sample_ids
-      : [];
+  const sampleSet =
+    sampleSets.find((item) => Number(item.sample_set_id) === sampleSetId) ||
+    null;
+  const sampleIds =
+    Array.isArray(draft.sample_ids) && draft.sample_ids.length
+      ? draft.sample_ids
+      : Array.isArray(sampleSet?.sample_ids)
+        ? sampleSet.sample_ids
+        : [];
 
   return {
     workflow_name: draft.workflow_name.trim(),
@@ -172,7 +208,10 @@ export function buildWorkflowPayload(draft, sampleSets = []) {
     sample_set_id: sampleSetId,
     model_family: draft.model_family,
     model: draft.model.trim() || null,
-    groups: draft.groups.split(",").map((item) => item.trim()).filter(Boolean),
+    groups: draft.groups
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
     prompt_spec: {
       instructions: draft.instructions.trim(),
       examples,
@@ -183,7 +222,8 @@ export function buildWorkflowPayload(draft, sampleSets = []) {
       },
       output_format: {
         type: outputFormatType,
-        item_schema: outputFormatType === "plain_text" ? null : normalizedItemSchema,
+        item_schema:
+          outputFormatType === "plain_text" ? null : normalizedItemSchema,
       },
     },
     status: "draft",

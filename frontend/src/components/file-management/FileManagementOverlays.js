@@ -2,16 +2,23 @@
 
 import { EmptyState } from "../common/EmptyState.js";
 import { Modal } from "../common/Modal.js";
+import { Button, Dialog, SegmentedControl } from "../../ui/primitives/index.js";
 import { FileUploadPanel } from "./FileUploadPanel.js";
 import { ManagementFields } from "./SampleManagementPanel.js";
-import { managementModes, objectTypeLabel, visibleRecordsForType } from "../../hooks/file-management/fileManagementShared.js";
+import { ResourceCatalogOverlays } from "../resources/ResourceCatalogOverlays.js";
+import {
+  managementModes,
+  objectTypeLabel,
+  visibleRecordsForType,
+} from "../../hooks/file-management/fileManagementShared.js";
 
 function RecordDetailModal({ open, type, record, actions }) {
   const mimeType = record?.mimeType || "";
   const blobBase64 = record?.blobBase64 || "";
-  const src = blobBase64 && mimeType && String(mimeType).startsWith("image/")
-    ? `data:${mimeType};base64,${blobBase64}`
-    : "";
+  const src =
+    blobBase64 && mimeType && String(mimeType).startsWith("image/")
+      ? `data:${mimeType};base64,${blobBase64}`
+      : "";
   const metaRows = record?.metadata || [];
   const isSample = type === "sample";
   const isAsset = type === "asset";
@@ -19,7 +26,12 @@ function RecordDetailModal({ open, type, record, actions }) {
   const detailSections = record?.detailSections || [];
 
   return (
-    <div className={["modal-backdrop", open ? "" : "is-hidden"].filter(Boolean).join(" ")} data-modal="file-detail">
+    <div
+      className={["modal-backdrop", open ? "" : "is-hidden"]
+        .filter(Boolean)
+        .join(" ")}
+      data-modal="file-detail"
+    >
       <section className="modal">
         <div className="modal-header">
           <div className="panel-title">
@@ -27,10 +39,19 @@ function RecordDetailModal({ open, type, record, actions }) {
             <span>{mimeType || record?.typeLabel || type}</span>
           </div>
           <div className="inline-actions">
-            <button className="btn-danger" type="button" onClick={() => actions.deleteRecord(type, record?.id)} disabled={!record?.id}>
+            <button
+              className="btn-danger"
+              type="button"
+              onClick={() => actions.deleteRecord(type, record?.id)}
+              disabled={!record?.id}
+            >
               Delete
             </button>
-            <button className="btn-ghost" type="button" onClick={actions.closeRecordDetail}>
+            <button
+              className="btn-ghost"
+              type="button"
+              onClick={actions.closeRecordDetail}
+            >
               Close
             </button>
           </div>
@@ -70,7 +91,11 @@ function RecordDetailModal({ open, type, record, actions }) {
                       {additionalMetadata.map(([label, value]) => (
                         <div className="metadata-row" key={label}>
                           <span>{label}</span>
-                          <strong>{typeof value === "object" ? JSON.stringify(value) : String(value)}</strong>
+                          <strong>
+                            {typeof value === "object"
+                              ? JSON.stringify(value)
+                              : String(value)}
+                          </strong>
                         </div>
                       ))}
                     </div>
@@ -103,7 +128,11 @@ function RecordDetailModal({ open, type, record, actions }) {
                           {additionalMetadata.map(([label, value]) => (
                             <div className="metadata-row" key={label}>
                               <span>{label}</span>
-                              <strong>{typeof value === "object" ? JSON.stringify(value) : String(value)}</strong>
+                              <strong>
+                                {typeof value === "object"
+                                  ? JSON.stringify(value)
+                                  : String(value)}
+                              </strong>
                             </div>
                           ))}
                         </div>
@@ -134,7 +163,11 @@ function RecordDetailModal({ open, type, record, actions }) {
                           {additionalMetadata.map(([label, value]) => (
                             <div className="metadata-row" key={label}>
                               <span>{label}</span>
-                              <strong>{typeof value === "object" ? JSON.stringify(value) : String(value)}</strong>
+                              <strong>
+                                {typeof value === "object"
+                                  ? JSON.stringify(value)
+                                  : String(value)}
+                              </strong>
                             </div>
                           ))}
                         </div>
@@ -152,7 +185,9 @@ function RecordDetailModal({ open, type, record, actions }) {
 }
 
 function ManagementModal({ open, state, actions }) {
-  const type = managementModes[state.managementType] ? state.managementType : "sample";
+  const type = managementModes[state.managementType]
+    ? state.managementType
+    : "sample";
   const mode = managementModes[type];
   const visibleRecords = visibleRecordsForType(state, type);
   const selectedIds = state.selections[type] || [];
@@ -183,7 +218,11 @@ function ManagementModal({ open, state, actions }) {
           <h2>{primaryLabel}</h2>
           <span>{mode.title}</span>
         </div>
-        <button className="btn-ghost" type="button" onClick={actions.closeManagementModal}>
+        <button
+          className="btn-ghost"
+          type="button"
+          onClick={actions.closeManagementModal}
+        >
           Close
         </button>
       </div>
@@ -202,17 +241,30 @@ function ManagementModal({ open, state, actions }) {
           </div>
           {type === "asset" ? (
             <EmptyState className="file-management-modal-empty">
-              Asset deletion uses the current selection. If nothing is selected, the action stays disabled.
+              Asset deletion uses the current selection. If nothing is selected,
+              the action stays disabled.
             </EmptyState>
           ) : (
-            <ManagementFields type={type} draft={state.drafts} actions={actions} />
+            <ManagementFields
+              type={type}
+              draft={state.drafts}
+              actions={actions}
+            />
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn-ghost" type="button" onClick={actions.closeManagementModal}>
+          <button
+            className="btn-ghost"
+            type="button"
+            onClick={actions.closeManagementModal}
+          >
             Cancel
           </button>
-          <button className={type === "asset" ? "btn-danger" : "btn-primary"} type="submit" disabled={type === "asset" && !selectedCount}>
+          <button
+            className={type === "asset" ? "btn-danger" : "btn-primary"}
+            type="submit"
+            disabled={type === "asset" && !selectedCount}
+          >
             {primaryLabel}
           </button>
         </div>
@@ -230,29 +282,38 @@ function UploadModal({ open, state, actions }) {
         : "Samples";
 
   return (
-    <Modal
+    <Dialog
       open={open}
-      panelClassName="file-upload-modal"
-      data-modal="file-upload"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          actions.closeUploadPanel();
-        }
-      }}
+      title={`Upload ${modeLabel}`}
+      size="wide"
+      onClose={actions.closeUploadPanel}
+      actions={
+        <SegmentedControl
+          items={[
+            { id: "single", label: "Single file" },
+            { id: "folder", label: "Folder" },
+          ]}
+          value={state.uploadMode}
+          onChange={actions.setUploadMode}
+        />
+      }
+      footer={
+        <Button
+          type="submit"
+          form="file-upload-form"
+          variant="primary"
+          disabled={state.uploadLoading}
+        >
+          {state.uploadLoading ? "Uploading…" : `Upload ${modeLabel}`}
+        </Button>
+      }
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>Upload files</h2>
-          <span>{modeLabel}</span>
-        </div>
-        <button className="btn-ghost" type="button" onClick={actions.closeUploadPanel}>
-          Close
-        </button>
-      </div>
-      <div className="modal-body file-upload-modal-body">
-        <FileUploadPanel state={state} actions={actions} />
-      </div>
-    </Modal>
+      <FileUploadPanel
+        state={state}
+        actions={actions}
+        formId="file-upload-form"
+      />
+    </Dialog>
   );
 }
 
@@ -265,8 +326,22 @@ export function FileManagementOverlays({ state, actions }) {
         record={state.selectedRecord}
         actions={{ ...actions, detailLoading: state.detailLoading }}
       />
-      <ManagementModal open={state.managementModalOpen} state={state} actions={actions} />
-      <UploadModal open={state.uploadPanelOpen} state={state} actions={actions} />
+      <ManagementModal
+        open={state.managementModalOpen}
+        state={state}
+        actions={actions}
+      />
+      <UploadModal
+        open={state.uploadPanelOpen}
+        state={state}
+        actions={actions}
+      />
+      {state.workflowResourceState && actions.workflowResourceActions ? (
+        <ResourceCatalogOverlays
+          state={state.workflowResourceState}
+          actions={actions.workflowResourceActions}
+        />
+      ) : null}
     </>
   );
 }

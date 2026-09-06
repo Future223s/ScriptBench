@@ -14,7 +14,6 @@
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
   letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 .field__control,
@@ -25,12 +24,12 @@
 .field-row select,
 .field-row textarea {
   width: 100%;
-  min-height: 38px;
+  min-height: var(--control-height);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 253, 249, 0.9);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
   color: var(--text-primary);
-  padding: 9px 10px;
+  padding: 9px var(--space-3);
   outline: none;
 }
 
@@ -42,7 +41,7 @@
 .field-row select:focus,
 .field-row textarea:focus {
   border-color: rgba(212, 106, 50, 0.58);
-  box-shadow: 0 0 0 3px rgba(212, 106, 50, 0.12);
+  box-shadow: 0 0 0 3px rgba(184, 87, 50, 0.14);
 }
 
 textarea {
@@ -76,7 +75,6 @@ textarea {
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
   letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 .step.is-active {
@@ -119,7 +117,7 @@ textarea {
   align-items: center;
   gap: 6px;
   padding: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
   margin-bottom: 14px;
 }
@@ -127,7 +125,7 @@ textarea {
 .mode-option {
   min-height: 34px;
   padding: 7px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   background: transparent;
   font-size: 12px;
@@ -138,7 +136,7 @@ textarea {
   background: var(--surface-solid);
   border-color: var(--line);
   color: var(--text-primary);
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 2px 6px rgba(52, 38, 27, 0.1);
 }
 
 .inputs-card {

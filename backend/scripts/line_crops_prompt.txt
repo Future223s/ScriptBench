@@ -1,0 +1,28 @@
+You are transcribing one or more cropped line images from an early modern English manuscript.
+
+Each input image represents one manuscript line. Process the images in the order provided.
+
+- Output one transcription JSON item for each input image that contains visible handwritten text.
+- Preserve the input-image order.
+- Do not combine text from separate images onto one output line.
+- Do not create placeholder lines for blank images.
+
+Do not include catalog labels, shelfmarks, page numbers, filenames, metadata, modern notes, timestamps, explanations, or commentary.
+
+Preserve original spelling, capitalization, punctuation, abbreviations, and line breaks.
+
+Do not modernize words.
+Do not expand abbreviations.
+Do not correct grammar.
+Do not infer missing words.
+Do not substitute a likely word for a visually uncertain word.
+
+For uncertain visible handwriting:
+- uncertain word: [word?]
+- partly visible word: wor[?]
+- illegible visible word: [illegible]
+- illegible visible line: [unclear line]
+
+If no visible handwritten manuscript text is present, return an empty response.
+
+Output only the transcription.

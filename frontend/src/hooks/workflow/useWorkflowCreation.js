@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 
 import { workflowBuilderApi } from "../../api/endpoints/workflowBuilder.ts";
 import { APP_DATA_CHANGED_EVENT } from "../../utils/appEvents.js";
-import { buildWorkflowPayload, defaultBatchItemSchemaEntries, defaultWorkflowDraft } from "../../utils/workflow.js";
+import {
+  buildWorkflowPayload,
+  defaultBatchItemSchemaEntries,
+  defaultWorkflowDraft,
+} from "../../utils/workflow.js";
 import { useNotificationOverlay } from "../../components/layout/NotificationOverlay.js";
 
 function createInitialState() {
@@ -22,7 +26,9 @@ function createInitialState() {
 function cloneDefaultDraft() {
   return {
     ...defaultWorkflowDraft(),
-    item_schema_entries: defaultBatchItemSchemaEntries().map((entry) => ({ ...entry })),
+    item_schema_entries: defaultBatchItemSchemaEntries().map((entry) => ({
+      ...entry,
+    })),
   };
 }
 
@@ -77,14 +83,19 @@ export function useWorkflowCreation() {
   function setWorkflowSampleSet(sampleSetId) {
     setState((current) => {
       const nextSampleSetId = Number(sampleSetId) || null;
-      const sampleSet = current.sampleSets.find((item) => Number(item.sample_set_id) === nextSampleSetId) || null;
+      const sampleSet =
+        current.sampleSets.find(
+          (item) => Number(item.sample_set_id) === nextSampleSetId,
+        ) || null;
 
       return {
         ...current,
         workflowDraft: {
           ...current.workflowDraft,
           sample_set_id: nextSampleSetId,
-          sample_ids: Array.isArray(sampleSet?.sample_ids) ? [...sampleSet.sample_ids] : [],
+          sample_ids: Array.isArray(sampleSet?.sample_ids)
+            ? [...sampleSet.sample_ids]
+            : [],
         },
       };
     });
@@ -96,14 +107,23 @@ export function useWorkflowCreation() {
       const nextDraft = {
         ...current.workflowDraft,
         input_mode: inputMode,
-        output_format_type: inputMode === "single" ? "plain_text" : "json_array",
+        output_format_type:
+          inputMode === "single" ? "plain_text" : "json_array",
       };
 
       if (inputMode === "batch") {
-        const entries = Array.isArray(nextDraft.item_schema_entries) ? nextDraft.item_schema_entries : [];
-        const hasAnyContent = entries.some((entry) => String(entry?.field || "").trim() || String(entry?.description || "").trim());
+        const entries = Array.isArray(nextDraft.item_schema_entries)
+          ? nextDraft.item_schema_entries
+          : [];
+        const hasAnyContent = entries.some(
+          (entry) =>
+            String(entry?.field || "").trim() ||
+            String(entry?.description || "").trim(),
+        );
         if (!hasAnyContent) {
-          nextDraft.item_schema_entries = defaultBatchItemSchemaEntries().map((entry) => ({ ...entry }));
+          nextDraft.item_schema_entries = defaultBatchItemSchemaEntries().map(
+            (entry) => ({ ...entry }),
+          );
         }
       }
 
@@ -120,7 +140,10 @@ export function useWorkflowCreation() {
 
   function nextWorkflowStep() {
     setState((current) => {
-      if (current.wizardStep === 0 && !String(current.workflowDraft.workflow_name || "").trim()) {
+      if (
+        current.wizardStep === 0 &&
+        !String(current.workflowDraft.workflow_name || "").trim()
+      ) {
         return {
           ...current,
           error: "Workflow name is required.",
@@ -153,7 +176,10 @@ export function useWorkflowCreation() {
       ...current,
       workflowDraft: {
         ...current.workflowDraft,
-        examples: [...current.workflowDraft.examples, { title: "", instruction_text: "", assets: "" }],
+        examples: [
+          ...current.workflowDraft.examples,
+          { title: "", instruction_text: "", assets: "" },
+        ],
       },
     }));
   }
@@ -181,7 +207,10 @@ export function useWorkflowCreation() {
       ...current,
       workflowDraft: {
         ...current.workflowDraft,
-        item_schema_entries: [...current.workflowDraft.item_schema_entries, { field: "", description: "" }],
+        item_schema_entries: [
+          ...current.workflowDraft.item_schema_entries,
+          { field: "", description: "" },
+        ],
       },
     }));
   }
@@ -212,7 +241,10 @@ export function useWorkflowCreation() {
     }));
 
     try {
-      const payload = buildWorkflowPayload(state.workflowDraft, state.sampleSets);
+      const payload = buildWorkflowPayload(
+        state.workflowDraft,
+        state.sampleSets,
+      );
       if (!payload.sample_set_id) {
         setState((current) => ({
           ...current,

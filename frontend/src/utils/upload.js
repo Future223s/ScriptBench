@@ -1,4 +1,11 @@
-const SUPPORTED_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "tif", "tiff", "webp"]);
+const SUPPORTED_IMAGE_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "tif",
+  "tiff",
+  "webp",
+]);
 
 export function getFileExtension(fileName) {
   return fileName.includes(".") ? fileName.split(".").pop().toLowerCase() : "";
@@ -37,9 +44,9 @@ function commonDirectoryPrefix(relativePaths) {
     const current = directories[index];
     let sharedLength = 0;
     while (
-      sharedLength < prefix.length
-      && sharedLength < current.length
-      && prefix[sharedLength] === current[sharedLength]
+      sharedLength < prefix.length &&
+      sharedLength < current.length &&
+      prefix[sharedLength] === current[sharedLength]
     ) {
       sharedLength += 1;
     }
@@ -52,9 +59,15 @@ function commonDirectoryPrefix(relativePaths) {
   return prefix.join("/");
 }
 
-function stripCommonRoot(relativePath, commonRoot, { preserveFullPathWhenNoCommonRoot = false } = {}) {
+function stripCommonRoot(
+  relativePath,
+  commonRoot,
+  { preserveFullPathWhenNoCommonRoot = false } = {},
+) {
   if (!commonRoot) {
-    return preserveFullPathWhenNoCommonRoot ? normalizeRelativePath(relativePath) : dropFolderRoot(relativePath);
+    return preserveFullPathWhenNoCommonRoot
+      ? normalizeRelativePath(relativePath)
+      : dropFolderRoot(relativePath);
   }
 
   const normalized = normalizeRelativePath(relativePath);
@@ -81,20 +94,23 @@ function stripGroundTruthSuffix(relativePath) {
 }
 
 function relativePathToSampleId(relativePath) {
-  return relativePath
-    .split("/")
-    .filter(Boolean)
-    .join("__");
+  return relativePath.split("/").filter(Boolean).join("__");
 }
 
 function normalizeFolderRecordId(relativePath) {
   return relativePathToSampleId(stripExtension(dropFolderRoot(relativePath)));
 }
 
-function normalizeFolderRecordIdWithRoot(relativePath, commonRoot = "", { preserveFullPathWhenNoCommonRoot = false } = {}) {
+function normalizeFolderRecordIdWithRoot(
+  relativePath,
+  commonRoot = "",
+  { preserveFullPathWhenNoCommonRoot = false } = {},
+) {
   return relativePathToSampleId(
     stripExtension(
-      stripCommonRoot(relativePath, commonRoot, { preserveFullPathWhenNoCommonRoot }),
+      stripCommonRoot(relativePath, commonRoot, {
+        preserveFullPathWhenNoCommonRoot,
+      }),
     ),
   );
 }
@@ -103,10 +119,16 @@ export function normalizeFolderSampleId(relativePath) {
   return relativePathToSampleId(stripExtension(dropFolderRoot(relativePath)));
 }
 
-export function normalizeFolderSampleIdWithRoot(relativePath, commonRoot = "", { preserveFullPathWhenNoCommonRoot = false } = {}) {
+export function normalizeFolderSampleIdWithRoot(
+  relativePath,
+  commonRoot = "",
+  { preserveFullPathWhenNoCommonRoot = false } = {},
+) {
   return relativePathToSampleId(
     stripExtension(
-      stripCommonRoot(relativePath, commonRoot, { preserveFullPathWhenNoCommonRoot }),
+      stripCommonRoot(relativePath, commonRoot, {
+        preserveFullPathWhenNoCommonRoot,
+      }),
     ),
   );
 }
@@ -117,11 +139,17 @@ export function normalizeGroundTruthFolderSampleId(relativePath) {
   );
 }
 
-export function normalizeGroundTruthFolderSampleIdWithRoot(relativePath, commonRoot = "", { preserveFullPathWhenNoCommonRoot = false } = {}) {
+export function normalizeGroundTruthFolderSampleIdWithRoot(
+  relativePath,
+  commonRoot = "",
+  { preserveFullPathWhenNoCommonRoot = false } = {},
+) {
   return relativePathToSampleId(
     stripGroundTruthSuffix(
       stripExtension(
-        stripCommonRoot(relativePath, commonRoot, { preserveFullPathWhenNoCommonRoot }),
+        stripCommonRoot(relativePath, commonRoot, {
+          preserveFullPathWhenNoCommonRoot,
+        }),
       ),
     ),
   );
@@ -130,7 +158,9 @@ export function normalizeGroundTruthFolderSampleIdWithRoot(relativePath, commonR
 export function isSupportedImageFile(file) {
   const mimeType = String(file?.type || "").toLowerCase();
   if (mimeType.startsWith("image/")) return true;
-  return SUPPORTED_IMAGE_EXTENSIONS.has(getFileExtension(String(file?.name || "")));
+  return SUPPORTED_IMAGE_EXTENSIONS.has(
+    getFileExtension(String(file?.name || "")),
+  );
 }
 
 export function collectImageFolderFiles(files) {
@@ -142,15 +172,21 @@ export function collectImageFolderFiles(files) {
 
   return imageFiles.map((file) => ({
     file,
-    sampleId: normalizeFolderSampleIdWithRoot(file.webkitRelativePath || file.name, commonRoot, {
-      preserveFullPathWhenNoCommonRoot,
-    }),
+    sampleId: normalizeFolderSampleIdWithRoot(
+      file.webkitRelativePath || file.name,
+      commonRoot,
+      {
+        preserveFullPathWhenNoCommonRoot,
+      },
+    ),
   }));
 }
 
 export async function collectGroundTruthFolderFiles(files) {
   const texts = new Map();
-  const textFiles = files.filter((file) => getFileExtension(file.name) === "txt");
+  const textFiles = files.filter(
+    (file) => getFileExtension(file.name) === "txt",
+  );
   const commonRoot = commonDirectoryPrefix(
     textFiles.map((file) => file.webkitRelativePath || file.name),
   );
@@ -158,9 +194,13 @@ export async function collectGroundTruthFolderFiles(files) {
 
   for (const file of textFiles) {
     const relativePath = file.webkitRelativePath || file.name;
-    const sampleId = normalizeGroundTruthFolderSampleIdWithRoot(relativePath, commonRoot, {
-      preserveFullPathWhenNoCommonRoot,
-    });
+    const sampleId = normalizeGroundTruthFolderSampleIdWithRoot(
+      relativePath,
+      commonRoot,
+      {
+        preserveFullPathWhenNoCommonRoot,
+      },
+    );
     texts.set(sampleId, await file.text());
   }
 
@@ -175,9 +215,13 @@ export function collectFolderFiles(files) {
 
   return files.map((file) => ({
     file,
-    recordId: normalizeFolderRecordIdWithRoot(file.webkitRelativePath || file.name, commonRoot, {
-      preserveFullPathWhenNoCommonRoot,
-    }),
+    recordId: normalizeFolderRecordIdWithRoot(
+      file.webkitRelativePath || file.name,
+      commonRoot,
+      {
+        preserveFullPathWhenNoCommonRoot,
+      },
+    ),
     fileName: normalizeFolderRecordId(file.webkitRelativePath || file.name),
   }));
 }

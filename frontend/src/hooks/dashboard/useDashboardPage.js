@@ -33,9 +33,13 @@ export function useDashboardPage() {
         const sampleSets = sampleSetsResponse.sample_sets || [];
         const selectedSampleSetId =
           keepSelection &&
-          sampleSets.some((sampleSet) => Number(sampleSet.sample_set_id) === Number(current.selectedSampleSetId))
+          sampleSets.some(
+            (sampleSet) =>
+              Number(sampleSet.sample_set_id) ===
+              Number(current.selectedSampleSetId),
+          )
             ? current.selectedSampleSetId
-            : null;
+            : (sampleSets[0]?.sample_set_id ?? null);
 
         return {
           ...current,
@@ -43,12 +47,36 @@ export function useDashboardPage() {
           error: "",
           sampleSets,
           selectedSampleSetId,
-          sampleSetAnalytics: selectedSampleSetId == null ? null : current.sampleSetAnalytics,
+          sampleSetAnalytics: null,
           sampleSetAnalyticsLoading: false,
-          sampleSetAnalyticsError: selectedSampleSetId == null ? "" : current.sampleSetAnalyticsError,
+          sampleSetAnalyticsError: "",
         };
       });
+
+      const canKeepSelection =
+        keepSelection &&
+        state.selectedSampleSetId != null &&
+        sampleSetsResponse.sample_sets?.some(
+          (sampleSet) =>
+            Number(sampleSet.sample_set_id) ===
+            Number(state.selectedSampleSetId),
+        );
+      const nextSampleSetId = canKeepSelection
+        ? state.selectedSampleSetId
+        : sampleSetsResponse.sample_sets?.[0]?.sample_set_id;
+      if (nextSampleSetId != null) {
+        await loadSampleSetAnalytics(nextSampleSetId);
+      }
     } catch (error) {
+      if (error && typeof error === "object" && error.status === 404) {
+        setState((current) => ({
+          ...current,
+          sampleSetAnalytics: null,
+          sampleSetAnalyticsLoading: false,
+          sampleSetAnalyticsError: "",
+        }));
+        return;
+      }
       setState((current) => ({
         ...current,
         loading: false,
@@ -96,17 +124,14 @@ export function useDashboardPage() {
         selectedSampleSetId: Number(sampleSetId),
         sampleSetAnalytics: null,
         sampleSetAnalyticsLoading: false,
-        sampleSetAnalyticsError: error instanceof Error ? error.message : String(error),
+        sampleSetAnalyticsError:
+          error instanceof Error ? error.message : String(error),
       }));
     }
   }
 
   const refresh = useCallback(async () => {
-    const selectedSampleSetId = state.selectedSampleSetId;
     await loadDashboard({ keepSelection: true });
-    if (selectedSampleSetId != null) {
-      await loadSampleSetAnalytics(selectedSampleSetId);
-    }
   }, [state.selectedSampleSetId]);
 
   async function selectSampleSet(sampleSetId) {
@@ -115,7 +140,12 @@ export function useDashboardPage() {
 
   async function removeSampleSet(sampleSetId) {
     if (!sampleSetId) return;
-    if (!window.confirm(`Delete sample set ${sampleSetId}? This cannot be undone.`)) return;
+    if (
+      !window.confirm(
+        `Delete sample set ${sampleSetId}? This cannot be undone.`,
+      )
+    )
+      return;
 
     try {
       await dashboardApi.deleteSampleSet(sampleSetId);
@@ -178,7 +208,12 @@ export function useDashboardPage() {
       { kind: "error", message: state.sampleSetAnalyticsError },
       { kind: "success", message: state.notice },
     ]);
-  }, [syncNotifications, state.error, state.notice, state.sampleSetAnalyticsError]);
+  }, [
+    syncNotifications,
+    state.error,
+    state.notice,
+    state.sampleSetAnalyticsError,
+  ]);
 
   return {
     ...state,

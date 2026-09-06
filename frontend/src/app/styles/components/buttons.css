@@ -8,13 +8,13 @@
 .button--ghost,
 .btn-danger,
 .button--danger {
-  min-height: 38px;
-  padding: 9px 13px;
+  min-height: var(--control-height);
+  padding: 9px var(--space-3);
   transition:
-    background 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    background var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
 }
 
 .btn,
@@ -27,7 +27,7 @@
 .button--primary {
   background: var(--accent);
   color: white;
-  box-shadow: 0 8px 18px rgba(212, 106, 50, 0.22);
+  box-shadow: 0 8px 18px rgba(184, 87, 50, 0.24);
 }
 
 .btn-primary:hover,
@@ -38,9 +38,9 @@
 
 .btn-secondary,
 .button--secondary {
-  background: var(--blue-soft);
-  color: var(--blue);
-  border-color: rgba(49, 93, 127, 0.24);
+  background: var(--surface-solid);
+  color: var(--text-secondary);
+  border-color: var(--line);
 }
 
 .btn-secondary:hover,
@@ -53,7 +53,7 @@
 
 .btn-ghost,
 .button--ghost {
-  background: rgba(255, 252, 247, 0.72);
+  background: transparent;
   color: var(--text-primary);
   border-color: var(--line);
 }
@@ -67,7 +67,7 @@
 
 .btn-tight,
 .button--compact {
-  min-height: 30px;
-  padding: 5px 9px;
+  min-height: var(--control-height-sm);
+  padding: 5px var(--space-2);
   font-size: 12px;
 }

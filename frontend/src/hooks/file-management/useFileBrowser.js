@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   DEFAULT_FILTERS,
@@ -12,9 +12,13 @@ import {
 
 export function useFileBrowser(catalogState) {
   const [managementType, setManagementTypeState] = useState("sample");
-  const [managementAction, setManagementAction] = useState(currentDefaultAction("sample"));
+  const [managementAction, setManagementAction] = useState(
+    currentDefaultAction("sample"),
+  );
   const [filters, setFilters] = useState(() => cloneFilters(DEFAULT_FILTERS));
-  const [appliedFilters, setAppliedFilters] = useState(() => cloneFilters(DEFAULT_FILTERS));
+  const [appliedFilters, setAppliedFilters] = useState(() =>
+    cloneFilters(DEFAULT_FILTERS),
+  );
 
   const selectorState = {
     ...catalogState,
@@ -38,22 +42,12 @@ export function useFileBrowser(catalogState) {
     }));
   }
 
-  function clearFilters(type = managementType) {
-    const normalizedType = normalizeManagementType(type);
-    const defaults = cloneFilters(DEFAULT_FILTERS)[normalizedType];
-    setFilters((current) => ({
-      ...current,
-      [normalizedType]: { ...defaults },
-    }));
-    setAppliedFilters((current) => ({
-      ...current,
-      [normalizedType]: { ...defaults },
-    }));
-  }
-
-  function applyFilters() {
-    setAppliedFilters(cloneFilters(filters));
-  }
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setAppliedFilters(cloneFilters(filters));
+    }, 2000);
+    return () => window.clearTimeout(timeout);
+  }, [filters]);
 
   return {
     state: {
@@ -66,8 +60,6 @@ export function useFileBrowser(catalogState) {
     actions: {
       setManagementType,
       setFilterField,
-      clearFilters,
-      applyFilters,
     },
   };
 }

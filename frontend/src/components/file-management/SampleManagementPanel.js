@@ -1,18 +1,21 @@
 "use client";
 
-import { EmptyState } from "../common/EmptyState.js";
-import { Panel } from "../common/Panel.js";
+import { Button, EmptyState, Inline } from "../../ui/primitives/index.js";
 import { formatDate } from "../../utils/date.js";
 import { truncate } from "../../utils/html.js";
-import { SampleFilterPanel } from "./SampleFilterPanel.js";
+import { FileManagementListPanel } from "./FileManagementListPanel.js";
+import { FileManagementRow } from "./FileManagementRow.js";
 import {
+  createSampleFilterConfig,
   managementModes,
   recordIdForType,
   visibleRecordsForType,
 } from "../../hooks/file-management/fileManagementShared.js";
 
 function artifactGroupLookup(artifactGroups) {
-  return new Map(artifactGroups.map((group) => [String(group.artifact_group_id), group]));
+  return new Map(
+    artifactGroups.map((group) => [String(group.artifact_group_id), group]),
+  );
 }
 
 function recordDisplayName(type, record) {
@@ -23,7 +26,11 @@ function recordDisplayName(type, record) {
 
 function recordSummary(type, record, sampleSets, artifactGroups) {
   if (type === "artifact") {
-    const groupName = record.artifact_group_name || artifactGroupLookup(artifactGroups).get(String(record.artifact_group_id || ""))?.artifact_group_name;
+    const groupName =
+      record.artifact_group_name ||
+      artifactGroupLookup(artifactGroups).get(
+        String(record.artifact_group_id || ""),
+      )?.artifact_group_name;
     return [
       `Origin: ${record.originating_sample_id}`,
       groupName ? `Group: ${groupName}` : "Ungrouped",
@@ -50,7 +57,11 @@ function recordSummary(type, record, sampleSets, artifactGroups) {
 }
 
 function sampleSetMemberships(sampleId, sampleSets) {
-  return sampleSets.filter((sampleSet) => Array.isArray(sampleSet.sample_ids) && sampleSet.sample_ids.includes(sampleId));
+  return sampleSets.filter(
+    (sampleSet) =>
+      Array.isArray(sampleSet.sample_ids) &&
+      sampleSet.sample_ids.includes(sampleId),
+  );
 }
 
 export function ManagementFields({ type, draft, actions }) {
@@ -63,7 +74,9 @@ export function ManagementFields({ type, draft, actions }) {
             id="sample-set-name"
             name="sample_set_name"
             value={draft.sample_set_name}
-            onChange={(event) => actions.setDraftField("sample_set_name", event.target.value)}
+            onChange={(event) =>
+              actions.setDraftField("sample_set_name", event.target.value)
+            }
             placeholder="EMMO line crops"
             required
           />
@@ -74,7 +87,12 @@ export function ManagementFields({ type, draft, actions }) {
             id="sample-set-description"
             name="sample_set_description"
             value={draft.sample_set_description}
-            onChange={(event) => actions.setDraftField("sample_set_description", event.target.value)}
+            onChange={(event) =>
+              actions.setDraftField(
+                "sample_set_description",
+                event.target.value,
+              )
+            }
             placeholder="Optional notes"
           />
         </div>
@@ -91,7 +109,9 @@ export function ManagementFields({ type, draft, actions }) {
             id="artifact-group-name"
             name="artifact_group_name"
             value={draft.artifact_group_name}
-            onChange={(event) => actions.setDraftField("artifact_group_name", event.target.value)}
+            onChange={(event) =>
+              actions.setDraftField("artifact_group_name", event.target.value)
+            }
             placeholder="Document pages"
             required
           />
@@ -102,7 +122,12 @@ export function ManagementFields({ type, draft, actions }) {
             id="artifact-group-description"
             name="artifact_group_description"
             value={draft.artifact_group_description}
-            onChange={(event) => actions.setDraftField("artifact_group_description", event.target.value)}
+            onChange={(event) =>
+              actions.setDraftField(
+                "artifact_group_description",
+                event.target.value,
+              )
+            }
             placeholder="Optional notes"
           />
         </div>
@@ -125,67 +150,30 @@ function RecordRow({
   const recordId = recordIdForType(type, record);
   const displayName = recordDisplayName(type, record);
   const summary = recordSummary(type, record, sampleSets, artifactGroups);
-  const badgeLabel =
-    type === "artifact"
-      ? record.artifact_group_name || "Ungrouped"
-      : type === "asset"
-        ? record.asset_type
-        : record.ground_truth_text ? "Ground truth" : "Empty";
 
   function handleContextMenu(event) {
     event.preventDefault();
     actions.toggleSelection(type, recordId, !selected);
   }
 
-  const content = (
-    <>
-      <div className="sample-main">
-        <strong>{displayName || recordId}</strong>
-        <div className="meta-line">
-          <span>{recordId}</span>
-          {summary.map((entry) => (
-            <span key={entry}>{entry}</span>
-          ))}
-        </div>
-        <p>
-          {type === "sample"
-            ? truncate(record.ground_truth_text)
-            : type === "artifact"
-              ? truncate(record.artifact_mime_type || "")
-              : truncate(record.asset_mime_type || "")}
-        </p>
-      </div>
-      <span className={["badge", type === "sample" && record.ground_truth_text ? "green" : ""].filter(Boolean).join(" ")}>
-        {badgeLabel}
-      </span>
-    </>
-  );
-
-  if (deletable) {
-    return (
-      <label
-        className={["sample-row", "file-sample-row", "is-deletable", selected ? "is-selected" : ""].filter(Boolean).join(" ")}
-        onContextMenu={handleContextMenu}
-      >
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={(event) => actions.toggleSelection(type, recordId, event.target.checked)}
-        />
-        {content}
-      </label>
-    );
-  }
+  const detail =
+    type === "sample"
+      ? truncate(record.ground_truth_text)
+      : type === "artifact"
+        ? truncate(record.artifact_mime_type || "")
+        : truncate(record.asset_mime_type || "");
+  const conciseDescriptors = [summary[0], summary[summary.length - 1], detail]
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index);
 
   return (
-    <button
-      className={["sample-row", "file-sample-row", selected ? "is-selected" : ""].filter(Boolean).join(" ")}
-      type="button"
+    <FileManagementRow
+      title={displayName || recordId}
+      descriptors={conciseDescriptors}
+      selected={selected}
       onClick={() => actions.openRecord(type, recordId)}
       onContextMenu={handleContextMenu}
-    >
-      {content}
-    </button>
+    />
   );
 }
 
@@ -195,13 +183,19 @@ function filterSummary(type, visibleCount) {
 }
 
 export function SampleManagementPanel({ state, actions }) {
-  const type = managementModes[state.managementType] ? state.managementType : "sample";
+  const type = managementModes[state.managementType]
+    ? state.managementType
+    : "sample";
   const mode = managementModes[type];
   const visibleRecords = visibleRecordsForType(state, type);
   const selectedIds = state.selections[type] || [];
   const hasSelectedRecords = selectedIds.length > 0;
-  const visibleRecordIds = visibleRecords.map((record) => recordIdForType(type, record));
-  const allVisibleSelected = visibleRecordIds.length > 0 && visibleRecordIds.every((recordId) => selectedIds.includes(recordId));
+  const visibleRecordIds = visibleRecords.map((record) =>
+    recordIdForType(type, record),
+  );
+  const allVisibleSelected =
+    visibleRecordIds.length > 0 &&
+    visibleRecordIds.every((recordId) => selectedIds.includes(recordId));
   const rows = state.loading ? (
     <EmptyState>Loading {mode.title.toLowerCase()}...</EmptyState>
   ) : visibleRecords.length ? (
@@ -218,47 +212,19 @@ export function SampleManagementPanel({ state, actions }) {
       />
     ))
   ) : (
-    <EmptyState>No {mode.title.toLowerCase()} match the current filters.</EmptyState>
+    <EmptyState>
+      No {mode.title.toLowerCase()} match the current filters.
+    </EmptyState>
   );
 
   const filters =
     type === "sample"
-      ? [
-          {
-            id: "sample-search",
-            label: "Search",
-            kind: "text",
-            value: state.filters.sample.query,
-            placeholder: "Sample ID, name, or ground truth",
-            onChange: (value) => actions.setFilterField("sample", "query", value),
-          },
-          {
-            id: "sample-match-mode",
-            label: "Match",
-            kind: "select",
-            value: state.filters.sample.queryMode,
-            onChange: (value) => actions.setFilterField("sample", "queryMode", value),
-            options: [
-              { value: "contains", label: "Contains" },
-              { value: "starts-with", label: "Begins with" },
-              { value: "exact", label: "Exact" },
-            ],
-          },
-          {
-            id: "sample-set-filter",
-            label: "Sample set",
-            kind: "select",
-            value: state.filters.sample.sampleSetId,
-            onChange: (value) => actions.setFilterField("sample", "sampleSetId", value),
-            options: [
-              { value: "", label: "All sample sets" },
-              ...state.sampleSets.map((sampleSet) => ({
-                value: String(sampleSet.sample_set_id),
-                label: sampleSet.sample_set_name,
-              })),
-            ],
-          },
-        ]
+      ? createSampleFilterConfig({
+          filters: state.filters.sample,
+          sampleSets: state.sampleSets,
+          onChange: (field, value) =>
+            actions.setFilterField("sample", field, value),
+        })
       : type === "artifact"
         ? [
             {
@@ -267,14 +233,16 @@ export function SampleManagementPanel({ state, actions }) {
               kind: "text",
               value: state.filters.artifact.query,
               placeholder: "Artifact name, source sample, or group",
-              onChange: (value) => actions.setFilterField("artifact", "query", value),
+              onChange: (value) =>
+                actions.setFilterField("artifact", "query", value),
             },
             {
               id: "artifact-match-mode",
               label: "Match",
               kind: "select",
               value: state.filters.artifact.queryMode,
-              onChange: (value) => actions.setFilterField("artifact", "queryMode", value),
+              onChange: (value) =>
+                actions.setFilterField("artifact", "queryMode", value),
               options: [
                 { value: "contains", label: "Contains" },
                 { value: "starts-with", label: "Begins with" },
@@ -286,7 +254,8 @@ export function SampleManagementPanel({ state, actions }) {
               label: "Artifact group",
               kind: "select",
               value: state.filters.artifact.artifactGroupId,
-              onChange: (value) => actions.setFilterField("artifact", "artifactGroupId", value),
+              onChange: (value) =>
+                actions.setFilterField("artifact", "artifactGroupId", value),
               options: [
                 { value: "", label: "All groups" },
                 ...state.artifactGroups.map((group) => ({
@@ -300,7 +269,8 @@ export function SampleManagementPanel({ state, actions }) {
               label: "Category",
               kind: "select",
               value: state.filters.artifact.artifactCategory,
-              onChange: (value) => actions.setFilterField("artifact", "artifactCategory", value),
+              onChange: (value) =>
+                actions.setFilterField("artifact", "artifactCategory", value),
               options: [
                 { value: "", label: "All categories" },
                 { value: "companion", label: "Companion" },
@@ -315,14 +285,16 @@ export function SampleManagementPanel({ state, actions }) {
               kind: "text",
               value: state.filters.asset.query,
               placeholder: "Asset name or type",
-              onChange: (value) => actions.setFilterField("asset", "query", value),
+              onChange: (value) =>
+                actions.setFilterField("asset", "query", value),
             },
             {
               id: "asset-match-mode",
               label: "Match",
               kind: "select",
               value: state.filters.asset.queryMode,
-              onChange: (value) => actions.setFilterField("asset", "queryMode", value),
+              onChange: (value) =>
+                actions.setFilterField("asset", "queryMode", value),
               options: [
                 { value: "contains", label: "Contains" },
                 { value: "starts-with", label: "Begins with" },
@@ -334,61 +306,60 @@ export function SampleManagementPanel({ state, actions }) {
               label: "Asset type",
               kind: "select",
               value: state.filters.asset.assetType,
-              onChange: (value) => actions.setFilterField("asset", "assetType", value),
+              onChange: (value) =>
+                actions.setFilterField("asset", "assetType", value),
               options: [
                 { value: "", label: "All asset types" },
-                ...uniqueAssetTypes(state.assets).map((assetType) => ({ value: assetType, label: assetType })),
+                ...uniqueAssetTypes(state.assets).map((assetType) => ({
+                  value: assetType,
+                  label: assetType,
+                })),
               ],
             },
           ];
 
   const filterActions = (
-    <>
-      <button className="btn-secondary" type="button" onClick={() => actions.applyFilters()}>
-        Apply filter
-      </button>
-      <button className="btn-secondary" type="button" onClick={() => actions.clearFilters(type)} disabled={state.loading}>
-        Clear
-      </button>
-      {type === "artifact" ? (
-        <button
-          className="btn-secondary"
-          type="button"
-          onClick={actions.refreshArtifactMappings}
-          disabled={state.loading || state.refreshingArtifactMappings}
-        >
-          {state.refreshingArtifactMappings ? "Refreshing..." : "Refresh mappings"}
-        </button>
-      ) : null}
-      <button
-        className="btn-secondary"
-        type="button"
-        onClick={() => (allVisibleSelected ? actions.clearSelection(type) : actions.selectAllVisible())}
+    <Inline gap="default">
+      <Button
+        onClick={() =>
+          allVisibleSelected
+            ? actions.clearSelection(type)
+            : actions.selectAllVisible()
+        }
         disabled={state.loading || !visibleRecords.length}
       >
         {allVisibleSelected ? "Unselect all" : "Select all"}
-      </button>
-      <button className="btn-danger" type="button" onClick={() => actions.submitManagement("delete")} disabled={state.loading || !hasSelectedRecords}>
-        Delete selected
-      </button>
-    </>
+      </Button>
+      {hasSelectedRecords ? (
+        <Button
+          variant="danger"
+          onClick={() => actions.submitManagement("delete")}
+          disabled={state.loading}
+        >
+          Delete selected
+        </Button>
+      ) : null}
+    </Inline>
   );
 
   return (
-    <Panel className="file-mode-panel">
-      <div className="file-sample-stack">
-        <SampleFilterPanel
-          filters={filters}
-          actions={filterActions}
-          summary={filterSummary(type, visibleRecords.length)}
-          rows={rows}
-          listClass="sample-picker file-sample-picker"
-        />
-      </div>
-    </Panel>
+    <FileManagementListPanel
+      title={mode.title}
+      filters={filters}
+      actions={filterActions}
+      summary={filterSummary(type, visibleRecords.length)}
+      rows={rows}
+      emptyState={`No ${mode.title.toLowerCase()} match the current filters.`}
+    />
   );
 }
 
 function uniqueAssetTypes(assets) {
-  return [...new Set(assets.map((asset) => String(asset.asset_type || "").trim()).filter(Boolean))].sort();
+  return [
+    ...new Set(
+      assets
+        .map((asset) => String(asset.asset_type || "").trim())
+        .filter(Boolean),
+    ),
+  ].sort();
 }

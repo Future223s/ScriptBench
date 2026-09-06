@@ -7,7 +7,6 @@ from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.engine import Engine
 
 from ..tables.assets_table import assets
-from ..tables.payload_inputs_table import payload_inputs
 
 
 class AssetsRepository:
@@ -52,15 +51,23 @@ class AssetsRepository:
 
     def fetch_asset(self, asset_id: int) -> dict[str, Any] | None:
         with self.engine.begin() as conn:
-            row = conn.execute(select(assets).where(assets.c.asset_id == asset_id)).fetchone()
+            row = conn.execute(
+                select(assets).where(assets.c.asset_id == asset_id)
+            ).fetchone()
         return dict(row._mapping) if row is not None else None
 
     def fetch_assets_by_names(self, asset_names: Sequence[str]) -> list[dict[str, Any]]:
-        names = [str(asset_name).strip() for asset_name in asset_names if str(asset_name).strip()]
+        names = [
+            str(asset_name).strip()
+            for asset_name in asset_names
+            if str(asset_name).strip()
+        ]
         if not names:
             return []
         with self.engine.begin() as conn:
-            rows = conn.execute(select(assets).where(assets.c.asset_name.in_(names))).fetchall()
+            rows = conn.execute(
+                select(assets).where(assets.c.asset_name.in_(names))
+            ).fetchall()
         return [dict(row._mapping) for row in rows]
 
     def insert_asset_metadata(self, *, asset_name: str, asset_type: str) -> int:
@@ -73,7 +80,9 @@ class AssetsRepository:
                     asset_mime_type=None,
                 )
             )
-            inserted_id = result.inserted_primary_key[0] if result.inserted_primary_key else None
+            inserted_id = (
+                result.inserted_primary_key[0] if result.inserted_primary_key else None
+            )
         if inserted_id is None:
             raise ValueError("Failed to insert asset metadata")
         return int(inserted_id)
@@ -108,18 +117,3 @@ class AssetsRepository:
         with self.engine.begin() as conn:
             result = conn.execute(delete(assets).where(assets.c.asset_id.in_(ids)))
         return int(result.rowcount or 0)
-
-    def fetch_fixed_payload_input_references(self, asset_ids: Sequence[int]) -> list[dict[str, Any]]:
-        ids = [int(asset_id) for asset_id in asset_ids]
-        if not ids:
-            return []
-        with self.engine.begin() as conn:
-            rows = conn.execute(
-                select(payload_inputs.c.source_object_id)
-                .where(
-                    payload_inputs.c.binding_mode == "fixed",
-                    payload_inputs.c.source_type == "asset",
-                    payload_inputs.c.source_object_id.in_([str(asset_id) for asset_id in ids]),
-                )
-            ).fetchall()
-        return [dict(row._mapping) for row in rows]

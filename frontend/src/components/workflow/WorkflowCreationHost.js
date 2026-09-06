@@ -17,7 +17,10 @@ export function WorkflowCreationHost({ children }) {
   return (
     <WorkflowCreationContext.Provider value={workflowCreation}>
       {children}
-      <WorkflowCreationModal state={workflowCreation.state} actions={workflowCreation.actions} />
+      <WorkflowCreationModal
+        state={workflowCreation.state}
+        actions={workflowCreation.actions}
+      />
     </WorkflowCreationContext.Provider>
   );
 }

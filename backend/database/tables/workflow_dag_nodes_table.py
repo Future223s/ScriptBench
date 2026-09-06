@@ -22,8 +22,16 @@ workflow_dag_nodes = Table(
         nullable=False,
         index=True,
     ),
+    Column("row", Integer, nullable=False, server_default="1"),
+    Column("col", Integer, nullable=False, server_default="1"),
     Column(
         "created_at",
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.current_timestamp(),
+    ),
+    Column(
+        "updated_at",
         DateTime(timezone=True),
         nullable=False,
         server_default=func.current_timestamp(),

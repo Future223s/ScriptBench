@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from .api import ApiDeleteResponse, ApiListResponse, ApiResponse
@@ -105,8 +103,8 @@ class ArtifactMapResult(BaseModel):
 
 
 class ArtifactMapResponse(BaseModel):
-    mapped_artifacts: list[dict[str, Any]] = Field(default_factory=list)
-    rejected_artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    mapped_artifacts: list[ArtifactMapResult] = Field(default_factory=list)
+    rejected_artifacts: list[dict[str, object]] = Field(default_factory=list)
     mapped_count: int = 0
     rejected_count: int = 0
 

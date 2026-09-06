@@ -12,28 +12,38 @@ export function WorkflowExampleEditor({ examples, actions }) {
               data-example-field="title"
               data-example-index={index}
               value={example.title}
-              onChange={(event) => actions.setWorkflowDraftField(
-                "examples",
-                examples.map((item, exampleIndex) => (
-                  exampleIndex === index ? { ...item, title: event.target.value } : item
-                )),
-              )}
+              onChange={(event) =>
+                actions.setWorkflowDraftField(
+                  "examples",
+                  examples.map((item, exampleIndex) =>
+                    exampleIndex === index
+                      ? { ...item, title: event.target.value }
+                      : item,
+                  ),
+                )
+              }
             />
           </div>
           <div className="field">
-            <label htmlFor={`example-instructions-${index}`}>Instruction text</label>
+            <label htmlFor={`example-instructions-${index}`}>
+              Instruction text
+            </label>
             <textarea
               id={`example-instructions-${index}`}
               data-example-field="instruction_text"
               data-example-index={index}
               rows="4"
               value={example.instruction_text}
-              onChange={(event) => actions.setWorkflowDraftField(
-                "examples",
-                examples.map((item, exampleIndex) => (
-                  exampleIndex === index ? { ...item, instruction_text: event.target.value } : item
-                )),
-              )}
+              onChange={(event) =>
+                actions.setWorkflowDraftField(
+                  "examples",
+                  examples.map((item, exampleIndex) =>
+                    exampleIndex === index
+                      ? { ...item, instruction_text: event.target.value }
+                      : item,
+                  ),
+                )
+              }
             />
           </div>
           <div className="field">
@@ -44,15 +54,24 @@ export function WorkflowExampleEditor({ examples, actions }) {
               data-example-index={index}
               rows="2"
               value={example.assets}
-              onChange={(event) => actions.setWorkflowDraftField(
-                "examples",
-                examples.map((item, exampleIndex) => (
-                  exampleIndex === index ? { ...item, assets: event.target.value } : item
-                )),
-              )}
+              onChange={(event) =>
+                actions.setWorkflowDraftField(
+                  "examples",
+                  examples.map((item, exampleIndex) =>
+                    exampleIndex === index
+                      ? { ...item, assets: event.target.value }
+                      : item,
+                  ),
+                )
+              }
             />
           </div>
-          <button className="btn-danger" type="button" data-action="remove-example" data-example-index={index}>
+          <button
+            className="btn-danger"
+            type="button"
+            data-action="remove-example"
+            data-example-index={index}
+          >
             Remove example
           </button>
         </div>

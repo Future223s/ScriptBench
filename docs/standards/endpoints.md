@@ -1,14 +1,17 @@
 ## Files To Check First
 
 - `/database/tables`
+
   - Treat these table definitions as the authoritative persistence schema.
   - Use them as the source of truth for field names, types, nullability, defaults, primary keys, unique constraints, and relationships.
 
 - `/database/repositories`
+
   - Add or update repository methods only when the current change requires persistence behavior.
   - Repositories should reflect the table contract and only contain persistence operations needed by the current feature.
 
 - `/models`
+
   - Ensure Pydantic models exist where needed for:
     - request payloads
     - response payloads

@@ -1,21 +1,71 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-scriptbench}
+      POSTGRES_USER: ${POSTGRES_USER:-scriptbench}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scriptbench}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  db-seed:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "backend.scripts.seed_economic_upheaval"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-scriptbench}:${POSTGRES_PASSWORD:-scriptbench}@postgres:5432/${POSTGRES_DB:-scriptbench}
+      ECONOMIC_SOURCE_ROOT: /seed-source
+    volumes:
+      - type: bind
+        source: ./seed-data/economic-upheaval
+        target: /seed-source
+        read_only: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     volumes:
-      - backend-data:/data
       - ./backend:/app/backend
-    command: ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/backend"]
+    command:
+      [
+        "uvicorn",
+        "backend.api.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+        "--reload-dir",
+        "/app/backend",
+      ]
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: /data/economic_upheaval.db
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-scriptbench}:${POSTGRES_PASSWORD:-scriptbench}@postgres:5432/${POSTGRES_DB:-scriptbench}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      TESTING_MODE: ${TESTING_MODE:-true}
+      STUB_MODEL_FAIL: ${STUB_MODEL_FAIL:-false}
       WATCHFILES_FORCE_POLLING: "true"
       WATCHPACK_POLLING: "true"
       WATCHPACK_POLLING_INTERVAL: "1000"
       CHOKIDAR_USEPOLLING: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-seed:
+        condition: service_completed_successfully
 
   frontend:
     build:
@@ -27,9 +77,9 @@ services:
       - ./frontend:/app
       - frontend-node_modules:/app/node_modules
       - frontend-next:/app/.next
-    command: npm run dev -- -H 0.0.0.0 -p 3000
+    command: npm run dev -- -H 0.0.0.0 -p 3001
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       API_BASE_URL: http://backend:8000
       API_WS_BASE_URL: http://127.0.0.1:8000
@@ -39,9 +89,10 @@ services:
       WATCHPACK_POLLING_INTERVAL: "1000"
       CHOKIDAR_USEPOLLING: "true"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
 
 volumes:
-  backend-data:
+  postgres-data:
   frontend-node_modules:
   frontend-next:

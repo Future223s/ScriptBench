@@ -1,22 +1,29 @@
 "use client";
 
-export function WorkflowWizardFooter({ wizardStep }) {
+import { Button, Inline } from "../../ui/primitives/index.js";
+
+export function WorkflowWizardFooter({ wizardStep, actions }) {
   return (
-    <div className="modal-footer">
-      <button className="btn-ghost" type="button" data-action={wizardStep === 0 ? "close-modals" : "wizard-back"}>
+    <Inline gap="compact" justify="end">
+      <Button
+        size="compact"
+        onClick={
+          wizardStep === 0
+            ? actions.closeWorkflowWizard
+            : actions.previousWorkflowStep
+        }
+      >
         {wizardStep === 0 ? "Cancel" : "Back"}
-      </button>
-      <div className="inline-actions">
-        {wizardStep < 2 ? (
-          <button className="btn-primary" type="button" data-action="wizard-next">
-            Next
-          </button>
-        ) : (
-          <button className="btn-primary" type="submit">
-            Create
-          </button>
-        )}
-      </div>
-    </div>
+      </Button>
+      <Button
+        size="compact"
+        variant="primary"
+        onClick={
+          wizardStep < 2 ? actions.nextWorkflowStep : actions.submitWorkflow
+        }
+      >
+        {wizardStep < 2 ? "Next" : "Create"}
+      </Button>
+    </Inline>
   );
 }

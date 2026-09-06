@@ -6,27 +6,9 @@ export interface SampleSetSummary {
   sample_set_id: ApiId;
   sample_set_name: string;
   sample_set_description?: string | null;
-  sample_set_type?: string | null;
-  sample_count?: number;
-  workflow_count?: number;
+  status?: string | null;
+  created_at?: string;
   sample_ids?: string[];
-  sample_ids_preview?: string[];
-}
-
-export interface SampleSetsResponse {
-  sample_sets: SampleSetSummary[];
-  sample_set_count: number;
-}
-
-export interface WorkflowCreatePayload {
-  workflow_name: string;
-  workflow_stage: string;
-  sample_set_id: ApiId;
-  model_family: string;
-  model?: string | null;
-  groups?: string[];
-  prompt_spec: Record<string, unknown>;
-  status?: string;
 }
 
 export interface ApiResponse<T> {
@@ -48,52 +30,151 @@ export interface ApiDeleteResponse {
   deleted: boolean;
 }
 
+export interface WorkflowRecord {
+  workflow_id: number;
+  workflow_name: string;
+  workflow_description?: string | null;
+  sample_set_id?: number | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowDagNodeRecord {
+  workflow_dag_node_id: number;
+  workflow_id: number;
+  workflow_step_id: number;
+  row: number;
+  col: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowDagEdgeRecord {
+  workflow_dag_edge_id: number;
+  workflow_id: number;
+  from_workflow_dag_node_id: number;
+  to_workflow_dag_node_id: number;
+  edge_condition: Record<string, unknown> | string | null;
+  created_at: string;
+}
+
+export interface WorkflowStepRecord {
+  workflow_step_id: number;
+  step_name: string;
+  model_family: string;
+  model?: string | null;
+  payload_template_id?: number | null;
+  output_spec_id?: number | null;
+  created_at: string;
+  status: string;
+}
+
+export interface WorkflowDagNodeCreatePayload {
+  workflow_step_id: number;
+  row: number;
+  col: number;
+}
+
+export interface WorkflowDagEdgeCreatePayload {
+  from_workflow_dag_node_id: number;
+  to_workflow_dag_node_id: number;
+  edge_condition?: Record<string, unknown> | string;
+}
+
 export const workflowBuilderApi = {
-  getSampleSets: () => apiFetch<SampleSetsResponse>("/api/v2/sample-sets"),
-  createWorkflow: (payload: WorkflowCreatePayload) =>
-    apiFetch<ApiResponse<Record<string, unknown>>>("/api/v2/workflows", {
+  getSampleSets: () =>
+    apiFetch<ApiListResponse<SampleSetSummary>>("/api/v2/sample-sets"),
+  getWorkflows: () =>
+    apiFetch<ApiListResponse<WorkflowRecord>>("/api/v2/workflows"),
+  createWorkflow: (payload: {
+    workflow_name: string;
+    workflow_description?: string | null;
+    sample_set_id: ApiId;
+    status?: string;
+  }) =>
+    apiFetch<ApiResponse<WorkflowRecord>>("/api/v2/workflows", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }),
+  saveWorkflow: (
+    workflowId: ApiId,
+    payload: {
+      workflow_name?: string;
+      workflow_description?: string | null;
+      sample_set_id?: ApiId;
+    },
+  ) =>
+    apiFetch<ApiResponse<WorkflowRecord>>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    ),
+  finalizeWorkflow: (workflowId: ApiId) =>
+    apiFetch<ApiResponse<WorkflowRecord>>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}/finalize`,
+      {
+        method: "PATCH",
+      },
+    ),
   getWorkflow: (workflowId: ApiId) =>
-    apiFetch<ApiResponse<Record<string, unknown>>>(`/api/v2/workflows/${encodeURIComponent(String(workflowId))}`),
+    apiFetch<ApiResponse<WorkflowRecord>>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}`,
+    ),
   getWorkflowDagNodes: (workflowId: ApiId) =>
-    apiFetch<ApiResponse<Record<string, unknown>>>(`/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-nodes`),
+    apiFetch<ApiListResponse<WorkflowDagNodeRecord>>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-nodes`,
+    ),
   getWorkflowDagEdges: (workflowId: ApiId) =>
-    apiFetch<ApiResponse<Record<string, unknown>>>(`/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-edges`),
-  createWorkflowDagNode: (workflowId: ApiId) =>
-    apiFetch<ApiResponse<Record<string, unknown>>>(`/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-nodes`, {
-      method: "POST",
-    }),
-  deleteWorkflowDagNode: (workflowId: ApiId) =>
-    apiFetch<ApiDeleteResponse>(`/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-nodes`, {
-      method: "DELETE",
-    }),
-  createWorkflowDagEdge: (workflowId: ApiId) =>
-    apiFetch<ApiResponse<Record<string, unknown>>>(`/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-edges`, {
-      method: "POST",
-    }),
-  deleteWorkflowDagEdge: (workflowId: ApiId) =>
-    apiFetch<ApiDeleteResponse>(`/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-edges`, {
-      method: "DELETE",
-    }),
-  getWorkflowSteps: () => apiFetch<ApiListResponse<Record<string, unknown>>>("/api/v2/workflow-steps"),
-  createWorkflowStep: () =>
-    apiFetch<ApiResponse<Record<string, unknown>>>("/api/v2/workflow-steps", {
-      method: "POST",
-    }),
-  listWorkflowSteps: () => apiFetch<ApiListResponse<Record<string, unknown>>>("/api/v2/workflow-steps"),
-  getPayloadTemplates: () => apiFetch<ApiListResponse<Record<string, unknown>>>("/api/v2/payload-templates"),
-  createPayloadTemplate: () =>
-    apiFetch<ApiResponse<Record<string, unknown>>>("/api/v2/payload-templates", {
-      method: "POST",
-    }),
-  listPayloadTemplates: () => apiFetch<ApiListResponse<Record<string, unknown>>>("/api/v2/payload-templates"),
-  getOutputSpecs: () => apiFetch<ApiListResponse<Record<string, unknown>>>("/api/v2/output-specs"),
-  createOutputSpec: () =>
-    apiFetch<ApiResponse<Record<string, unknown>>>("/api/v2/output-specs", {
-      method: "POST",
-    }),
-  listOutputSpecs: () => apiFetch<ApiListResponse<Record<string, unknown>>>("/api/v2/output-specs"),
+    apiFetch<ApiListResponse<WorkflowDagEdgeRecord>>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-edges`,
+    ),
+  createWorkflowDagNode: (
+    workflowId: ApiId,
+    payload: WorkflowDagNodeCreatePayload,
+  ) =>
+    apiFetch<ApiResponse<WorkflowDagNodeRecord>>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-nodes`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    ),
+  deleteWorkflowDagNode: (workflowId: ApiId, nodeIds: number[]) =>
+    apiFetch<ApiDeleteResponse>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-nodes`,
+      {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workflow_dag_node_ids: nodeIds }),
+      },
+    ),
+  createWorkflowDagEdge: (
+    workflowId: ApiId,
+    payload: WorkflowDagEdgeCreatePayload,
+  ) =>
+    apiFetch<ApiResponse<WorkflowDagEdgeRecord>>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-edges`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    ),
+  deleteWorkflowDagEdge: (workflowId: ApiId, edgeId: number) =>
+    apiFetch<ApiDeleteResponse>(
+      `/api/v2/workflows/${encodeURIComponent(String(workflowId))}/workflow-dag-edges`,
+      {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workflow_dag_edge_id: edgeId }),
+      },
+    ),
+  getWorkflowSteps: () =>
+    apiFetch<ApiListResponse<WorkflowStepRecord>>("/api/v2/workflow-steps"),
 } as const;

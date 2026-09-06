@@ -1,0 +1,125 @@
+:root {
+  color-scheme: light;
+
+  /* The only approved font families and type sizes. */
+  --font-sans:
+    var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: var(--font-playfair), Georgia, serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --text-1: 12px;
+  --text-2: 14px;
+  --text-3: 18px;
+  --text-4: 28px;
+  --weight-regular: 400;
+  --weight-strong: 700;
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+
+  /* The only approved spacing, radii, control, and elevation values. */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --radius-1: 8px;
+  --radius-2: 16px;
+  --radius-round: 999px;
+  --stroke: 1px;
+  --control-height: 40px;
+  --control-height-compact: 32px;
+  --shadow: 0 16px 32px rgba(52, 38, 27, 0.14);
+  --duration: 160ms;
+  --easing: ease;
+
+  /* The only semantic color roles. Themes override these roles, never components. */
+  --color-canvas: #f4f0e8;
+  --color-surface: #fffdf9;
+  --color-surface-muted: #ede6dc;
+  --color-text: #2b2520;
+  --color-text-muted: #5e554d;
+  --color-border: rgba(79, 58, 43, 0.15);
+  --color-border-strong: rgba(79, 58, 43, 0.28);
+  --color-primary: #b85732;
+  --color-primary-strong: #8f3f25;
+  --color-primary-muted: #f8dfd0;
+  --color-success: #2f745f;
+  --color-success-muted: #ddede4;
+  --color-info: #315d7f;
+  --color-info-muted: #dbeaf1;
+  --color-warning: #b65f1f;
+  --color-warning-muted: #fff1d6;
+  --color-danger: #b5362c;
+  --color-danger-muted: #fee4df;
+
+  /* Structural constants, not a visual scale. */
+  --page-max-width: 1180px;
+  --page-gutter: clamp(16px, 2vw, 32px);
+  --layer-sticky: 10;
+  --layer-modal: 20;
+
+  /* Legacy aliases: compatibility only. New primitives use the core tokens above. */
+  --bg: var(--color-canvas);
+  --bg-2: var(--color-surface);
+  --surface: var(--color-surface);
+  --surface-solid: var(--color-surface);
+  --surface-1: var(--color-surface);
+  --surface-2: var(--color-surface-muted);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --text-tertiary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --ink: var(--color-text);
+  --ink-soft: var(--color-text-muted);
+  --muted: var(--color-text-muted);
+  --line: var(--color-border);
+  --line-strong: var(--color-border-strong);
+  --border-subtle: var(--color-border);
+  --accent: var(--color-primary);
+  --accent-strong: var(--color-primary-strong);
+  --accent-soft: var(--color-primary-muted);
+  --green: var(--color-success);
+  --green-soft: var(--color-success-muted);
+  --blue: var(--color-info);
+  --blue-soft: var(--color-info-muted);
+  --amber: var(--color-warning);
+  --amber-soft: var(--color-warning-muted);
+  --red: var(--color-danger);
+  --red-soft: var(--color-danger-muted);
+  --shadow-soft: var(--shadow);
+  --shadow-raised: var(--shadow);
+  --space-6: var(--space-4);
+  --space-8: var(--space-5);
+  --radius-sm: var(--radius-1);
+  --radius-md: var(--radius-2);
+  --radius-lg: var(--radius-2);
+  --radius-xl: var(--radius-2);
+  --radius-pill: var(--radius-round);
+  --control-height-sm: var(--control-height-compact);
+  --duration-fast: var(--duration);
+  --easing-standard: var(--easing);
+  --font-family-body: var(--font-sans);
+  --font-family-display: var(--font-serif);
+  --font-family-mono: var(--font-mono);
+  --font-size-label-sm: var(--text-1);
+  --font-size-label: var(--text-1);
+  --font-size-caption: var(--text-1);
+  --font-size-body-sm: var(--text-2);
+  --font-size-body: var(--text-2);
+  --font-size-title-sm: var(--text-3);
+  --font-size-title: var(--text-3);
+  --font-size-heading: var(--text-3);
+  --font-size-display: var(--text-4);
+  --font-weight-regular: var(--weight-regular);
+  --font-weight-medium: var(--weight-strong);
+  --font-weight-semibold: var(--weight-strong);
+  --font-weight-bold: var(--weight-strong);
+  --font-weight-black: var(--weight-strong);
+  --line-height-tight: var(--leading-tight);
+  --line-height-title: var(--leading-tight);
+  --line-height-copy: var(--leading-normal);
+  --line-height-body: var(--leading-normal);
+  --tracking-label: 0.08em;
+  --tracking-title: 0;
+  --text-interactive: var(--color-primary-strong);
+}

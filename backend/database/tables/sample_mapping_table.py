@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Table, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    UniqueConstraint,
+    func,
+)
 
 from ..schema import MAPPING_OPERATOR_CHECK_SQL, metadata
 
@@ -16,8 +27,20 @@ sample_mapping = Table(
         unique=True,
         index=True,
     ),
-    Column("artifact_field", String(64), nullable=False, server_default="artifact_name", index=True),
-    Column("sample_field", String(64), nullable=False, server_default="sample_name", index=True),
+    Column(
+        "artifact_field",
+        String(64),
+        nullable=False,
+        server_default="artifact_name",
+        index=True,
+    ),
+    Column(
+        "sample_field",
+        String(64),
+        nullable=False,
+        server_default="sample_name",
+        index=True,
+    ),
     Column("operator", String(32), nullable=False, index=True),
     Column("case_sensitive", Boolean, nullable=False, server_default="0"),
     Column(

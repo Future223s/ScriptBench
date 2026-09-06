@@ -3,7 +3,11 @@
 import { useState } from "react";
 
 import { fileManagementApi } from "../../api/endpoints/fileManagement.ts";
-import { normalizeManagementType, normalizeRecordPreview, recordIdToString } from "./fileManagementShared.js";
+import {
+  normalizeManagementType,
+  normalizeRecordPreview,
+  recordIdToString,
+} from "./fileManagementShared.js";
 
 export function useFileDetail({ setError }) {
   const [detailOpen, setDetailOpen] = useState(false);
@@ -26,7 +30,7 @@ export function useFileDetail({ setError }) {
       const normalizedType = normalizeManagementType(type);
       const record =
         normalizedType === "artifact"
-          ? (await fileManagementApi.getArtifact(normalizedId)).data
+          ? await fileManagementApi.getArtifact(normalizedId)
           : normalizedType === "asset"
             ? await fileManagementApi.getAsset(normalizedId)
             : await fileManagementApi.getSample(normalizedId);

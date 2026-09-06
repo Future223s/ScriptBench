@@ -9,7 +9,7 @@ def _format_sample_timestamp(value: datetime) -> str:
     return value.strftime("%b %d, %Y, %I:%M %p").replace(" 0", " ")
 
 
-class SampleRecord(BaseModel): 
+class SampleRecord(BaseModel):
     sample_id: str
     sample_name: str
     sample_blob: bytes | None = None
@@ -45,6 +45,7 @@ class SampleResponse(BaseModel):
     @field_serializer("created_at", "updated_at")
     def serialize_timestamp(self, value: datetime) -> str:
         return _format_sample_timestamp(value)
+
 
 class SampleCreateRequest(BaseModel):
     sample_id: str

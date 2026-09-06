@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Integer, JSON, String, Table, Text, UniqueConstraint, func
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    Integer,
+    JSON,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+    func,
+)
 
 from ..schema import OUTPUT_SPEC_TYPE_CHECK_SQL, STATUS_CHECK_SQL, metadata
 

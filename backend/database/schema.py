@@ -46,11 +46,30 @@ PAYLOAD_SOURCE_TYPES: tuple[str, ...] = (
     "model_output",
 )
 
-EXECUTION_ROW_STATUSES: tuple[str, ...] = (
-    "not_started",
+PROMPT_RESOURCE_TABLES: tuple[str, ...] = (
+    "artifacts",
+    "samples",
+)
+
+PROMPT_RESOURCE_OPERATORS: tuple[str, ...] = (
+    "equals",
+    "not_equals",
+    "greater_than",
+    "less_than",
+    "contains",
+)
+
+PROMPT_RESOURCE_VALUE_TYPES: tuple[str, ...] = (
+    "manual",
+    "sample-field",
+)
+
+EXECUTION_JOB_STATUSES: tuple[str, ...] = (
+    "pending",
     "queued",
-    "in_progress",
+    "running",
     "completed",
+    "failed",
 )
 
 EXECUTION_SCOPES: tuple[str, ...] = (
@@ -64,6 +83,7 @@ PARSE_STATUSES: tuple[str, ...] = (
 )
 
 OBJECT_UPLOAD_TYPES: tuple[str, ...] = (
+    "asset",
     "sample",
     "artifact",
 )
@@ -78,13 +98,18 @@ MAPPING_OPERATOR_CHECK_SQL = (
 )
 PAYLOAD_BINDING_MODE_CHECK_SQL = "binding_mode IN ('fixed', 'sample-bound')"
 PAYLOAD_SOURCE_TYPE_CHECK_SQL = (
-    "source_type IN ('asset', 'sample', 'artifact', 'model_output')"
+    "source_type IN ('asset', 'sample', 'artifact', 'model_output', 'table_rows')"
 )
-EXECUTION_ROW_STATUS_CHECK_SQL = (
-    "status IN ('not_started', 'queued', 'in_progress', 'completed')"
+PROMPT_RESOURCE_TABLE_CHECK_SQL = "source_table IN ('artifacts', 'samples')"
+PROMPT_RESOURCE_OPERATOR_CHECK_SQL = (
+    "operator IN ('equals', 'not_equals', 'greater_than', 'less_than', 'contains')"
+)
+PROMPT_RESOURCE_VALUE_TYPE_CHECK_SQL = "value_type IN ('manual', 'sample-field')"
+EXECUTION_JOB_STATUS_CHECK_SQL = (
+    "status IN ('pending', 'queued', 'running', 'completed', 'failed')"
 )
 EXECUTION_SCOPE_CHECK_SQL = "execution_scope IN ('source', 'decomposed_item')"
 PARSE_STATUS_CHECK_SQL = "parse_status IN ('success', 'failed')"
-OBJECT_UPLOAD_TYPE_CHECK_SQL = "object_type IN ('sample', 'artifact')"
+OBJECT_UPLOAD_TYPE_CHECK_SQL = "object_type IN ('asset', 'sample', 'artifact')"
 
 metadata = MetaData()

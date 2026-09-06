@@ -28,5 +28,9 @@ sample_set_samples = Table(
     ),
 )
 
-Index("ix_sample_set_samples_sample_set_id_position", sample_set_samples.c.sample_set_id, sample_set_samples.c.position)
+Index(
+    "ix_sample_set_samples_sample_set_id_position",
+    sample_set_samples.c.sample_set_id,
+    sample_set_samples.c.position,
+)
 Index("ix_sample_set_samples_sample_id", sample_set_samples.c.sample_id)
