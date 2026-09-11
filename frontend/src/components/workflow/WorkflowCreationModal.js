@@ -2,24 +2,11 @@
 
 import { Dialog, Stack } from "../../ui/primitives/index.js";
 import { WorkflowIdentityStep } from "./WorkflowIdentityStep.js";
-import { WorkflowPromptSpecStep } from "./WorkflowPromptSpecStep.js";
 import { WorkflowSampleSetStep } from "./WorkflowSampleSetStep.js";
 import { WorkflowWizardFooter } from "./WorkflowWizardFooter.js";
 import { WorkflowWizardStepper } from "./WorkflowWizardStepper.js";
 
 export function WorkflowCreationModal({ state, actions }) {
-  function handleClick(event) {
-    const target = event.target.closest("[data-action]");
-    if (!target) return;
-    if (target.dataset.action === "add-example") actions.addWorkflowExample();
-    if (target.dataset.action === "remove-example")
-      actions.removeWorkflowExample(Number(target.dataset.exampleIndex));
-    if (target.dataset.action === "add-schema-field")
-      actions.addWorkflowSchemaField();
-    if (target.dataset.action === "remove-schema-field")
-      actions.removeWorkflowSchemaField(Number(target.dataset.schemaIndex));
-  }
-
   return (
     <Dialog
       open={state.open}
@@ -32,7 +19,6 @@ export function WorkflowCreationModal({ state, actions }) {
     >
       <form
         id="workflow-form"
-        onClick={handleClick}
         onSubmit={(event) => {
           event.preventDefault();
           void actions.submitWorkflow();
@@ -50,12 +36,6 @@ export function WorkflowCreationModal({ state, actions }) {
             <WorkflowSampleSetStep
               workflowDraft={state.workflowDraft}
               sampleSets={state.sampleSets}
-              actions={actions}
-            />
-          ) : null}
-          {state.wizardStep === 2 ? (
-            <WorkflowPromptSpecStep
-              workflowDraft={state.workflowDraft}
               actions={actions}
             />
           ) : null}

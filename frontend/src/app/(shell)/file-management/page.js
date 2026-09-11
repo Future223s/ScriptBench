@@ -2,23 +2,23 @@
 
 import { FileManagementPageView } from "../../../components/file-management/FileManagementPageView.js";
 import { useFileManagementPage } from "../../../hooks/file-management/useFileManagementPage.js";
-import { useResourceCatalogPage } from "../../../hooks/resources/useResourceCatalogPage.js";
+import { useWorkflowStepsPage } from "../../../hooks/workflow-steps/useWorkflowStepsPage.js";
 
 export default function FileManagementRoute() {
   const fileManagement = useFileManagementPage();
-  const resourceCatalog = useResourceCatalogPage();
+  const workflowSteps = useWorkflowStepsPage();
 
-  const resourceActions = {
-    ...resourceCatalog.actions,
+  const workflowStepActions = {
+    ...workflowSteps.actions,
     submitCreateSampleSet: async (...args) => {
-      const result = await resourceCatalog.actions.submitCreateSampleSet(
+      const result = await workflowSteps.actions.submitCreateSampleSet(
         ...args,
       );
       await fileManagement.actions.refresh();
       return result;
     },
-    submitCreateArtifactGroup: async (...args) => {
-      const result = await resourceCatalog.actions.submitCreateArtifactGroup(
+    submitCreateDerivativeGroup: async (...args) => {
+      const result = await workflowSteps.actions.submitCreateDerivativeGroup(
         ...args,
       );
       await fileManagement.actions.refresh();
@@ -30,11 +30,11 @@ export default function FileManagementRoute() {
     <FileManagementPageView
       state={{
         ...fileManagement.state,
-        workflowResourceState: resourceCatalog.state,
+        workflowStepsState: workflowSteps.state,
       }}
       actions={{
         ...fileManagement.actions,
-        workflowResourceActions: resourceActions,
+        workflowStepsActions: workflowStepActions,
       }}
     />
   );

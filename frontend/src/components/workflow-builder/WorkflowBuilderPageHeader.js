@@ -30,8 +30,8 @@ export function WorkflowBuilderPageHeader({
         >
           <option value="">New workflow</option>
           {workflows.map((workflow) => (
-            <option key={workflow.workflow_id} value={workflow.workflow_id}>
-              {workflow.workflow_name}
+            <option key={workflow.id} value={workflow.id}>
+              {workflow.name}
             </option>
           ))}
         </Select>

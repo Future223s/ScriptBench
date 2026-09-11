@@ -13,6 +13,7 @@ from backend.database.repositories.workflows_repository import WorkflowsReposito
 from backend.models.api import ApiDeleteResponse, ApiListResponse, ApiResponse
 from backend.models.workflow_dag_edges import (
     WorkflowDagEdgeCreateRequest,
+    WorkflowDagEdgeDeleteRequest,
     WorkflowDagEdgeCreateResponse,
     WorkflowDagEdgeRecord,
 )
@@ -142,9 +143,9 @@ def delete_workflow_dag_nodes(
     workflow = _workflow_or_404(engine, workflow_id)
     _editable(workflow)
     repository = WorkflowDagRepository(engine)
-    node_ids = list(dict.fromkeys(payload.workflow_dag_node_ids))
+    node_ids = list(dict.fromkeys(payload.ids))
     existing_ids = {
-        int(row["workflow_dag_node_id"]) for row in repository.list_nodes(workflow_id)
+        int(row["id"]) for row in repository.list_nodes(workflow_id)
     }
     missing = [node_id for node_id in node_ids if node_id not in existing_ids]
     if missing:
@@ -196,7 +197,7 @@ def create_workflow_dag_edge(
 
     repository = WorkflowDagRepository(engine)
     node_ids = {
-        int(row["workflow_dag_node_id"]) for row in repository.list_nodes(workflow_id)
+        int(row["id"]) for row in repository.list_nodes(workflow_id)
     }
     if (
         payload.from_workflow_dag_node_id not in node_ids
@@ -227,7 +228,7 @@ def create_workflow_dag_edge(
             "workflow_id": workflow_id,
             "from_workflow_dag_node_id": payload.from_workflow_dag_node_id,
             "to_workflow_dag_node_id": payload.to_workflow_dag_node_id,
-            "edge_condition": payload.edge_condition,
+            "condition": payload.condition,
         }
     )
     row = repository.fetch_edge(edge_id)
@@ -257,14 +258,11 @@ def delete_workflow_dag_edge_by_path(
     response_model=ApiDeleteResponse,
 )
 def delete_workflow_dag_edge(
-    payload: dict[str, int],
+    payload: WorkflowDagEdgeDeleteRequest,
     workflow_id: int = FastAPIPath(..., ge=1),
     engine=Depends(get_engine),
 ) -> ApiDeleteResponse:
-    edge_id = payload.get("workflow_dag_edge_id")
-    if not edge_id:
-        raise HTTPException(status_code=400, detail="workflow_dag_edge_id is required")
-    return _delete_edge(workflow_id, int(edge_id), engine)
+    return _delete_edge(workflow_id, payload.id, engine)
 
 
 def _delete_edge(workflow_id: int, edge_id: int, engine) -> ApiDeleteResponse:

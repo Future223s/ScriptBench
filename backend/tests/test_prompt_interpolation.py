@@ -17,7 +17,7 @@ class PromptInterpolationTests(unittest.TestCase):
                         "$each": {
                             "resource": "line_crops",
                             "into": "parts",
-                            "template": {"text": "{{line_crops.artifact_name}}"},
+                            "template": {"text": "{{line_crops.name}}"},
                         },
                     }
                 ]
@@ -25,8 +25,8 @@ class PromptInterpolationTests(unittest.TestCase):
             {
                 "instructions": [{"text": "Read every crop."}],
                 "line_crops": [
-                    {"artifact_name": "crop-1"},
-                    {"artifact_name": "crop-2"},
+                    {"name": "crop-1"},
+                    {"name": "crop-2"},
                 ],
             },
             {"sample_id": "sample-1"},
@@ -44,9 +44,9 @@ class PromptInterpolationTests(unittest.TestCase):
 
     def test_preserves_blob_for_inline_data(self):
         rendered = self.builder._render(
-            {"inline_data": {"mime_type": "image/png", "data": "{{sample.sample_blob}}"}},
+            {"inline_data": {"mime_type": "image/png", "data": "{{sample.blob}}"}},
             {},
-            {"sample_blob": b"image-bytes"},
+            {"blob": b"image-bytes"},
             {},
         )
 

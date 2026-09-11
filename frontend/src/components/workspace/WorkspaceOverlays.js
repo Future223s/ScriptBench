@@ -15,36 +15,31 @@ import {
 
 function ExecutionRowDetail({ row, onClose }) {
   const workflowSteps = row?.workflow_steps || [];
-  const modelOutputs = row?.model_outputs || [];
-  const stepOutput = row?.step_output;
+  const stepOutputs = row?.step_outputs || [];
   const [selectedStepId, setSelectedStepId] = useState("");
   const defaultStepId = String(
-    modelOutputs[0]?.workflow_step_id ??
-      workflowSteps[0]?.workflow_step_id ??
+    stepOutputs[0]?.workflow_step_id ??
+      workflowSteps[0]?.id ??
       "",
   );
   useEffect(() => {
     setSelectedStepId((current) =>
       workflowSteps.some(
-        (step) => String(step.workflow_step_id) === current,
+        (step) => String(step.id) === current,
       )
         ? current
         : defaultStepId,
     );
-  }, [defaultStepId, row?.execution_job_id, workflowSteps]);
+  }, [defaultStepId, row?.id, workflowSteps]);
   const activeStepId = selectedStepId || defaultStepId;
-  const selectedOutput = modelOutputs.find(
+  const selectedOutput = stepOutputs.find(
     (output) => String(output.workflow_step_id) === activeStepId,
   );
-  const selectedStepOutput =
-    stepOutput && String(stepOutput.workflow_step_id) === activeStepId
-      ? stepOutput
-      : null;
-  const displayedOutput = selectedOutput || selectedStepOutput;
+  const displayedOutput = selectedOutput;
   return (
     <Dialog
       open={Boolean(row)}
-      title={row ? `Execution job ${row.execution_job_id}` : "Execution job"}
+      title={row ? `Execution job ${row.id}` : "Execution job"}
       onClose={onClose}
       size="wide"
     >
@@ -61,10 +56,10 @@ function ExecutionRowDetail({ row, onClose }) {
               ) : null}
               {workflowSteps.map((step) => (
                 <option
-                  key={step.workflow_step_id}
-                  value={step.workflow_step_id}
+                  key={step.id}
+                  value={step.id}
                 >
-                  {step.step_name || `Step ${step.workflow_step_id}`}
+                  {step.name || `Step ${step.id}`}
                 </option>
               ))}
             </Select>
@@ -73,7 +68,7 @@ function ExecutionRowDetail({ row, onClose }) {
             <>
               <Inline gap="compact">
                 <StatusBadge>
-                  {selectedOutput?.parse_status || selectedStepOutput?.status || "unknown"}
+                  {selectedOutput?.parse_status || "unknown"}
                 </StatusBadge>
               </Inline>
               <Grid columns={3}>
@@ -94,17 +89,12 @@ function ExecutionRowDetail({ row, onClose }) {
                   {selectedOutput.hallucination_count ?? "Not scored"}
                 </StatusBadge>
               </Grid>
-              <CodeBlock label="Model output">
+              <CodeBlock label="Step output">
                 {selectedOutput?.parsed_output != null
                   ? typeof selectedOutput.parsed_output === "string"
                     ? selectedOutput.parsed_output
                     : JSON.stringify(selectedOutput.parsed_output, null, 2)
-                  : selectedOutput?.raw_model_response ||
-                    (selectedStepOutput?.output_value != null
-                      ? typeof selectedStepOutput.output_value === "string"
-                        ? selectedStepOutput.output_value
-                        : JSON.stringify(selectedStepOutput.output_value, null, 2)
-                      : "No structured output available.")}
+                  : selectedOutput?.raw_model_response || "No structured output available."}
               </CodeBlock>
             </>
           ) : (

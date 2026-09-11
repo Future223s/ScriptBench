@@ -19,7 +19,7 @@ class PayloadTemplatesRepository:
                 connection.execute(
                     insert(payload_templates)
                     .values(**row)
-                    .returning(payload_templates.c.payload_template_id)
+                    .returning(payload_templates.c.id)
                 ).scalar_one()
             )
 
@@ -33,7 +33,7 @@ class PayloadTemplatesRepository:
             return (
                 connection.execute(
                     select(payload_templates).where(
-                        payload_templates.c.payload_template_id == payload_template_id
+                        payload_templates.c.id == payload_template_id
                     )
                 )
                 .mappings()
@@ -50,23 +50,23 @@ class PayloadTemplatesRepository:
             templates = list(
                 connection.execute(
                     select(payload_templates).order_by(
-                        payload_templates.c.payload_template_name
+                        payload_templates.c.name
                     )
                 )
                 .mappings()
                 .all()
             )
         resources_by_template = {
-            int(template["payload_template_id"]): PromptResourcesRepository(
+            int(template["id"]): PromptResourcesRepository(
                 self.engine
-            ).list_for_template(int(template["payload_template_id"]))
+            ).list_for_template(int(template["id"]))
             for template in templates
         }
         return [
             {
                 **dict(template),
                 "resources": resources_by_template.get(
-                    int(template["payload_template_id"]), []
+                    int(template["id"]), []
                 ),
             }
             for template in templates
@@ -75,7 +75,7 @@ class PayloadTemplatesRepository:
     def list_referencing_workflow_step_ids(
         self, payload_template_ids: list[int], conn: Connection | None = None
     ) -> list[int]:
-        statement = select(workflow_steps.c.workflow_step_id).where(
+        statement = select(workflow_steps.c.id).where(
             workflow_steps.c.payload_template_id.in_(payload_template_ids)
         )
 
@@ -93,7 +93,7 @@ class PayloadTemplatesRepository:
         self, payload_template_ids: list[int], conn: Connection | None = None
     ) -> int:
         statement = delete(payload_templates).where(
-            payload_templates.c.payload_template_id.in_(payload_template_ids)
+            payload_templates.c.id.in_(payload_template_ids)
         )
 
         def run(connection: Connection) -> int:

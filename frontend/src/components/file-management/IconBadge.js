@@ -38,7 +38,7 @@ export function IconBadge({ kind, className = "" }) {
         />
       </svg>
     ),
-    artifact: (
+    derivative: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path
           d="M6.5 7.5h11v9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-9Z"

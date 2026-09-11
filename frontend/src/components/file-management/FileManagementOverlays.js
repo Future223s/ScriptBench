@@ -5,7 +5,7 @@ import { Modal } from "../common/Modal.js";
 import { Button, Dialog, SegmentedControl } from "../../ui/primitives/index.js";
 import { FileUploadPanel } from "./FileUploadPanel.js";
 import { ManagementFields } from "./SampleManagementPanel.js";
-import { ResourceCatalogOverlays } from "../resources/ResourceCatalogOverlays.js";
+import { WorkflowStepsOverlays } from "../workflow-steps/WorkflowStepsOverlays.js";
 import {
   managementModes,
   objectTypeLabel,
@@ -275,8 +275,8 @@ function ManagementModal({ open, state, actions }) {
 
 function UploadModal({ open, state, actions }) {
   const modeLabel =
-    state.uploadType === "artifact"
-      ? "Artifacts"
+    state.uploadType === "derivative"
+      ? "Derivatives"
       : state.uploadType === "asset"
         ? "Assets"
         : "Samples";
@@ -336,10 +336,10 @@ export function FileManagementOverlays({ state, actions }) {
         state={state}
         actions={actions}
       />
-      {state.workflowResourceState && actions.workflowResourceActions ? (
-        <ResourceCatalogOverlays
-          state={state.workflowResourceState}
-          actions={actions.workflowResourceActions}
+      {state.workflowStepsState && actions.workflowStepsActions ? (
+        <WorkflowStepsOverlays
+          state={state.workflowStepsState}
+          actions={actions.workflowStepsActions}
         />
       ) : null}
     </>

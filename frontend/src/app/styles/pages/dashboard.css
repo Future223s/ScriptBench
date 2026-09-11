@@ -40,14 +40,146 @@
   height: 100%;
 }
 
-.analytics-metric-group h3 {
-  font-size: var(--font-size-heading-sm);
-  margin: 0 0 var(--space-3);
-}
-
 .analytics-completed-count {
   margin: var(--space-3) 0 0;
   text-align: center;
+}
+
+.analytics-boxplot-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.analytics-boxplot {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.analytics-boxplot-heading {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.analytics-boxplot-heading h3 {
+  font-size: var(--font-size-heading-sm);
+  margin: 0;
+}
+
+.analytics-boxplot-heading span {
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+}
+
+.analytics-boxplot-rows {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.analytics-boxplot-row,
+.analytics-boxplot-axis {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(6rem, 11rem) minmax(0, 1fr);
+}
+
+.analytics-boxplot-row > strong {
+  align-self: center;
+  font-size: var(--font-size-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-boxplot-track {
+  background-image: linear-gradient(to right, var(--line) 1px, transparent 1px);
+  background-size: 25% 100%;
+  min-height: 2rem;
+  position: relative;
+}
+
+.analytics-boxplot-whisker {
+  border-top: 2px solid var(--boxplot-color, var(--accent));
+  position: absolute;
+  top: 50%;
+}
+
+.analytics-boxplot-whisker--left::before,
+.analytics-boxplot-whisker--right::after {
+  background: var(--boxplot-color, var(--accent));
+  content: "";
+  height: 0.8rem;
+  position: absolute;
+  top: -0.45rem;
+  width: 2px;
+}
+
+.analytics-boxplot-whisker--left::before {
+  left: 0;
+}
+
+.analytics-boxplot-whisker--right::after {
+  right: 0;
+}
+
+.analytics-boxplot-box {
+  background: var(--boxplot-fill, var(--surface-solid));
+  border: 2px solid var(--boxplot-color, var(--accent));
+  bottom: 0.35rem;
+  min-width: 2px;
+  position: absolute;
+  top: 0.35rem;
+}
+
+.analytics-boxplot-box i {
+  background: var(--boxplot-color, var(--accent));
+  bottom: -2px;
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 2px;
+}
+
+.analytics-boxplot-overflow {
+  color: var(--boxplot-color, var(--accent));
+  font-family: var(--font-family-mono, monospace);
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.12em;
+  position: absolute;
+  right: 0;
+  top: 0.45rem;
+}
+
+.analytics-boxplot-track--1 {
+  --boxplot-color: #46725f;
+  --boxplot-fill: #dcefe2;
+}
+
+.analytics-boxplot-track--2 {
+  --boxplot-color: #b95b32;
+  --boxplot-fill: #fae4d8;
+}
+
+.analytics-boxplot-axis {
+  margin-top: var(--space-1);
+}
+
+.analytics-boxplot-axis > div {
+  color: var(--text-muted);
+  display: flex;
+  font-family: var(--font-family-mono, monospace);
+  font-size: 11px;
+  justify-content: space-between;
+}
+
+.analytics-boxplot-empty {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
 }
 
 .analytics-coming-soon {
@@ -60,57 +192,7 @@
   font-weight: var(--font-weight-semibold);
   justify-content: center;
   margin: 0;
-  min-height: 7.5rem;
-}
-
-.analytics-metric-circles {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: space-between;
-}
-
-.analytics-metric-circle {
-  align-items: center;
-  aspect-ratio: 1;
-  background: var(--surface-2);
-  border: 2px solid var(--metric-color, var(--line));
-  border-radius: 50%;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-}
-
-.analytics-metric-circle--scored {
-  background: var(--metric-color);
-}
-
-.analytics-metric-circle span {
-  color: var(--text);
-  font-size: var(--font-size-label);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.analytics-metric-circle strong {
-  font-size: var(--font-size-heading-sm);
-  margin-top: var(--space-1);
-}
-
-.analytics-metric-circles--vertical {
-  align-items: center;
-  flex-direction: column;
-}
-
-.analytics-metric-circles--vertical .analytics-metric-circle {
-  flex: none;
-  width: min(100%, 7.5rem);
-}
-
-.analytics-metric-circles--hallucinations .analytics-metric-circle {
-  border-color: #9b5f68;
+  min-height: 5rem;
 }
 
 @media (max-width: 720px) {
@@ -121,5 +203,14 @@
   .analytics-workflow-controls {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .analytics-boxplot-row,
+  .analytics-boxplot-axis {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-boxplot-axis > span {
+    display: none;
   }
 }

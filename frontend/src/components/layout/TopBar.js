@@ -1,5 +1,6 @@
 "use client";
 
+import { DevControls } from "./DevControls.js";
 import { NotificationBar } from "./NotificationBar.js";
 import { useNotificationOverlay } from "./NotificationOverlay.js";
 
@@ -13,7 +14,7 @@ const prototypeNavItems = [
     title: "File Management",
   },
   {
-    key: "resources",
+    key: "workflow-steps",
     title: "Workflow Steps",
   },
   {
@@ -60,6 +61,7 @@ export function TopBar({ prototypeNav, onNavigatePrototype }) {
             ))}
           </div>
         </div>
+        <DevControls />
       </div>
       <nav className="prototype-nav" aria-label="Primary navigation">
         {prototypeNavItems.map((item) => (

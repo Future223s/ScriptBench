@@ -8,10 +8,11 @@ from .api import ApiResponse
 
 
 class WorkflowStepRecord(BaseModel):
-    workflow_step_id: int
-    step_name: str
-    model_family: str
-    model: str | None = None
+    id: int
+    name: str
+    step_executor_id: str
+    method: str
+    executor_config: dict[str, Any]
     payload_template_id: int | None = None
     output_spec_id: int | None = None
     created_at: datetime
@@ -21,9 +22,10 @@ class WorkflowStepRecord(BaseModel):
 
 
 class WorkflowStepCreateRequest(BaseModel):
-    step_name: str
-    model_family: str
-    model: str
+    name: str
+    step_executor_id: str
+    method: str
+    executor_config: dict[str, Any]
     payload_template_id: int = Field(gt=0)
     output_spec_id: int = Field(gt=0)
     model_config = ConfigDict(extra="forbid")

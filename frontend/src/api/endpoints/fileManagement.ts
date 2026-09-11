@@ -3,95 +3,86 @@ import { apiFetch } from "../client";
 export type ApiId = string | number;
 
 export interface SampleRecord {
-  sample_id: string;
-  sample_name: string;
-  sample_mime_type?: string | null;
+  id: string;
+  name: string;
+  mime_type?: string | null;
   ground_truth_text?: string | null;
   created_at?: string;
   updated_at?: string;
-  has_sample_blob?: boolean;
-  sample_blob_size?: number;
-  sample_blob_base64?: string | null;
+  has_blob?: boolean;
+  blob_size?: number;
+  blob_base64?: string | null;
 }
 
 export interface SampleSetSummary {
-  sample_set_id: ApiId;
-  sample_set_name: string;
-  sample_set_description?: string | null;
-  sample_set_type?: string | null;
+  id: ApiId;
+  name: string;
+  description?: string | null;
   sample_count?: number;
   workflow_count?: number;
   sample_ids?: string[];
   sample_ids_preview?: string[];
 }
 
-export interface ArtifactGroupRecord {
-  artifact_group_id: ApiId;
-  artifact_group_name: string;
-  artifact_group_description?: string | null;
-  matching_type?: string;
-  matching_rule?: Record<string, unknown>;
-  position_rule?: string | Record<string, unknown> | null;
-  mapping_type?: string;
-  created_at?: string;
-  updated_at?: string;
-  artifact_ids?: ApiId[];
-  artifact_count?: number;
-  artifact_ids_preview?: ApiId[];
+export interface DerivativeGroupRecord {
+  id: ApiId;
+  name: string;
+  description?: string | null;
+  position_rule?: Record<string, unknown> | null;
+  mapping_type: string;
+  status: string;
+  created_at: string;
 }
 
-export interface ArtifactRecord {
-  artifact_id: number;
-  artifact_name: string;
-  originating_sample_id?: string | null;
-  artifact_group_id?: number | null;
-  artifact_group_name?: string | null;
-  artifact_category: string;
-  artifact_mime_type?: string | null;
+export interface DerivativeRecord {
+  id: number;
+  name: string;
+  sample_id?: string | null;
+  derivative_group_id?: number | null;
+  category: string;
+  mime_type?: string | null;
   created_at?: string;
   updated_at?: string;
-  has_artifact_blob?: boolean;
-  artifact_blob_size?: number;
-  artifact_blob_base64?: string | null;
+  has_blob?: boolean;
+  blob_size?: number;
+  blob_base64?: string | null;
 }
 
 export interface AssetRecord {
-  asset_id: number;
-  asset_name: string;
-  asset_type: string;
-  asset_mime_type?: string | null;
+  id: number;
+  name: string;
+  type: string;
+  mime_type?: string | null;
   created_at?: string;
   updated_at?: string;
-  has_asset_blob?: boolean;
-  asset_blob_size?: number;
-  asset_blob_base64?: string | null;
+  has_blob?: boolean;
+  blob_size?: number;
+  blob_base64?: string | null;
 }
 
 export interface CreateAssetPayload {
-  asset_name: string;
-  asset_type: string;
+  name: string;
+  type: string;
 }
 
 export interface CreateSampleSetPayload {
   name: string;
   description?: string | null;
-  type?: string | null;
   sample_ids: string[];
 }
 
 export interface CreateSamplePayload {
-  sample_id: string;
-  sample_name: string;
+  id: string;
+  name: string;
   ground_truth_text?: string | null;
 }
 
-export interface CreateArtifactGroupPayload {
+export interface CreateDerivativeGroupPayload {
   name: string;
   description?: string | null;
-  artifact_ids: number[];
-  matching_type?: string;
+  derivative_ids: number[];
   mapping_type?: string;
-  matching_rule?: Record<string, unknown>;
+  position_rule?: Record<string, unknown> | null;
 }
 
 export interface SamplesResponse {
@@ -104,14 +95,14 @@ export interface SampleSetsResponse {
   sample_set_count: number;
 }
 
-export interface ArtifactGroupsResponse {
-  artifact_groups: ArtifactGroupRecord[];
-  artifact_group_count: number;
+export interface DerivativeGroupsResponse {
+  derivative_groups: DerivativeGroupRecord[];
+  derivative_group_count: number;
 }
 
-export interface ArtifactsResponse {
-  artifacts: ArtifactRecord[];
-  artifact_count: number;
+export interface DerivativesResponse {
+  derivatives: DerivativeRecord[];
+  derivative_count: number;
 }
 
 export interface AssetsResponse {
@@ -119,73 +110,70 @@ export interface AssetsResponse {
   asset_count: number;
 }
 
-export interface ArtifactMapItem {
-  artifact_id: number;
-  artifact_name: string;
+export interface DerivativeMapItem {
+  id: number;
+  name: string;
 }
 
-export interface ArtifactMapResult extends ArtifactMapItem {
-  originating_sample_id?: string | null;
-  artifact_group_id?: number | null;
-  artifact_group_name?: string | null;
-  artifact_category?: string | null;
-  artifact_mime_type?: string | null;
-  artifact_blob_base64?: string | null;
-  artifact_blob_size?: number | null;
+export interface DerivativeMapResult extends DerivativeMapItem {
+  sample_id?: string | null;
+  derivative_group_id?: number | null;
+  category?: string | null;
+  mime_type?: string | null;
+  blob_base64?: string | null;
+  blob_size?: number | null;
   mapping_type?: string | null;
   errors?: string[];
 }
 
-export interface ArtifactMapResponse {
-  mapped_artifacts: ArtifactMapResult[];
-  rejected_artifacts: Array<Record<string, unknown>>;
+export interface DerivativeMapResponse {
+  mapped_derivatives: DerivativeMapResult[];
+  rejected_derivatives: Array<Record<string, unknown>>;
   mapped_count: number;
   rejected_count: number;
 }
 
-export interface ArtifactCreateResult extends ArtifactMapItem {
-  artifact_group_id?: number | null;
-  artifact_group_name?: string | null;
-  artifact_category?: string | null;
-  artifact_blob_base64?: string | null;
+export interface DerivativeCreateResult extends DerivativeMapItem {
+  derivative_group_id?: number | null;
+  category?: string | null;
+  blob_base64?: string | null;
 }
 
-export interface ArtifactCreateRequestItem {
-  artifact_name: string;
-  artifact_mime_type: string;
+export interface DerivativeCreateRequestItem {
+  name: string;
+  mime_type: string;
 }
 
-export interface ArtifactPatchRequestItem {
-  artifact_id: number;
-  artifact_group_id?: number | null;
-  artifact_group_name?: string | null;
-  originating_sample_id?: string | null;
-  artifact_category?: string | null;
-  artifact_mime_type?: string | null;
+export interface DerivativePatchRequestItem {
+  id: number;
+  derivative_group_id?: number | null;
+  sample_id?: string | null;
+  category?: string | null;
+  mime_type?: string | null;
 }
 
-export interface ArtifactMapApiResponse {
+export interface DerivativeMapApiResponse {
   success: boolean;
   message: string;
-  data?: ArtifactMapResponse | null;
+  data?: DerivativeMapResponse | null;
 }
 
-export interface ArtifactCreateResponse {
+export interface DerivativeCreateResponse {
   success: boolean;
   message: string;
-  data?: ArtifactCreateResult[] | null;
+  data?: DerivativeCreateResult[] | null;
 }
 
-export interface ArtifactPatchResponse {
+export interface DerivativePatchResponse {
   success: boolean;
   message: string;
-  data?: ArtifactRecord[] | null;
+  data?: DerivativeRecord[] | null;
 }
 
-export interface ArtifactUploadBlobResponse {
+export interface DerivativeUploadBlobResponse {
   success: boolean;
   message: string;
-  data?: ArtifactRecord[] | null;
+  data?: DerivativeRecord[] | null;
 }
 
 export interface FileUploadQueueResponse {
@@ -247,8 +235,8 @@ export function createSampleBlobFormData(file: File) {
 
 export function createAssetsFormData(
   items: Array<{
-    asset_name: string;
-    asset_type?: string | null;
+    name: string;
+    type?: string | null;
     file: File;
   }>,
 ) {
@@ -256,12 +244,12 @@ export function createAssetsFormData(
   appendListEntries(
     formData,
     "asset_names",
-    items.map((item) => item.asset_name),
+    items.map((item) => item.name),
   );
   appendListEntries(
     formData,
     "asset_types",
-    items.map((item) => item.asset_type ?? ""),
+    items.map((item) => item.type ?? ""),
   );
   appendListEntries(
     formData,
@@ -271,14 +259,14 @@ export function createAssetsFormData(
   return formData;
 }
 
-export function createArtifactBlobFormData(
+export function createDerivativeBlobFormData(
   file: File,
-  artifactMimeType?: string | null,
+  derivativeMimeType?: string | null,
 ) {
   const formData = new FormData();
   formData.append("file", file);
-  if (artifactMimeType) {
-    formData.append("artifact_mime_type", artifactMimeType);
+  if (derivativeMimeType) {
+    formData.append("mime_type", derivativeMimeType);
   }
   return formData;
 }
@@ -334,7 +322,7 @@ export const fileManagementApi = {
     apiFetch<void>("/api/v2/samples", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sample_ids: sampleIds }),
+      body: JSON.stringify({ ids: sampleIds }),
     }),
   deleteSample: (sampleId: ApiId) =>
     apiFetch<void>(`/api/v2/samples/${encodeId(sampleId)}`, {
@@ -364,53 +352,58 @@ export const fileManagementApi = {
       },
     ),
 
-  getArtifactGroups: async () => {
-    const response = await apiFetch<ApiListResponse<ArtifactGroupRecord>>(
-      "/api/v2/artifact-groups",
+  getDerivativeGroups: async () => {
+    const response = await apiFetch<ApiListResponse<DerivativeGroupRecord>>(
+      "/api/v2/derivative-groups",
     );
     return {
-      artifact_groups: response.items || [],
-      artifact_group_count: response.count || 0,
-    } satisfies ArtifactGroupsResponse;
+      derivative_groups: response.items || [],
+      derivative_group_count: response.count || 0,
+    } satisfies DerivativeGroupsResponse;
   },
-  createArtifactGroup: (payload: CreateArtifactGroupPayload) =>
-    apiFetch<ArtifactGroupRecord>("/api/v2/artifact-groups", {
+  createDerivativeGroup: async (payload: CreateDerivativeGroupPayload) => {
+    const response = await apiFetch<ApiResponse<DerivativeGroupRecord>>("/api/v2/derivative-groups", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
-    }),
-  deleteArtifactGroup: (artifactGroupId: ApiId) =>
-    apiFetch<{ artifact_group_id: ApiId; deleted: true }>(
-      `/api/v2/artifact-groups/${encodeId(artifactGroupId)}`,
+    });
+    if (!response.data) {
+      throw new Error("Derivative group create response did not include group data.");
+    }
+    return response.data;
+  },
+  deleteDerivativeGroup: (derivativeGroupId: ApiId) =>
+    apiFetch<void>(
+      `/api/v2/derivative-groups/${encodeId(derivativeGroupId)}`,
       {
         method: "DELETE",
       },
     ),
 
-  getArtifacts: async () => {
+  getDerivatives: async () => {
     const response =
-      await apiFetch<ApiListResponse<ArtifactRecord>>("/api/v2/artifacts");
+      await apiFetch<ApiListResponse<DerivativeRecord>>("/api/v2/derivatives");
     return {
-      artifacts: response.items || [],
-      artifact_count: response.count || 0,
-    } satisfies ArtifactsResponse;
+      derivatives: response.items || [],
+      derivative_count: response.count || 0,
+    } satisfies DerivativesResponse;
   },
-  getArtifact: async (artifactId: ApiId) => {
-    const response = await apiFetch<ApiResponse<ArtifactRecord>>(
-      `/api/v2/artifacts/${encodeId(artifactId)}`,
+  getDerivative: async (derivativeId: ApiId) => {
+    const response = await apiFetch<ApiResponse<DerivativeRecord>>(
+      `/api/v2/derivatives/${encodeId(derivativeId)}`,
     );
     if (!response.data) {
-      throw new Error("Artifact response did not include artifact data.");
+      throw new Error("Derivative response did not include derivative data.");
     }
     return response.data;
   },
-  mapArtifacts: async (artifacts: ArtifactMapItem[]) => {
-    const response = await apiFetch<ArtifactMapApiResponse>(
-      directBackendUrl("/api/v2/artifacts/map"),
+  mapDerivatives: async (derivatives: DerivativeMapItem[]) => {
+    const response = await apiFetch<DerivativeMapApiResponse>(
+      directBackendUrl("/api/v2/derivatives/map"),
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ artifacts }),
+        body: JSON.stringify({ derivatives }),
       },
     );
     return {
@@ -419,13 +412,13 @@ export const fileManagementApi = {
       success: response.success,
     };
   },
-  createArtifacts: async (artifacts: ArtifactCreateRequestItem[]) => {
-    const response = await apiFetch<ArtifactCreateResponse>(
-      directBackendUrl("/api/v2/artifacts"),
+  createDerivatives: async (derivatives: DerivativeCreateRequestItem[]) => {
+    const response = await apiFetch<DerivativeCreateResponse>(
+      directBackendUrl("/api/v2/derivatives"),
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ artifacts }),
+        body: JSON.stringify({ derivatives }),
       },
     );
     return {
@@ -434,13 +427,13 @@ export const fileManagementApi = {
       success: response.success,
     };
   },
-  patchArtifacts: async (artifacts: ArtifactPatchRequestItem[]) => {
-    const response = await apiFetch<ArtifactPatchResponse>(
-      directBackendUrl("/api/v2/artifacts"),
+  patchDerivatives: async (derivatives: DerivativePatchRequestItem[]) => {
+    const response = await apiFetch<DerivativePatchResponse>(
+      directBackendUrl("/api/v2/derivatives"),
       {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ artifacts }),
+        body: JSON.stringify({ derivatives }),
       },
     );
     return {
@@ -449,22 +442,22 @@ export const fileManagementApi = {
       success: response.success,
     };
   },
-  uploadArtifactBlob: (artifactId: ApiId, formData: FormData) =>
-    apiFetch<ArtifactUploadBlobResponse>(
-      directBackendUrl(`/api/v2/artifacts/${encodeId(artifactId)}/blob`),
+  uploadDerivativeBlob: (derivativeId: ApiId, formData: FormData) =>
+    apiFetch<DerivativeUploadBlobResponse>(
+      directBackendUrl(`/api/v2/derivatives/${encodeId(derivativeId)}/blob`),
       {
         method: "PUT",
         body: formData,
       },
     ),
-  deleteArtifacts: (artifactIds: number[]) =>
-    apiFetch<void>("/api/v2/artifacts", {
+  deleteDerivatives: (derivativeIds: number[]) =>
+    apiFetch<void>("/api/v2/derivatives", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ artifact_ids: artifactIds }),
+      body: JSON.stringify({ ids: derivativeIds }),
     }),
-  deleteArtifact: (artifactId: ApiId) =>
-    apiFetch<void>(`/api/v2/artifacts/${encodeId(artifactId)}`, {
+  deleteDerivative: (derivativeId: ApiId) =>
+    apiFetch<void>(`/api/v2/derivatives/${encodeId(derivativeId)}`, {
       method: "DELETE",
     }),
 
@@ -508,7 +501,7 @@ export const fileManagementApi = {
     apiFetch<void>("/api/v2/assets", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ asset_ids: assetIds }),
+      body: JSON.stringify({ ids: assetIds }),
     }),
   deleteAsset: (assetId: ApiId) =>
     apiFetch<void>(`/api/v2/assets/${encodeId(assetId)}`, {

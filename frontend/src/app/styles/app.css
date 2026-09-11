@@ -15,7 +15,7 @@
 @import "./components/shell.css";
 
 @import "./pages/file-management.css";
-@import "./pages/resources.css";
+@import "./pages/workflow-steps.css";
 @import "./pages/dashboard.css";
 @import "./pages/workflow-builder.css";
 @import "./pages/workspace.css";

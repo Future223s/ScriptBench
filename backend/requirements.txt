@@ -8,3 +8,5 @@ uvicorn
 watchfiles
 python-multipart
 dotenv
+anthropic
+jsonschema

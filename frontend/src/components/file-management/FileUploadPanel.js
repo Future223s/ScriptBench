@@ -17,7 +17,7 @@ function SampleUploadFields({ isFolderUpload, draft, actions, resetKey }) {
         <label htmlFor="sample-name">Sample name</label>
         <input
           id="sample-name"
-          name="sample_name"
+          name="name"
           placeholder="page_001"
           value={draft.sampleName}
           onChange={(event) =>
@@ -107,7 +107,7 @@ function SampleUploadFields({ isFolderUpload, draft, actions, resetKey }) {
   );
 }
 
-function ArtifactUploadFields({
+function DerivativeUploadFields({
   isFolderUpload,
   draft,
   actions,
@@ -116,8 +116,8 @@ function ArtifactUploadFields({
 }) {
   const sampleOptions = samples.length
     ? samples.map((sample) => ({
-        value: sample.sample_id,
-        label: sample.sample_name || sample.sample_id,
+        value: sample.id,
+        label: sample.name || sample.id,
       }))
     : [];
 
@@ -128,22 +128,22 @@ function ArtifactUploadFields({
           .filter(Boolean)
           .join(" ")}
       >
-        <label htmlFor="artifact-name">Artifact name</label>
+        <label htmlFor="derivative-name">Derivative name</label>
         <input
-          id="artifact-name"
-          name="artifact_name"
+          id="derivative-name"
+          name="name"
           placeholder="page_001_crop_01"
-          value={draft.artifactName}
+          value={draft.derivativeName}
           onChange={(event) =>
-            actions.setUploadField("artifactName", event.target.value)
+            actions.setUploadField("derivativeName", event.target.value)
           }
         />
       </div>
       <div className="field wide">
-        <label htmlFor="artifact-originating-sample">Originating sample</label>
+        <label htmlFor="derivative-originating-sample">Originating sample</label>
         <select
-          id="artifact-originating-sample"
-          name="originating_sample_id"
+          id="derivative-originating-sample"
+          name="sample_id"
           value={draft.originatingSampleId}
           onChange={(event) =>
             actions.setUploadField("originatingSampleId", event.target.value)
@@ -152,7 +152,7 @@ function ArtifactUploadFields({
         >
           <option value="">
             {sampleOptions.length
-              ? "Let artifact mapping resolve this"
+              ? "Let derivative mapping resolve this"
               : "No samples available"}
           </option>
           {sampleOptions.map((sample) => (
@@ -167,14 +167,14 @@ function ArtifactUploadFields({
           .filter(Boolean)
           .join(" ")}
       >
-        <label htmlFor="artifact-file">File</label>
+        <label htmlFor="derivative-file">File</label>
         <input
-          key={`artifact-file-${resetKey}`}
-          id="artifact-file"
+          key={`derivative-file-${resetKey}`}
+          id="derivative-file"
           name="file"
           type="file"
           onChange={(event) =>
-            actions.setUploadFiles("artifactFile", filesFromEvent(event))
+            actions.setUploadFiles("derivativeFile", filesFromEvent(event))
           }
         />
       </div>
@@ -183,20 +183,20 @@ function ArtifactUploadFields({
           .filter(Boolean)
           .join(" ")}
       >
-        <label htmlFor="artifact-folder">Folder of artifact files</label>
+        <label htmlFor="derivative-folder">Folder of derivative files</label>
         <input
-          key={`artifact-folder-${resetKey}`}
-          id="artifact-folder"
-          name="artifact_folder_files"
+          key={`derivative-folder-${resetKey}`}
+          id="derivative-folder"
+          name="derivative_folder_files"
           type="file"
           webkitdirectory=""
           multiple
           onChange={(event) =>
-            actions.setUploadFiles("artifactFolderFiles", filesFromEvent(event))
+            actions.setUploadFiles("derivativeFolderFiles", filesFromEvent(event))
           }
         />
         <Instruction>
-          Folder uploads will derive artifact names from the folder structure
+          Folder uploads will derive derivative names from the folder structure
           when possible.
         </Instruction>
       </div>
@@ -215,7 +215,7 @@ function AssetUploadFields({ isFolderUpload, draft, actions, resetKey }) {
         <label htmlFor="asset-name">Asset name</label>
         <input
           id="asset-name"
-          name="asset_name"
+          name="name"
           placeholder="reference_image"
           value={draft.assetName}
           onChange={(event) =>
@@ -294,8 +294,8 @@ export function FileUploadPanel({ state, actions, formId }) {
             actions={actions}
             resetKey={resetKey}
           />
-        ) : state.uploadType === "artifact" ? (
-          <ArtifactUploadFields
+        ) : state.uploadType === "derivative" ? (
+          <DerivativeUploadFields
             isFolderUpload={isFolderUpload}
             draft={uploadDraft}
             actions={actions}

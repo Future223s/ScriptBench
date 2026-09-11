@@ -7,18 +7,18 @@ from ..schema import metadata
 workflow_dag_nodes = Table(
     "workflow_dag_nodes",
     metadata,
-    Column("workflow_dag_node_id", Integer, primary_key=True, autoincrement=True),
+    Column("id", Integer, primary_key=True, autoincrement=True),
     Column(
         "workflow_id",
         Integer,
-        ForeignKey("workflows.workflow_id", ondelete="CASCADE"),
+        ForeignKey("workflows.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     ),
     Column(
         "workflow_step_id",
         Integer,
-        ForeignKey("workflow_steps.workflow_step_id", ondelete="CASCADE"),
+        ForeignKey("workflow_steps.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     ),

@@ -14,6 +14,33 @@ type JsonErrorPayload = {
   detail?: unknown;
 };
 
+function formatErrorDetail(detail: unknown): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (typeof item !== "object" || item === null) return String(item);
+        const validation = item as { loc?: unknown[]; msg?: unknown };
+        const field = Array.isArray(validation.loc)
+          ? validation.loc.filter((part) => part !== "body").join(".")
+          : "";
+        const message =
+          typeof validation.msg === "string" ? validation.msg : "Invalid value";
+        return field ? `${field}: ${message}` : message;
+      })
+      .filter(Boolean)
+      .join("; ");
+  }
+  if (typeof detail === "object" && detail !== null) {
+    const value = detail as { message?: unknown; detail?: unknown };
+    if (typeof value.message === "string") return value.message;
+    if (value.detail !== undefined) return formatErrorDetail(value.detail);
+    return JSON.stringify(detail);
+  }
+  return "";
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -25,10 +52,11 @@ export async function apiFetch<T>(
     : await response.text();
 
   if (!response.ok) {
-    const detail =
+    const detailPayload =
       typeof payload === "object" && payload !== null
-        ? String((payload as JsonErrorPayload).detail || "")
-        : "";
+        ? (payload as JsonErrorPayload).detail
+        : undefined;
+    const detail = formatErrorDetail(detailPayload);
     throw new ApiError(
       detail || `Request failed with ${response.status}`,
       response.status,

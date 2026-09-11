@@ -7,9 +7,8 @@ from sqlalchemy import func, insert, select, update
 from sqlalchemy.engine import Engine
 
 from ..tables.execution_jobs_table import execution_jobs
-from ..tables.model_outputs_table import model_outputs
-from ..tables.samples_table import samples
 from ..tables.step_outputs_table import step_outputs
+from ..tables.samples_table import samples
 from ..tables.workflow_dag_edges_table import workflow_dag_edges
 from ..tables.workflow_dag_nodes_table import workflow_dag_nodes
 from ..tables.workflow_steps_table import workflow_steps
@@ -27,20 +26,20 @@ class ExecutionJobsRepository:
                 conn.execute(
                     select(
                         execution_jobs,
-                        workflow_steps.c.step_name.label("next_step_name"),
+                        workflow_steps.c.name.label("next_step_name"),
                     )
                     .outerjoin(
                         workflow_dag_nodes,
-                        workflow_dag_nodes.c.workflow_dag_node_id
+                        workflow_dag_nodes.c.id
                         == execution_jobs.c.current_workflow_dag_node_id,
                     )
                     .outerjoin(
                         workflow_steps,
-                        workflow_steps.c.workflow_step_id
+                        workflow_steps.c.id
                         == workflow_dag_nodes.c.workflow_step_id,
                     )
                     .where(execution_jobs.c.workflow_id == workflow_id)
-                    .order_by(execution_jobs.c.execution_job_id)
+                    .order_by(execution_jobs.c.id)
                 )
                 .mappings()
                 .all()
@@ -55,7 +54,7 @@ class ExecutionJobsRepository:
                 conn.execute(
                     select(execution_jobs).where(
                         execution_jobs.c.workflow_id == workflow_id,
-                        execution_jobs.c.execution_job_id == execution_job_id,
+                        execution_jobs.c.id == execution_job_id,
                     )
                 )
                 .mappings()
@@ -68,12 +67,12 @@ class ExecutionJobsRepository:
             return
         with self.engine.begin() as conn:
             initial_node_id = conn.execute(
-                select(workflow_dag_nodes.c.workflow_dag_node_id)
+                select(workflow_dag_nodes.c.id)
                 .where(workflow_dag_nodes.c.workflow_id == workflow_id)
                 .order_by(
                     workflow_dag_nodes.c.row.asc(),
                     workflow_dag_nodes.c.col.asc(),
-                    workflow_dag_nodes.c.workflow_dag_node_id.asc(),
+                    workflow_dag_nodes.c.id.asc(),
                 )
                 .limit(1)
             ).scalar_one_or_none()
@@ -81,7 +80,7 @@ class ExecutionJobsRepository:
                 raise LookupError(f"Workflow {workflow_id} has no executable DAG node")
             for sample_id in sample_ids:
                 exists = conn.execute(
-                    select(execution_jobs.c.execution_job_id).where(
+                    select(execution_jobs.c.id).where(
                         execution_jobs.c.workflow_id == workflow_id,
                         execution_jobs.c.sample_id == sample_id,
                     )
@@ -95,6 +94,19 @@ class ExecutionJobsRepository:
                         )
                     )
 
+    def recover_interrupted_jobs(self) -> int:
+        """Make jobs left running by a stopped process actionable again."""
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                update(execution_jobs)
+                .where(execution_jobs.c.status == "running")
+                .values(
+                    status="pending",
+                    error_message="Execution was interrupted by a backend restart.",
+                )
+            )
+        return int(result.rowcount or 0)
+
     def queue(self, workflow_id: int, execution_job_ids: Sequence[int]) -> int:
         if not execution_job_ids:
             return 0
@@ -103,7 +115,7 @@ class ExecutionJobsRepository:
                 update(execution_jobs)
                 .where(
                     execution_jobs.c.workflow_id == workflow_id,
-                    execution_jobs.c.execution_job_id.in_(list(execution_job_ids)),
+                    execution_jobs.c.id.in_(list(execution_job_ids)),
                     execution_jobs.c.status.in_(["pending", "failed"]),
                 )
                 .values(status="queued", error_message=None)
@@ -118,7 +130,7 @@ class ExecutionJobsRepository:
                 update(execution_jobs)
                 .where(
                     execution_jobs.c.workflow_id == workflow_id,
-                    execution_jobs.c.execution_job_id.in_(list(execution_job_ids)),
+                    execution_jobs.c.id.in_(list(execution_job_ids)),
                     execution_jobs.c.status == "queued",
                 )
                 .values(status="pending")
@@ -135,7 +147,7 @@ class ExecutionJobsRepository:
                 update(execution_jobs)
                 .where(
                     execution_jobs.c.workflow_id == workflow_id,
-                    execution_jobs.c.execution_job_id.in_(list(execution_job_ids)),
+                    execution_jobs.c.id.in_(list(execution_job_ids)),
                     execution_jobs.c.status == "completed",
                 )
                 .values(status="queued", error_message=None)
@@ -152,9 +164,9 @@ class ExecutionJobsRepository:
             )
         with self.engine.begin() as conn:
             candidate = conn.execute(
-                select(execution_jobs.c.execution_job_id)
+                select(execution_jobs.c.id)
                 .where(*conditions)
-                .order_by(execution_jobs.c.execution_job_id)
+                .order_by(execution_jobs.c.id)
                 .limit(1)
             ).scalar_one_or_none()
             if candidate is None:
@@ -162,7 +174,7 @@ class ExecutionJobsRepository:
             job = (
                 conn.execute(
                     select(execution_jobs).where(
-                        execution_jobs.c.execution_job_id == candidate
+                        execution_jobs.c.id == candidate
                     )
                 )
                 .mappings()
@@ -171,12 +183,12 @@ class ExecutionJobsRepository:
             node_id = (
                 job["current_workflow_dag_node_id"]
                 or conn.execute(
-                    select(workflow_dag_nodes.c.workflow_dag_node_id)
+                    select(workflow_dag_nodes.c.id)
                     .where(workflow_dag_nodes.c.workflow_id == job["workflow_id"])
                     .order_by(
                         workflow_dag_nodes.c.row,
                         workflow_dag_nodes.c.col,
-                        workflow_dag_nodes.c.workflow_dag_node_id,
+                        workflow_dag_nodes.c.id,
                     )
                     .limit(1)
                 ).scalar_one_or_none()
@@ -188,7 +200,7 @@ class ExecutionJobsRepository:
             result = conn.execute(
                 update(execution_jobs)
                 .where(
-                    execution_jobs.c.execution_job_id == candidate,
+                    execution_jobs.c.id == candidate,
                     execution_jobs.c.status == "queued",
                 )
                 .values(status="running", current_workflow_dag_node_id=node_id)
@@ -198,7 +210,7 @@ class ExecutionJobsRepository:
             claimed = (
                 conn.execute(
                     select(execution_jobs).where(
-                        execution_jobs.c.execution_job_id == candidate
+                        execution_jobs.c.id == candidate
                     )
                 )
                 .mappings()
@@ -213,7 +225,7 @@ class ExecutionJobsRepository:
         with self.engine.connect() as conn:
             step_id = conn.execute(
                 select(workflow_dag_nodes.c.workflow_step_id).where(
-                    workflow_dag_nodes.c.workflow_dag_node_id == node_id
+                    workflow_dag_nodes.c.id == node_id
                 )
             ).scalar_one()
         return {**job, "workflow_dag_node_id": node_id, "workflow_step_id": step_id}
@@ -227,7 +239,7 @@ class ExecutionJobsRepository:
                     workflow_dag_edges.c.workflow_id == job["workflow_id"],
                     workflow_dag_edges.c.from_workflow_dag_node_id == node_id,
                 )
-                .order_by(workflow_dag_edges.c.workflow_dag_edge_id)
+                .order_by(workflow_dag_edges.c.id)
                 .limit(1)
             ).scalar_one_or_none()
             values = (
@@ -238,7 +250,7 @@ class ExecutionJobsRepository:
             conn.execute(
                 update(execution_jobs)
                 .where(
-                    execution_jobs.c.execution_job_id == job["execution_job_id"],
+                    execution_jobs.c.id == job["id"],
                 )
                 .values(**values)
             )
@@ -248,7 +260,7 @@ class ExecutionJobsRepository:
         with self.engine.begin() as conn:
             conn.execute(
                 update(execution_jobs)
-                .where(execution_jobs.c.execution_job_id == execution_job_id)
+                .where(execution_jobs.c.id == execution_job_id)
                 .values(status="pending", error_message=error_message)
             )
 
@@ -266,7 +278,7 @@ class ExecutionJobsRepository:
                 update(execution_jobs)
                 .where(
                     execution_jobs.c.workflow_id == workflow_id,
-                    execution_jobs.c.execution_job_id == execution_job_id,
+                    execution_jobs.c.id == execution_job_id,
                     execution_jobs.c.status == "pending",
                 )
                 .values(**values)
@@ -281,22 +293,12 @@ class ExecutionJobsRepository:
         with self.engine.connect() as conn:
             outputs = (
                 conn.execute(
-                    select(model_outputs)
-                    .where(model_outputs.c.execution_job_id == execution_job_id)
-                    .order_by(model_outputs.c.model_output_id)
+                    select(step_outputs)
+                    .where(step_outputs.c.execution_job_id == execution_job_id)
+                    .order_by(step_outputs.c.id)
                 )
                 .mappings()
                 .all()
-            )
-            step_output = (
-                conn.execute(
-                    select(step_outputs)
-                    .where(step_outputs.c.execution_job_id == execution_job_id)
-                    .order_by(step_outputs.c.step_output_id.desc())
-                    .limit(1)
-                )
-                .mappings()
-                .first()
             )
             steps = (
                 conn.execute(
@@ -304,7 +306,7 @@ class ExecutionJobsRepository:
                     .join(
                         workflow_dag_nodes,
                         workflow_dag_nodes.c.workflow_step_id
-                        == workflow_steps.c.workflow_step_id,
+                        == workflow_steps.c.id,
                     )
                     .where(workflow_dag_nodes.c.workflow_id == workflow_id)
                 )
@@ -313,30 +315,6 @@ class ExecutionJobsRepository:
             )
         return {
             **job,
-            "model_outputs": [dict(row) for row in outputs],
-            "step_output": dict(step_output) if step_output else None,
+            "step_outputs": [dict(row) for row in outputs],
             "workflow_steps": [dict(row) for row in steps],
         }
-
-    def save_step_output(self, row: dict[str, Any]) -> int:
-        with self.engine.begin() as conn:
-            existing = conn.execute(
-                select(step_outputs.c.step_output_id).where(
-                    step_outputs.c.execution_job_id == row["execution_job_id"],
-                    step_outputs.c.workflow_step_id == row["workflow_step_id"],
-                )
-            ).scalar_one_or_none()
-            if existing is not None:
-                conn.execute(
-                    update(step_outputs)
-                    .where(step_outputs.c.step_output_id == existing)
-                    .values(**row)
-                )
-                return int(existing)
-            return int(
-                conn.execute(
-                    insert(step_outputs)
-                    .values(**row)
-                    .returning(step_outputs.c.step_output_id)
-                ).scalar_one()
-            )

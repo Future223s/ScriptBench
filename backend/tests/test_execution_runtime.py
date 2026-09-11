@@ -1,4 +1,5 @@
 from __future__ import annotations
+from backend.services.dev_settings import DevSettings
 
 import asyncio
 import unittest
@@ -7,19 +8,18 @@ from unittest import mock
 from sqlalchemy import create_engine, insert, select, update
 
 import backend.api.dependencies  # noqa: F401 - registers table metadata
-from backend.database.repositories.execution_rows_repository import (
-    ExecutionRowsRepository,
+from backend.database.repositories.execution_jobs_repository import (
+    ExecutionJobsRepository,
 )
 from backend.database.schema import metadata
 from backend.database.tables.execution_jobs_table import execution_jobs
-from backend.database.tables.execution_rows_table import execution_rows
 from backend.database.tables.samples_table import samples
 from backend.database.tables.workflow_dag_edges_table import workflow_dag_edges
 from backend.database.tables.workflow_dag_nodes_table import workflow_dag_nodes
 from backend.database.tables.workflow_steps_table import workflow_steps
 from backend.database.tables.workflows_table import workflows
 from backend.services.clients.stub_client import StubModelClient
-from backend.services.model_client_factory import ModelClientFactory
+from backend.services.step_executor_factory import StepExecutorFactory
 from backend.services.payload_builder import PayloadBuilder
 
 
@@ -57,206 +57,126 @@ class PayloadBuilderTests(unittest.TestCase):
 
 class ExecutionLifecycleTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.engine = create_engine("sqlite:///:memory:", future=True)
+        import tempfile
+        from pathlib import Path
+        from backend.database.engine import make_engine
+        from backend.database.tables.sample_sets_table import sample_sets
+        from backend.services.step_executor_catalog import seed_step_executors
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.engine = make_engine(Path(self.directory.name) / 'runtime.db')
+        self.addCleanup(self.engine.dispose)
         metadata.create_all(self.engine)
         with self.engine.begin() as connection:
-            connection.execute(
-                insert(workflows).values(
-                    workflow_id=1,
-                    workflow_name="workflow",
-                    status="finalized",
-                )
-            )
-            connection.execute(
-                insert(samples).values(sample_id="sample-1", sample_name="sample")
-            )
-            connection.execute(
-                insert(workflow_steps),
-                [
-                    {
-                        "workflow_step_id": 1,
-                        "step_name": "first",
-                        "model_family": "gemini",
-                        "model": "gemini-3.1-flash-lite",
-                        "payload_template_id": 1,
-                        "output_spec_id": 1,
-                        "status": "active",
-                    },
-                    {
-                        "workflow_step_id": 2,
-                        "step_name": "second",
-                        "model_family": "gemini",
-                        "model": "gemini-3.1-flash-lite",
-                        "payload_template_id": 1,
-                        "output_spec_id": 1,
-                        "status": "active",
-                    },
-                ],
-            )
-            connection.execute(
-                insert(workflow_dag_nodes),
-                [
-                    {
-                        "workflow_dag_node_id": 1,
-                        "workflow_id": 1,
-                        "workflow_step_id": 1,
-                    },
-                    {
-                        "workflow_dag_node_id": 2,
-                        "workflow_id": 1,
-                        "workflow_step_id": 2,
-                    },
-                ],
-            )
-            connection.execute(
-                insert(workflow_dag_edges).values(
-                    workflow_dag_edge_id=1,
-                    workflow_id=1,
-                    from_workflow_dag_node_id=1,
-                    to_workflow_dag_node_id=2,
-                )
-            )
-            connection.execute(
-                insert(execution_rows).values(
-                    execution_row_id=1,
-                    workflow_id=1,
-                    sample_id="sample-1",
-                    status="queued",
-                )
-            )
+            seed_step_executors(connection)
+            connection.execute(insert(sample_sets).values(id=1, name='set'))
+            connection.execute(insert(samples).values(id='sample-1', name='sample'))
+            connection.execute(insert(workflows).values(
+                id=1, name='workflow', sample_set_id=1, status='finalized'))
+            connection.execute(insert(workflow_steps), [
+                {'id': i, 'name': f'step-{i}', 'step_executor_id': 'gemini',
+                 'method': 'transcribe', 'executor_config': {'model': 'test'}}
+                for i in (1, 2)
+            ])
+            connection.execute(insert(workflow_dag_nodes), [
+                {'id': i, 'workflow_id': 1, 'workflow_step_id': i, 'row': 1, 'col': i}
+                for i in (1, 2)
+            ])
+            connection.execute(insert(workflow_dag_edges).values(
+                workflow_id=1, from_workflow_dag_node_id=1, to_workflow_dag_node_id=2))
+        self.repository = ExecutionJobsRepository(self.engine)
+        self.repository.create_jobs(workflow_id=1, sample_ids=['sample-1'])
+        self.repository.queue(1, [1])
 
-    def tearDown(self) -> None:
-        self.engine.dispose()
+    def test_same_job_advances_through_both_nodes(self):
+        job = self.repository.claim_next_job()
+        self.assertEqual(1, job['id'])
+        self.assertEqual(1, job['workflow_step_id'])
+        self.assertEqual('queued', self.repository.complete_job_and_advance(job))
+        next_job = self.repository.claim_next_job()
+        self.assertEqual(job['id'], next_job['id'])
+        self.assertEqual(2, next_job['current_workflow_dag_node_id'])
+        self.assertEqual(2, next_job['workflow_step_id'])
+        self.assertEqual('completed', self.repository.complete_job_and_advance(next_job))
+        self.assertIsNone(self.repository.claim_next_job())
+        self.assertEqual(1, len(self.repository.list_for_workflow(1)))
 
-    def test_one_job_advances_the_row_to_the_next_node(self) -> None:
-        repository = ExecutionRowsRepository(self.engine)
-        row = repository.claim_next_row()
-        assert row is not None
+    def test_job_creation_is_idempotent(self):
+        self.repository.create_jobs(workflow_id=1, sample_ids=['sample-1'])
+        self.assertEqual(1, len(self.repository.list_for_workflow(1)))
 
-        job = repository.start_job_for_row(row)
-        self.assertEqual(1, job["workflow_step_id"])
-        self.assertEqual("queued", repository.complete_job_and_advance_row(job))
+    def test_failed_job_error_is_cleared_when_requeued(self):
+        job = self.repository.claim_next_job()
+        self.repository.set_job_failed(job['id'], 'Stub model failure requested.')
+        failed = self.repository.fetch_for_workflow(1, job['id'])
+        self.assertEqual('pending', failed['status'])
+        self.assertEqual('Stub model failure requested.', failed['error_message'])
+        self.assertEqual(1, self.repository.queue(1, [job['id']]))
+        self.assertIsNone(self.repository.fetch_for_workflow(1, job['id'])['error_message'])
+        self.assertEqual('running', self.repository.claim_next_job()['status'])
 
-        next_row = repository.claim_next_row()
-        assert next_row is not None
-        self.assertEqual(2, next_row["current_workflow_dag_node_id"])
-        with self.engine.connect() as connection:
-            statuses = connection.execute(select(execution_jobs.c.status)).scalars().all()
-        self.assertEqual(["completed"], statuses)
+    def test_failure_acknowledgement_controls_requeueing(self):
+        job = self.repository.claim_next_job()
+        self.repository.set_job_failed(job['id'], 'Failure')
+        self.repository.acknowledge_failure(1, job['id'], 'stop_execution')
+        stopped = self.repository.fetch_for_workflow(1, job['id'])
+        self.assertEqual('pending', stopped['status'])
+        self.assertEqual('Failure', stopped['error_message'])
+        self.repository.acknowledge_failure(1, job['id'], 'retry')
+        retried = self.repository.fetch_for_workflow(1, job['id'])
+        self.assertEqual('queued', retried['status'])
+        self.assertIsNone(retried['error_message'])
+        with self.assertRaises(ValueError):
+            self.repository.acknowledge_failure(1, job['id'], 'skip')
 
-    def test_queue_retries_a_pending_row_with_a_failed_job(self) -> None:
-        repository = ExecutionRowsRepository(self.engine)
+    def test_restart_recovers_running_jobs(self):
+        self.repository.claim_next_job()
+        self.assertEqual(1, self.repository.recover_interrupted_jobs())
+        self.assertEqual('pending', self.repository.fetch_for_workflow(1, 1)['status'])
+
+    def test_foreign_keys_reject_missing_samples_and_cascade_deletes(self):
+        from sqlalchemy import delete
+        from sqlalchemy.exc import IntegrityError
+        with self.assertRaises(IntegrityError):
+            self.repository.create_jobs(workflow_id=1, sample_ids=['missing'])
         with self.engine.begin() as connection:
-            connection.execute(
-                update(execution_rows)
-                .where(execution_rows.c.execution_row_id == 1)
-                .values(status="pending")
-            )
-            connection.execute(
-                insert(execution_jobs).values(
-                    execution_row_id=1,
-                    workflow_id=1,
-                    sample_id="sample-1",
-                    workflow_dag_node_id=1,
-                    workflow_step_id=1,
-                    status="failed",
-                    batch_position=0,
-                )
-            )
-
-        self.assertEqual(1, repository.queue(1, [1]))
-        row = repository.claim_next_row()
-        assert row is not None
-        job = repository.start_job_for_row(row)
-
-        self.assertEqual(1, job["execution_job_id"])
-        self.assertEqual("running", job["status"])
-
-    def test_failed_job_error_is_persisted_and_cleared_when_requeued(self) -> None:
-        repository = ExecutionRowsRepository(self.engine)
-        row = repository.claim_next_row()
-        assert row is not None
-        job = repository.start_job_for_row(row)
-
-        repository.set_job_failed(
-            int(job["execution_job_id"]),
-            1,
-            "Stub model failure requested.",
-        )
-        self.assertEqual(
-            "Stub model failure requested.",
-            repository.fetch_for_workflow(1, 1)["error_message"],
-        )
-
-        self.assertEqual(1, repository.queue(1, [1]))
-        self.assertIsNone(repository.fetch_for_workflow(1, 1)["error_message"])
-
-        repository.set_job_failed(
-            int(job["execution_job_id"]),
-            1,
-            "Stub model failure requested.",
-        )
-        self.assertEqual(1, repository.retry_row(1, 1))
-        self.assertIsNone(repository.fetch_for_workflow(1, 1)["error_message"])
-
-    def test_failure_acknowledgements_preserve_rows_and_control_requeueing(self) -> None:
-        repository = ExecutionRowsRepository(self.engine)
-        row = repository.claim_next_row()
-        assert row is not None
-        job = repository.start_job_for_row(row)
-        repository.set_job_failed(
-            int(job["execution_job_id"]), 1, "Stub model failure requested."
-        )
-
-        repository.acknowledge_failure(1, 1, "skip")
-        skipped_row = repository.fetch_for_workflow(1, 1)
-        assert skipped_row is not None
-        self.assertEqual("pending", skipped_row["status"])
-        self.assertEqual("Stub model failure requested.", skipped_row["error_message"])
-        self.assertEqual("failed", repository.list_jobs_for_row(1, 1)[0]["status"])
-
-        repository.acknowledge_failure(1, 1, "stop_execution")
-        stopped_row = repository.fetch_for_workflow(1, 1)
-        assert stopped_row is not None
-        self.assertEqual("queued", stopped_row["status"])
-        self.assertEqual("failed", repository.list_jobs_for_row(1, 1)[0]["status"])
-
-        self.assertEqual(1, repository.requeue_failed_jobs_for_queued_rows(1))
-        self.assertEqual("queued", repository.list_jobs_for_row(1, 1)[0]["status"])
-
-        repository.set_job_failed(
-            int(job["execution_job_id"]), 1, "Stub model failure requested."
-        )
-        repository.acknowledge_failure(1, 1, "retry")
-        retried_row = repository.fetch_for_workflow(1, 1)
-        assert retried_row is not None
-        self.assertEqual("queued", retried_row["status"])
-        self.assertIsNone(retried_row["error_message"])
-        self.assertEqual("queued", repository.list_jobs_for_row(1, 1)[0]["status"])
+            connection.execute(delete(samples).where(samples.c.id == 'sample-1'))
+        self.assertEqual([], self.repository.list_for_workflow(1))
 
 
 class StubModelClientTests(unittest.TestCase):
     def test_stub_accepts_native_prompt_json(self) -> None:
+        executor = StubModelClient(model="gemini-3.1-flash-lite")
         response = asyncio.run(
-            StubModelClient(model="gemini-3.1-flash-lite").transcribe(
+            executor.execute(executor.transcribe,
                 {"contents": [{"role": "user", "parts": [{"text": "hello"}]}]}
             )
         )
         self.assertEqual("Demo transcription output.", response)
 
     def test_stub_can_be_configured_to_fail(self) -> None:
+        executor = StubModelClient(model="gemini-3.1-flash-lite", fail=True)
         with self.assertRaisesRegex(RuntimeError, "Stub model failure requested"):
             asyncio.run(
-                StubModelClient(model="gemini-3.1-flash-lite", fail=True).transcribe(
+                executor.execute(executor.transcribe,
                     {"contents": []}
                 )
             )
 
     def test_factory_passes_the_stub_failure_flag(self) -> None:
-        with mock.patch.dict("os.environ", {"STUB_MODEL_FAIL": "true"}):
-            client = ModelClientFactory(testing_mode=True).for_step(
-                {"model_family": "gemini", "model": "gemini-3.1-flash-lite"}
-            )
+        from sqlalchemy import create_engine
+        from backend.database.schema import metadata
+        from backend.services.step_executor_catalog import seed_step_executors
+        engine = create_engine("sqlite://")
+        metadata.create_all(engine)
+        self.addCleanup(engine.dispose)
+        with engine.begin() as conn:
+            seed_step_executors(conn)
+        settings = DevSettings(dev=True)
+        settings.update(stub_mode=True, stub_fail=True)
+        client = StepExecutorFactory(engine, settings=settings).for_step(
+            {"step_executor_id": "gemini", "method": "transcribe", "executor_config": {"model": "gemini-3.1-flash-lite"}}
+        )
         self.assertIsInstance(client, StubModelClient)
         self.assertTrue(client.fail)
 
@@ -270,7 +190,7 @@ class _PromptRepository:
 
     def fetch_template(self, template_id: int):
         return {
-            "payload_template": {
+            "payload": {
                 "contents": [
                     {
                         "role": "user",
@@ -278,8 +198,8 @@ class _PromptRepository:
                             {"text": "{{instructions.text}}"},
                             {
                                 "inline_data": {
-                                    "mime_type": "{{sample.sample_mime_type}}",
-                                    "data": "{{sample.sample_blob}}",
+                                    "mime_type": "{{sample.mime_type}}",
+                                    "data": "{{sample.blob}}",
                                 }
                             },
                         ],
@@ -290,8 +210,8 @@ class _PromptRepository:
 
     def fetch_sample(self, sample_id: str):
         return {
-            "sample_mime_type": "image/png",
-            "sample_blob": b"image bytes",
+            "mime_type": "image/png",
+            "blob": b"image bytes",
         }
 
     def list_prompt_resources(self, template_id: int):

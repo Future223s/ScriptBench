@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import {
-  createArtifactBlobFormData,
+  createDerivativeBlobFormData,
   createSampleBlobFormData,
   fileManagementApi,
 } from "../../api/endpoints/fileManagement.ts";
@@ -27,28 +27,27 @@ function fileStem(fileName) {
   );
 }
 
-function artifactMapPayload(artifacts) {
-  return artifacts.map((artifact) => ({
-    artifact_id: artifact.artifact_id,
-    artifact_name: artifact.artifact_name,
+function derivativeMapPayload(derivatives) {
+  return derivatives.map((derivative) => ({
+    id: derivative.id,
+    name: derivative.name,
   }));
 }
 
-function artifactCreatePayload(artifacts) {
-  return artifacts.map((artifact) => ({
-    artifact_name: artifact.artifact_name,
-    artifact_mime_type: artifact.artifact_mime_type,
+function derivativeCreatePayload(derivatives) {
+  return derivatives.map((derivative) => ({
+    name: derivative.name,
+    mime_type: derivative.mime_type,
   }));
 }
 
-function artifactPatchPayload(artifacts) {
-  return artifacts.map((artifact) => ({
-    artifact_id: artifact.artifact_id,
-    artifact_group_id: artifact.artifact_group_id,
-    artifact_group_name: artifact.artifact_group_name,
-    originating_sample_id: artifact.originating_sample_id,
-    artifact_category: artifact.artifact_category,
-    artifact_mime_type: artifact.artifact_mime_type,
+function derivativePatchPayload(derivatives) {
+  return derivatives.map((derivative) => ({
+    id: derivative.id,
+    derivative_group_id: derivative.derivative_group_id,
+    sample_id: derivative.sample_id,
+    category: derivative.category,
+    mime_type: derivative.mime_type,
   }));
 }
 
@@ -61,10 +60,10 @@ function createUploadDrafts() {
       sampleFolderFiles: [],
       groundTruthFolderFiles: [],
     },
-    artifact: {
-      artifactName: "",
-      artifactFile: null,
-      artifactFolderFiles: [],
+    derivative: {
+      derivativeName: "",
+      derivativeFile: null,
+      derivativeFolderFiles: [],
       originatingSampleId: "",
     },
     asset: {
@@ -88,7 +87,7 @@ export function useFileUpload() {
 
   function setUploadType(type) {
     setUploadTypeState(
-      type === "artifact" || type === "asset" ? type : "sample",
+      type === "derivative" || type === "asset" ? type : "sample",
     );
   }
 
@@ -183,12 +182,12 @@ export function useFileUpload() {
           for (let index = 0; index < imageFiles.length; index += 1) {
             const { file, sampleId } = imageFiles[index];
             const created = await fileManagementApi.createSample({
-              sample_name: sampleId,
-              sample_id: sampleId,
+              name: sampleId,
+              id: sampleId,
               ground_truth_text: textFiles.get(sampleId) || "",
             });
             await fileManagementApi.uploadSampleBlob(
-              created.sample_id,
+              created.id,
               createSampleBlobFormData(file),
             );
             markFolderUploadProgress({
@@ -205,12 +204,12 @@ export function useFileUpload() {
           const derivedName =
             activeDraft.sampleName.trim() || fileStem(file.name);
           const created = await fileManagementApi.createSample({
-            sample_name: derivedName,
-            sample_id: derivedName,
+            name: derivedName,
+            id: derivedName,
             ground_truth_text: activeDraft.groundTruthText.trim(),
           });
           await fileManagementApi.uploadSampleBlob(
-            created.sample_id,
+            created.id,
             createSampleBlobFormData(file),
           );
         }
@@ -218,33 +217,33 @@ export function useFileUpload() {
         effects.setNotice(
           uploadMode === "folder" ? "Samples uploaded." : "Sample uploaded.",
         );
-      } else if (uploadType === "artifact") {
+      } else if (uploadType === "derivative") {
         if (uploadMode === "folder") {
           const folderFiles = collectFolderFiles(
-            activeDraft.artifactFolderFiles || [],
+            activeDraft.derivativeFolderFiles || [],
           );
           if (!folderFiles.length) {
             throw new Error(
-              "The selected folder does not contain any artifact files.",
+              "The selected folder does not contain any derivative files.",
             );
           }
           startFolderUpload(folderFiles.length);
-          const artifacts = folderFiles.map((item) => ({
-            artifact_name: item.recordId || fileStem(item.file.name),
-            artifact_mime_type: item.file.type || null,
+          const derivatives = folderFiles.map((item) => ({
+            name: item.recordId || fileStem(item.file.name),
+            mime_type: item.file.type || null,
           }));
-          const created = await fileManagementApi.createArtifacts(
-            artifactCreatePayload(artifacts),
+          const created = await fileManagementApi.createDerivatives(
+            derivativeCreatePayload(derivatives),
           );
-          const createdArtifacts = created.data || [];
-          for (let index = 0; index < createdArtifacts.length; index += 1) {
-            const artifact = createdArtifacts[index];
+          const createdDerivatives = created.data || [];
+          for (let index = 0; index < createdDerivatives.length; index += 1) {
+            const derivative = createdDerivatives[index];
             const folderFile = folderFiles[index];
-            await fileManagementApi.uploadArtifactBlob(
-              artifact.artifact_id,
-              createArtifactBlobFormData(
+            await fileManagementApi.uploadDerivativeBlob(
+              derivative.id,
+              createDerivativeBlobFormData(
                 folderFile.file,
-                artifacts[index].artifact_mime_type,
+                derivatives[index].mime_type,
               ),
             );
             markFolderUploadProgress({
@@ -254,67 +253,67 @@ export function useFileUpload() {
               totalFiles: folderFiles.length,
             });
           }
-          const mappedResponse = await fileManagementApi.mapArtifacts(
-            artifactMapPayload(createdArtifacts),
+          const mappedResponse = await fileManagementApi.mapDerivatives(
+            derivativeMapPayload(createdDerivatives),
           );
-          const mapped = mappedResponse.data?.mapped_artifacts || [];
-          const failedMappings = mappedResponse.data?.rejected_artifacts || [];
+          const mapped = mappedResponse.data?.mapped_derivatives || [];
+          const failedMappings = mappedResponse.data?.rejected_derivatives || [];
           if (failedMappings.length) {
             const firstFailure = failedMappings[0];
             throw new Error(
               String(
                 firstFailure?.reason ||
-                  `Artifact mapping failed for ${firstFailure?.artifact_name || "artifact"}.`,
+                  `Derivative mapping failed for ${firstFailure?.name || "derivative"}.`,
               ),
             );
           }
-          await fileManagementApi.patchArtifacts(artifactPatchPayload(mapped));
+          await fileManagementApi.patchDerivatives(derivativePatchPayload(mapped));
         } else {
-          const file = activeDraft.artifactFile?.[0] || null;
-          if (!file) throw new Error("Select an artifact file first.");
+          const file = activeDraft.derivativeFile?.[0] || null;
+          if (!file) throw new Error("Select an derivative file first.");
 
           const derivedName =
-            activeDraft.artifactName.trim() || fileStem(file.name);
-          const artifacts = [
+            activeDraft.derivativeName.trim() || fileStem(file.name);
+          const derivatives = [
             {
-              artifact_name: derivedName,
-              artifact_mime_type: file.type || null,
+              name: derivedName,
+              mime_type: file.type || null,
             },
           ];
-          const created = await fileManagementApi.createArtifacts(
-            artifactCreatePayload(artifacts),
+          const created = await fileManagementApi.createDerivatives(
+            derivativeCreatePayload(derivatives),
           );
-          const createdArtifact = created.data?.[0];
-          if (!createdArtifact?.artifact_id) {
+          const createdDerivative = created.data?.[0];
+          if (!createdDerivative?.id) {
             throw new Error(
-              "Artifact metadata was created, but no artifact ID was returned.",
+              "Derivative metadata was created, but no derivative ID was returned.",
             );
           }
-          await fileManagementApi.uploadArtifactBlob(
-            createdArtifact.artifact_id,
-            createArtifactBlobFormData(file, artifacts[0].artifact_mime_type),
+          await fileManagementApi.uploadDerivativeBlob(
+            createdDerivative.id,
+            createDerivativeBlobFormData(file, derivatives[0].mime_type),
           );
-          const mappedResponse = await fileManagementApi.mapArtifacts(
-            artifactMapPayload([createdArtifact]),
+          const mappedResponse = await fileManagementApi.mapDerivatives(
+            derivativeMapPayload([createdDerivative]),
           );
-          const mapped = mappedResponse.data?.mapped_artifacts || [];
-          const failedMappings = mappedResponse.data?.rejected_artifacts || [];
+          const mapped = mappedResponse.data?.mapped_derivatives || [];
+          const failedMappings = mappedResponse.data?.rejected_derivatives || [];
           if (failedMappings.length) {
             const firstFailure = failedMappings[0];
             throw new Error(
               String(
                 firstFailure?.reason ||
-                  `Artifact mapping failed for ${derivedName}.`,
+                  `Derivative mapping failed for ${derivedName}.`,
               ),
             );
           }
-          await fileManagementApi.patchArtifacts(artifactPatchPayload(mapped));
+          await fileManagementApi.patchDerivatives(derivativePatchPayload(mapped));
         }
 
         effects.setNotice(
           uploadMode === "folder"
-            ? "Artifacts queued for upload."
-            : "Artifact queued for upload.",
+            ? "Derivatives queued for upload."
+            : "Derivative queued for upload.",
         );
       } else {
         if (uploadMode === "folder") {
@@ -331,12 +330,12 @@ export function useFileUpload() {
             const item = folderFiles[index];
             const derivedName = item.recordId || fileStem(item.file.name);
             const created = await fileManagementApi.createAsset({
-              asset_name: derivedName,
-              asset_type: item.file.type || "application/octet-stream",
+              name: derivedName,
+              type: item.file.type || "application/octet-stream",
             });
             const formData = new FormData();
             formData.append("file", item.file);
-            await fileManagementApi.uploadAssetBlob(created.asset_id, formData);
+            await fileManagementApi.uploadAssetBlob(created.id, formData);
             markFolderUploadProgress({
               fileName: item.file.name || null,
               completedFiles: index + 1,
@@ -351,12 +350,12 @@ export function useFileUpload() {
           const derivedName =
             activeDraft.assetName.trim() || fileStem(file.name);
           const created = await fileManagementApi.createAsset({
-            asset_name: derivedName,
-            asset_type: file.type || "application/octet-stream",
+            name: derivedName,
+            type: file.type || "application/octet-stream",
           });
           const formData = new FormData();
           formData.append("file", file);
-          await fileManagementApi.uploadAssetBlob(created.asset_id, formData);
+          await fileManagementApi.uploadAssetBlob(created.id, formData);
         }
 
         effects.setNotice(

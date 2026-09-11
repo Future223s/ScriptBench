@@ -13,7 +13,7 @@ export function WorkflowSampleSetStep({ workflowDraft, sampleSets, actions }) {
   const selectedId = Number(workflowDraft.sample_set_id) || null;
   const selected =
     sampleSets.find(
-      (sampleSet) => Number(sampleSet.sample_set_id) === selectedId,
+      (sampleSet) => Number(sampleSet.id) === selectedId,
     ) || null;
   return (
     <Stack gap="compact">
@@ -27,10 +27,10 @@ export function WorkflowSampleSetStep({ workflowDraft, sampleSets, actions }) {
           <option value="">Choose a sample set</option>
           {sampleSets.map((sampleSet) => (
             <option
-              key={sampleSet.sample_set_id}
-              value={sampleSet.sample_set_id}
+              key={sampleSet.id}
+              value={sampleSet.id}
             >
-              {sampleSet.sample_set_name} ({sampleSet.sample_ids?.length || 0}{" "}
+              {sampleSet.name} ({sampleSet.sample_ids?.length || 0}{" "}
               samples)
             </option>
           ))}
@@ -38,7 +38,7 @@ export function WorkflowSampleSetStep({ workflowDraft, sampleSets, actions }) {
       </Field>
       <Panel
         variant="inset"
-        title={selected?.sample_set_name || "No sample set selected"}
+        title={selected?.name || "No sample set selected"}
       >
         <Stack gap="compact">
           <DescriptionList

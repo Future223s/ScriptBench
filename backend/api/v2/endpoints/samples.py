@@ -60,8 +60,7 @@ def get_sample(
 
     sample_payload = row_payload_with_blob_metadata(
         row,
-        blob_key="sample_blob",
-        blob_prefix="sample",
+        blob_key="blob",
         include_blob=True,
     )
     sample_response = SampleResponse.model_validate(sample_payload)
@@ -81,8 +80,8 @@ def create_sample(
 ) -> ApiResponse[SampleResponse]:
     samples_repository = SamplesRepository(engine)
 
-    sample_id = payload.sample_id.strip()
-    sample_name = payload.sample_name.strip()
+    sample_id = payload.id.strip()
+    name = payload.name.strip()
     ground_truth_text = (
         payload.ground_truth_text.strip()
         if payload.ground_truth_text is not None
@@ -90,22 +89,22 @@ def create_sample(
     )
     if not sample_id:
         raise HTTPException(status_code=400, detail="sample_id is required")
-    if not sample_name:
-        raise HTTPException(status_code=400, detail="sample_name is required")
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
 
     if samples_repository.fetch_sample(sample_id) is not None:
         raise HTTPException(
             status_code=409, detail=f"Sample already exists: {sample_id}"
         )
 
-    if samples_repository.fetch_samples_by_names([sample_name]):
+    if samples_repository.fetch_samples_by_names([name]):
         raise HTTPException(
-            status_code=409, detail=f"Sample name already exists: {sample_name}"
+            status_code=409, detail=f"Sample name already exists: {name}"
         )
 
     samples_repository.insert_sample_metadata(
         sample_id=sample_id,
-        sample_name=sample_name,
+        name=name,
         ground_truth_text=ground_truth_text or None,
     )
     created_row = samples_repository.fetch_sample(sample_id)
@@ -116,15 +115,14 @@ def create_sample(
 
     response_payload = row_payload_with_blob_metadata(
         created_row,
-        blob_key="sample_blob",
-        blob_prefix="sample",
+        blob_key="blob",
         include_blob=False,
     )
     sample_response = SampleResponse.model_validate(response_payload)
     logger.info(
-        "Created sample metadata row in v2 samples endpoint (sample_id=%s, sample_name=%s)",
+        "Created sample metadata row in v2 samples endpoint (sample_id=%s, name=%s)",
         sample_id,
-        sample_name,
+        name,
     )
     return ApiResponse[SampleResponse](
         message="Sample created successfully.",
@@ -146,14 +144,14 @@ async def upload_sample_blob(
     if sample_row is None:
         raise HTTPException(status_code=404, detail="Sample not found")
 
-    sample_blob = await file.read()
-    if not sample_blob:
+    blob = await file.read()
+    if not blob:
         raise HTTPException(status_code=400, detail="Sample file is empty")
 
     updated = samples_repository.update_sample_blob(
         sample_id=sample_id,
-        sample_blob=sample_blob,
-        sample_mime_type=file.content_type,
+        blob=blob,
+        mime_type=file.content_type,
     )
     if updated != 1:
         raise HTTPException(
@@ -163,7 +161,7 @@ async def upload_sample_blob(
     logger.info("Updated sample blob in v2 samples endpoint (sample_id=%s)", sample_id)
     return ApiResponse[SampleBlobUploadResponse](
         message="Sample blob uploaded successfully.",
-        data=SampleBlobUploadResponse(sample_id=sample_id),
+        data=SampleBlobUploadResponse(id=sample_id),
     )
 
 
@@ -195,7 +193,7 @@ def delete_samples(
     engine=Depends(get_engine),
 ) -> ApiDeleteResponse:
     sample_ids = [
-        sample_id.strip() for sample_id in payload.sample_ids if sample_id.strip()
+        sample_id.strip() for sample_id in payload.ids if sample_id.strip()
     ]
     if not sample_ids:
         raise HTTPException(status_code=400, detail="sample_ids is required")

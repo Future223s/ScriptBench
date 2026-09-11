@@ -18,7 +18,7 @@ export function SampleSetRow({
     sampleSet?.sample_count ?? sampleSet?.sample_ids?.length ?? 0,
   );
   const workflowCount = Number(sampleSet?.workflow_count ?? 0);
-  const sampleSetName = sampleSet?.sample_set_name || "Sample set";
+  const sampleSetName = sampleSet?.name || "Sample set";
 
   return (
     <ListRow

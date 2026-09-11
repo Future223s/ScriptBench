@@ -17,15 +17,15 @@ from ..schema import WORKFLOW_STATUS_CHECK_SQL, metadata
 workflows = Table(
     "workflows",
     metadata,
-    Column("workflow_id", Integer, primary_key=True, autoincrement=True),
-    Column("workflow_name", String(255), nullable=False, index=True),
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("name", String(255), nullable=False, index=True),
     Column(
         "sample_set_id",
         Integer,
-        ForeignKey("sample_sets.sample_set_id", ondelete="CASCADE"),
+        ForeignKey("sample_sets.id", ondelete="CASCADE"),
         nullable=False,
     ),
-    Column("workflow_description", Text, nullable=True),
+    Column("description", Text, nullable=True),
     Column("status", String(32), nullable=False, server_default="draft", index=True),
     Column(
         "created_at",

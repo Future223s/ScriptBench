@@ -22,6 +22,7 @@ from backend.models.execution import (
     ExecutionControlRequest,
     ExecutionControlResponse,
     ExecutionJobRecord,
+    ExecutionJobDetail,
     FailureAcknowledgementRequest,
 )
 
@@ -83,7 +84,7 @@ def list_execution_jobs(
     )
 
 
-@router.get("/api/v2/workflows/{workflow_id}/execution-jobs/{execution_job_id}")
+@router.get("/api/v2/workflows/{workflow_id}/execution-jobs/{execution_job_id}", response_model=ApiResponse[ExecutionJobDetail])
 def get_execution_job(
     workflow_id: int, execution_job_id: int, engine=Depends(get_engine)
 ):
@@ -91,7 +92,7 @@ def get_execution_job(
     detail = repository.fetch_detail(workflow_id, execution_job_id)
     if detail is None:
         raise HTTPException(404, "Execution job not found")
-    return ApiResponse(message="Execution job retrieved.", data=detail)
+    return ApiResponse(message="Execution job retrieved.", data=ExecutionJobDetail.model_validate(detail))
 
 
 @router.post(
@@ -103,7 +104,7 @@ def queue_execution_jobs(
 ):
     _ensure_jobs(engine, workflow_id)
     repository = ExecutionJobsRepository(engine)
-    count = repository.queue(workflow_id, payload.execution_job_ids)
+    count = repository.queue(workflow_id, payload.ids)
     return ExecutionControlResponse(
         message="Execution jobs queued.",
         data={"workflow_id": workflow_id, "queued_count": count},
@@ -119,7 +120,7 @@ def dequeue_execution_jobs(
 ):
     _ensure_jobs(engine, workflow_id)
     repository = ExecutionJobsRepository(engine)
-    count = repository.dequeue(workflow_id, payload.execution_job_ids)
+    count = repository.dequeue(workflow_id, payload.ids)
     return ExecutionControlResponse(
         message="Execution jobs dequeued.",
         data={"workflow_id": workflow_id, "dequeued_count": count},
@@ -139,7 +140,7 @@ def retry_completed_execution_jobs(
     _ensure_jobs(engine, workflow_id)
     _worker(request).stop(workflow_id)
     repository = ExecutionJobsRepository(engine)
-    count = repository.retry_completed(workflow_id, payload.execution_job_ids)
+    count = repository.retry_completed(workflow_id, payload.ids)
     return ExecutionControlResponse(
         message="Completed execution jobs requeued.",
         data={"workflow_id": workflow_id, "queued_count": count},

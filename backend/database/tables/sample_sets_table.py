@@ -16,9 +16,9 @@ from ..schema import STATUS_CHECK_SQL, metadata
 sample_sets = Table(
     "sample_sets",
     metadata,
-    Column("sample_set_id", Integer, primary_key=True, autoincrement=True),
-    Column("sample_set_name", String(255), nullable=False, index=True),
-    Column("sample_set_description", Text, nullable=True),
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("name", String(255), nullable=False, index=True),
+    Column("description", Text, nullable=True),
     Column("status", String(32), nullable=False, server_default="draft", index=True),
     Column(
         "created_at",

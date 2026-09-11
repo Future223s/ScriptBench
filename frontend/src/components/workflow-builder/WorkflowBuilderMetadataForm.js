@@ -17,9 +17,9 @@ export function WorkflowBuilderMetadataForm({ state, actions }) {
         <Field label="Workflow name" density="compact">
           <TextInput
             id="workflow-name"
-            value={state.workflowDraft.workflow_name}
+            value={state.workflowDraft.name}
             onChange={(event) =>
-              actions.setWorkflowDraftField("workflow_name", event.target.value)
+              actions.setWorkflowDraftField("name", event.target.value)
             }
             placeholder="Workflow name"
           />
@@ -29,10 +29,10 @@ export function WorkflowBuilderMetadataForm({ state, actions }) {
             id="workflow-description"
             size="compact"
             rows="2"
-            value={state.workflowDraft.workflow_description}
+            value={state.workflowDraft.description}
             onChange={(event) =>
               actions.setWorkflowDraftField(
-                "workflow_description",
+                "description",
                 event.target.value,
               )
             }
@@ -54,10 +54,10 @@ export function WorkflowBuilderMetadataForm({ state, actions }) {
             {state.sampleSets.length ? (
               state.sampleSets.map((sampleSet) => (
                 <option
-                  key={sampleSet.sample_set_id}
-                  value={sampleSet.sample_set_id}
+                  key={sampleSet.id}
+                  value={sampleSet.id}
                 >
-                  {sampleSet.sample_set_name} (
+                  {sampleSet.name} (
                   {sampleSet.sample_ids?.length || 0} samples)
                 </option>
               ))

@@ -29,7 +29,7 @@ function ExecutionColumn({
   const visible = columnRows(rows, column);
   const allSelected =
     visible.length > 0 &&
-    visible.every((row) => selectedIds.includes(String(row.execution_job_id)));
+    visible.every((row) => selectedIds.includes(String(row.id)));
   return (
     <Panel
       density="compact"
@@ -61,7 +61,7 @@ function ExecutionColumn({
         {visible.length ? (
           visible.map((row) => (
             <SelectableRow
-              key={row.execution_job_id}
+              key={row.id}
               title={`Sample ${row.sample_id}`}
               detail={
                 row.error_message
@@ -69,18 +69,18 @@ function ExecutionColumn({
                   : row.next_step_name ||
                     (column === "completed" ? "Complete" : "Awaiting next step")
               }
-              selected={selectedIds.includes(String(row.execution_job_id))}
+              selected={selectedIds.includes(String(row.id))}
               onSelectedChange={(checked) =>
                 actions.toggleRowSelection(
                   column,
-                  row.execution_job_id,
+                  row.id,
                   checked,
                 )
               }
               action={
                 <Button
                   size="compact"
-                  onClick={() => actions.openRowDetail(row.execution_job_id)}
+                  onClick={() => actions.openRowDetail(row.id)}
                   disabled={loading}
                 >
                   Open
@@ -112,8 +112,8 @@ export function WorkspacePanel({
   return (
     <Stack>
       <Panel
-        title={workflow?.workflow_name || "Workflow workspace"}
-        description={workflow?.workflow_description}
+        title={workflow?.name || "Workflow workspace"}
+        description={workflow?.description}
         actions={
           <Inline gap="compact" align="end">
             <Button
@@ -126,7 +126,7 @@ export function WorkspacePanel({
             <Button onClick={actions.stopExecution} disabled={loading}>
               Stop execution
             </Button>
-            <Button onClick={actions.openDashboard}>Switch workflow</Button>
+            <Button onClick={actions.switchWorkflow} disabled={loading}>Switch workflow</Button>
           </Inline>
         }
       ></Panel>

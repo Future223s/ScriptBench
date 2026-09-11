@@ -21,8 +21,8 @@ function createInitialDrafts() {
 
 async function performDeleteRecord(type, recordId) {
   const normalizedId = recordIdToString(recordId);
-  if (type === "artifact") {
-    await fileManagementApi.deleteArtifact(normalizedId);
+  if (type === "derivative") {
+    await fileManagementApi.deleteDerivative(normalizedId);
     return;
   }
   if (type === "asset") {
@@ -35,8 +35,8 @@ async function performDeleteRecord(type, recordId) {
 async function performDeleteRecords(type, recordIds) {
   if (!recordIds.length) return;
 
-  if (type === "artifact") {
-    await fileManagementApi.deleteArtifacts(
+  if (type === "derivative") {
+    await fileManagementApi.deleteDerivatives(
       recordIds
         .map((recordId) => Number(recordId))
         .filter((recordId) => Number.isFinite(recordId)),
@@ -145,7 +145,7 @@ export function useFileSelectionActions() {
         normalizedType === "sample" &&
         normalizedAction === "create-sample-set"
       ) {
-        const sampleSetName = drafts.sample_set_name.trim();
+        const sampleSetName = drafts.sampleSetName.trim();
         if (!sampleSetName) {
           effects.setError("Sample set name is required.");
           return;
@@ -162,14 +162,13 @@ export function useFileSelectionActions() {
 
         await fileManagementApi.createSampleSet({
           name: sampleSetName,
-          description: drafts.sample_set_description.trim() || null,
+          description: drafts.sampleSetDescription.trim() || null,
           sample_ids: buildSelectionSet(selectedIds),
-          type: "manual",
         });
         setDrafts((current) => ({
           ...current,
-          sample_set_name: "",
-          sample_set_description: "",
+          sampleSetName: "",
+          sampleSetDescription: "",
         }));
         clearSelection("sample");
         setManagementModalOpen(false);
@@ -181,12 +180,12 @@ export function useFileSelectionActions() {
       }
 
       if (
-        normalizedType === "artifact" &&
-        normalizedAction === "create-artifact-group"
+        normalizedType === "derivative" &&
+        normalizedAction === "create-derivative-group"
       ) {
-        const artifactGroupName = drafts.artifact_group_name.trim();
-        if (!artifactGroupName) {
-          effects.setError("Artifact group name is required.");
+        const derivativeGroupName = drafts.derivativeGroupName.trim();
+        if (!derivativeGroupName) {
+          effects.setError("Derivative group name is required.");
           return;
         }
         const selectedIds = explicitSelection.length
@@ -194,29 +193,28 @@ export function useFileSelectionActions() {
           : visibleIds;
         if (!selectedIds.length) {
           effects.setError(
-            "Select at least one artifact or make sure the filter returns results.",
+            "Select at least one derivative or make sure the filter returns results.",
           );
           return;
         }
 
-        await fileManagementApi.createArtifactGroup({
-          name: artifactGroupName,
-          description: drafts.artifact_group_description.trim() || null,
-          artifact_ids: selectedIds
-            .map((artifactId) => Number(artifactId))
-            .filter((artifactId) => Number.isFinite(artifactId)),
-          matching_type: "manual",
-          matching_rule: {},
+        await fileManagementApi.createDerivativeGroup({
+          name: derivativeGroupName,
+          description:
+            drafts.derivativeGroupDescription.trim() || null,
+          derivative_ids: selectedIds
+            .map((derivativeId) => Number(derivativeId))
+            .filter((derivativeId) => Number.isFinite(derivativeId)),
           mapping_type: "one-to-one",
         });
         setDrafts((current) => ({
           ...current,
-          artifact_group_name: "",
-          artifact_group_description: "",
+          derivativeGroupName: "",
+          derivativeGroupDescription: "",
         }));
-        clearSelection("artifact");
+        clearSelection("derivative");
         setManagementModalOpen(false);
-        effects.setNotice(`Artifact group ${artifactGroupName} saved.`);
+        effects.setNotice(`Derivative group ${derivativeGroupName} saved.`);
         effects.setError("");
         await effects.refresh();
         window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));

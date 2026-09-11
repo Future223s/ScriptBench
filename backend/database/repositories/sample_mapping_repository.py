@@ -17,22 +17,22 @@ class SampleMappingRepository:
         else:
             conn.execute(insert(sample_mapping).values(**row))
 
-    def delete_by_artifact_group_ids(
-        self, artifact_group_ids: list[int], conn: Connection | None = None
+    def delete_by_derivative_group_ids(
+        self, derivative_group_ids: list[int], conn: Connection | None = None
     ) -> int:
-        if not artifact_group_ids:
+        if not derivative_group_ids:
             return 0
         if conn is None:
             with self.engine.begin() as conn:
                 result = conn.execute(
                     delete(sample_mapping).where(
-                        sample_mapping.c.artifact_group_id.in_(artifact_group_ids)
+                        sample_mapping.c.derivative_group_id.in_(derivative_group_ids)
                     )
                 )
         else:
             result = conn.execute(
                 delete(sample_mapping).where(
-                    sample_mapping.c.artifact_group_id.in_(artifact_group_ids)
+                    sample_mapping.c.derivative_group_id.in_(derivative_group_ids)
                 )
             )
         return int(result.rowcount or 0)

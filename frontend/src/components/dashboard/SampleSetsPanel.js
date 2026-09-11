@@ -23,16 +23,16 @@ export function SampleSetsPanel({
         {sampleSets.length ? (
           sampleSets.map((sampleSet) => (
             <SampleSetRow
-              key={sampleSet.sample_set_id}
+              key={sampleSet.id}
               sampleSet={sampleSet}
               selected={
-                Number(sampleSet.sample_set_id) === Number(selectedSampleSetId)
+                Number(sampleSet.id) === Number(selectedSampleSetId)
               }
               onSelect={() =>
-                onSelectSampleSet?.(Number(sampleSet.sample_set_id))
+                onSelectSampleSet?.(Number(sampleSet.id))
               }
               onDelete={() =>
-                onDeleteSampleSet?.(Number(sampleSet.sample_set_id))
+                onDeleteSampleSet?.(Number(sampleSet.id))
               }
             />
           ))

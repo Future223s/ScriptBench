@@ -8,11 +8,10 @@ from .api import ApiResponse
 
 
 class WorkflowRecord(BaseModel):
-    workflow_id: int
-    workflow_name: str
-    sample_set_id: int | None = None
-    sample_set_name: str | None = None
-    workflow_description: str | None = None
+    id: int
+    name: str
+    sample_set_id: int
+    description: str | None = None
     status: str
     created_at: datetime
     updated_at: datetime
@@ -21,8 +20,8 @@ class WorkflowRecord(BaseModel):
 
 
 class WorkflowCreateRequest(BaseModel):
-    workflow_name: str
-    workflow_description: str | None = None
+    name: str
+    description: str | None = None
     sample_set_id: int = Field(gt=0)
     status: str = "draft"
 
@@ -34,8 +33,8 @@ class WorkflowCreateResponse(ApiResponse[WorkflowRecord]):
 
 
 class WorkflowUpdateRequest(BaseModel):
-    workflow_name: str | None = None
-    workflow_description: str | None = None
+    name: str | None = None
+    description: str | None = None
     sample_set_id: int | None = Field(default=None, gt=0)
 
     model_config = ConfigDict(extra="forbid")

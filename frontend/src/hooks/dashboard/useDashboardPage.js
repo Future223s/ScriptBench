@@ -35,11 +35,11 @@ export function useDashboardPage() {
           keepSelection &&
           sampleSets.some(
             (sampleSet) =>
-              Number(sampleSet.sample_set_id) ===
+              Number(sampleSet.id) ===
               Number(current.selectedSampleSetId),
           )
             ? current.selectedSampleSetId
-            : (sampleSets[0]?.sample_set_id ?? null);
+            : (sampleSets[0]?.id ?? null);
 
         return {
           ...current,
@@ -58,12 +58,12 @@ export function useDashboardPage() {
         state.selectedSampleSetId != null &&
         sampleSetsResponse.sample_sets?.some(
           (sampleSet) =>
-            Number(sampleSet.sample_set_id) ===
+            Number(sampleSet.id) ===
             Number(state.selectedSampleSetId),
         );
       const nextSampleSetId = canKeepSelection
         ? state.selectedSampleSetId
-        : sampleSetsResponse.sample_sets?.[0]?.sample_set_id;
+        : sampleSetsResponse.sample_sets?.[0]?.id;
       if (nextSampleSetId != null) {
         await loadSampleSetAnalytics(nextSampleSetId);
       }

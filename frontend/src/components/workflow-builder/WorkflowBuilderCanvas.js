@@ -121,7 +121,7 @@ export function WorkflowBuilderCanvas({ state, actions }) {
                 y={point.y}
                 title={node.label}
                 detail={
-                  node.model || node.model_family || "Model not specified"
+                  node.executor_config?.model || node.step_executor_id || "Model not specified"
                 }
                 selected={Number(state.selectedNodeId) === Number(node.id)}
                 onClick={() => actions.selectNode(node.id)}

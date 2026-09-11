@@ -12,51 +12,50 @@ import {
   visibleRecordsForType,
 } from "../../hooks/file-management/fileManagementShared.js";
 
-function artifactGroupLookup(artifactGroups) {
+function derivativeGroupLookup(derivativeGroups = []) {
   return new Map(
-    artifactGroups.map((group) => [String(group.artifact_group_id), group]),
+    derivativeGroups.map((group) => [String(group.id), group]),
   );
 }
 
 function recordDisplayName(type, record) {
-  if (type === "artifact") return record.artifact_name;
-  if (type === "asset") return record.asset_name;
-  return record.sample_name || record.sample_id;
+  if (type === "derivative") return record.name;
+  if (type === "asset") return record.name;
+  return record.name || record.id;
 }
 
-function recordSummary(type, record, sampleSets, artifactGroups) {
-  if (type === "artifact") {
+function recordSummary(type, record, sampleSets = [], derivativeGroups = []) {
+  if (type === "derivative") {
     const groupName =
-      record.artifact_group_name ||
-      artifactGroupLookup(artifactGroups).get(
-        String(record.artifact_group_id || ""),
-      )?.artifact_group_name;
+      derivativeGroupLookup(derivativeGroups).get(
+        String(record.derivative_group_id || ""),
+      )?.name;
     return [
-      `Origin: ${record.originating_sample_id}`,
+      `Origin: ${record.sample_id || "Unmapped"}`,
       groupName ? `Group: ${groupName}` : "Ungrouped",
-      `Category: ${record.artifact_category}`,
+      `Category: ${record.category}`,
       record.updated_at ? formatDate(record.updated_at) : "",
     ].filter(Boolean);
   }
 
   if (type === "asset") {
     return [
-      `Type: ${record.asset_type}`,
-      record.asset_mime_type ? `Mime: ${record.asset_mime_type}` : "",
+      `Type: ${record.type}`,
+      record.mime_type ? `Mime: ${record.mime_type}` : "",
       record.updated_at ? formatDate(record.updated_at) : "",
-      record.asset_blob_size ? `${record.asset_blob_size} bytes` : "",
+      record.blob_size ? `${record.blob_size} bytes` : "",
     ].filter(Boolean);
   }
 
-  const memberships = sampleSetMemberships(record.sample_id, sampleSets);
+  const memberships = sampleSetMemberships(record.id, sampleSets);
   return [
-    record.sample_mime_type ? `Mime: ${record.sample_mime_type}` : "",
+    record.mime_type ? `Mime: ${record.mime_type}` : "",
     record.updated_at ? String(record.updated_at) : "",
     `${memberships.length} sample set${memberships.length === 1 ? "" : "s"}`,
   ].filter(Boolean);
 }
 
-function sampleSetMemberships(sampleId, sampleSets) {
+function sampleSetMemberships(sampleId, sampleSets = []) {
   return sampleSets.filter(
     (sampleSet) =>
       Array.isArray(sampleSet.sample_ids) &&
@@ -72,10 +71,10 @@ export function ManagementFields({ type, draft, actions }) {
           <label htmlFor="sample-set-name">Sample set name</label>
           <input
             id="sample-set-name"
-            name="sample_set_name"
-            value={draft.sample_set_name}
+            name="sampleSetName"
+            value={draft.sampleSetName}
             onChange={(event) =>
-              actions.setDraftField("sample_set_name", event.target.value)
+              actions.setDraftField("sampleSetName", event.target.value)
             }
             placeholder="EMMO line crops"
             required
@@ -85,11 +84,11 @@ export function ManagementFields({ type, draft, actions }) {
           <label htmlFor="sample-set-description">Description</label>
           <input
             id="sample-set-description"
-            name="sample_set_description"
-            value={draft.sample_set_description}
+            name="sampleSetDescription"
+            value={draft.sampleSetDescription}
             onChange={(event) =>
               actions.setDraftField(
-                "sample_set_description",
+                "sampleSetDescription",
                 event.target.value,
               )
             }
@@ -100,31 +99,31 @@ export function ManagementFields({ type, draft, actions }) {
     );
   }
 
-  if (type === "artifact") {
+  if (type === "derivative") {
     return (
       <div className="form-grid">
         <div className="field wide">
-          <label htmlFor="artifact-group-name">Artifact group name</label>
+          <label htmlFor="derivative-group-name">Derivative group name</label>
           <input
-            id="artifact-group-name"
-            name="artifact_group_name"
-            value={draft.artifact_group_name}
+            id="derivative-group-name"
+            name="derivativeGroupName"
+            value={draft.derivativeGroupName}
             onChange={(event) =>
-              actions.setDraftField("artifact_group_name", event.target.value)
+              actions.setDraftField("derivativeGroupName", event.target.value)
             }
             placeholder="Document pages"
             required
           />
         </div>
         <div className="field wide">
-          <label htmlFor="artifact-group-description">Description</label>
+          <label htmlFor="derivative-group-description">Description</label>
           <input
-            id="artifact-group-description"
-            name="artifact_group_description"
-            value={draft.artifact_group_description}
+            id="derivative-group-description"
+            name="derivativeGroupDescription"
+            value={draft.derivativeGroupDescription}
             onChange={(event) =>
               actions.setDraftField(
-                "artifact_group_description",
+                "derivativeGroupDescription",
                 event.target.value,
               )
             }
@@ -145,11 +144,11 @@ function RecordRow({
   deletable,
   actions,
   sampleSets,
-  artifactGroups,
+  derivativeGroups,
 }) {
   const recordId = recordIdForType(type, record);
   const displayName = recordDisplayName(type, record);
-  const summary = recordSummary(type, record, sampleSets, artifactGroups);
+  const summary = recordSummary(type, record, sampleSets, derivativeGroups);
 
   function handleContextMenu(event) {
     event.preventDefault();
@@ -159,9 +158,9 @@ function RecordRow({
   const detail =
     type === "sample"
       ? truncate(record.ground_truth_text)
-      : type === "artifact"
-        ? truncate(record.artifact_mime_type || "")
-        : truncate(record.asset_mime_type || "");
+      : type === "derivative"
+        ? truncate(record.mime_type || "")
+        : truncate(record.mime_type || "");
   const conciseDescriptors = [summary[0], summary[summary.length - 1], detail]
     .filter(Boolean)
     .filter((value, index, values) => values.indexOf(value) === index);
@@ -183,6 +182,8 @@ function filterSummary(type, visibleCount) {
 }
 
 export function SampleManagementPanel({ state, actions }) {
+  const sampleSets = state.sampleSets || [];
+  const derivativeGroups = state.derivativeGroups || [];
   const type = managementModes[state.managementType]
     ? state.managementType
     : "sample";
@@ -207,8 +208,8 @@ export function SampleManagementPanel({ state, actions }) {
         deletable={false}
         selected={selectedIds.includes(recordIdForType(type, record))}
         actions={actions}
-        sampleSets={state.sampleSets}
-        artifactGroups={state.artifactGroups}
+        sampleSets={sampleSets}
+        derivativeGroups={derivativeGroups}
       />
     ))
   ) : (
@@ -221,28 +222,28 @@ export function SampleManagementPanel({ state, actions }) {
     type === "sample"
       ? createSampleFilterConfig({
           filters: state.filters.sample,
-          sampleSets: state.sampleSets,
+          sampleSets,
           onChange: (field, value) =>
             actions.setFilterField("sample", field, value),
         })
-      : type === "artifact"
+      : type === "derivative"
         ? [
             {
-              id: "artifact-search",
+              id: "derivative-search",
               label: "Search",
               kind: "text",
-              value: state.filters.artifact.query,
-              placeholder: "Artifact name, source sample, or group",
+              value: state.filters.derivative.query,
+              placeholder: "Derivative name, source sample, or group",
               onChange: (value) =>
-                actions.setFilterField("artifact", "query", value),
+                actions.setFilterField("derivative", "query", value),
             },
             {
-              id: "artifact-match-mode",
+              id: "derivative-match-mode",
               label: "Match",
               kind: "select",
-              value: state.filters.artifact.queryMode,
+              value: state.filters.derivative.queryMode,
               onChange: (value) =>
-                actions.setFilterField("artifact", "queryMode", value),
+                actions.setFilterField("derivative", "queryMode", value),
               options: [
                 { value: "contains", label: "Contains" },
                 { value: "starts-with", label: "Begins with" },
@@ -250,27 +251,27 @@ export function SampleManagementPanel({ state, actions }) {
               ],
             },
             {
-              id: "artifact-group-filter",
-              label: "Artifact group",
+              id: "derivative-group-filter",
+              label: "Derivative group",
               kind: "select",
-              value: state.filters.artifact.artifactGroupId,
+              value: state.filters.derivative.derivativeGroupId,
               onChange: (value) =>
-                actions.setFilterField("artifact", "artifactGroupId", value),
+                actions.setFilterField("derivative", "derivativeGroupId", value),
               options: [
                 { value: "", label: "All groups" },
-                ...state.artifactGroups.map((group) => ({
-                  value: String(group.artifact_group_id),
-                  label: group.artifact_group_name,
+                ...derivativeGroups.map((group) => ({
+                  value: String(group.id),
+                  label: group.name,
                 })),
               ],
             },
             {
-              id: "artifact-category-filter",
+              id: "derivative-category-filter",
               label: "Category",
               kind: "select",
-              value: state.filters.artifact.artifactCategory,
+              value: state.filters.derivative.derivativeCategory,
               onChange: (value) =>
-                actions.setFilterField("artifact", "artifactCategory", value),
+                actions.setFilterField("derivative", "derivativeCategory", value),
               options: [
                 { value: "", label: "All categories" },
                 { value: "companion", label: "Companion" },
@@ -358,7 +359,7 @@ function uniqueAssetTypes(assets) {
   return [
     ...new Set(
       assets
-        .map((asset) => String(asset.asset_type || "").trim())
+        .map((asset) => String(asset.type || "").trim())
         .filter(Boolean),
     ),
   ].sort();

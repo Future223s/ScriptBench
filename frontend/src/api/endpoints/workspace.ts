@@ -1,18 +1,16 @@
 import { apiFetch } from "../client";
 export type ApiId = string | number;
 export interface WorkflowSummary {
-  workflow_id: ApiId;
-  workflow_name?: string | null;
+  id: ApiId;
+  name?: string | null;
   sample_set_id?: ApiId | null;
-  sample_set_name?: string | null;
-  workflow_description?: string | null;
+  description?: string | null;
   status?: string | null;
 }
 export interface ExecutionJob {
-  execution_job_id: ApiId;
+  id: ApiId;
   workflow_id: ApiId;
   sample_id: string;
-  execution_scope?: string;
   status?: "pending" | "queued" | "running" | "completed" | "failed" | string;
   current_workflow_dag_node_id?: ApiId | null;
   next_step_name?: string | null;
@@ -20,9 +18,8 @@ export interface ExecutionJob {
   raw_payload?: unknown;
 }
 export interface ExecutionJobDetail extends ExecutionJob {
-  step_output?: unknown;
-  workflow_steps?: unknown[];
-  model_outputs?: unknown[];
+  workflow_steps: import("./workflowSteps").WorkflowStepRecord[];
+  step_outputs: StepOutputRecord[];
 }
 export interface ExecutionControlResponse {
   message?: string;
@@ -33,7 +30,7 @@ export interface ExecutionControlResponse {
   };
 }
 const path = (id: ApiId) => encodeURIComponent(String(id));
-const body = (ids: ApiId[]) => JSON.stringify({ execution_job_ids: ids });
+const body = (ids: ApiId[]) => JSON.stringify({ ids: ids });
 export const workspaceApi = {
   getWorkflows: async () => {
     const r = await apiFetch<{ items?: WorkflowSummary[] }>(
@@ -109,3 +106,24 @@ export const workspaceApi = {
     return `${b}/api/v2/workflows/${path(workflowId)}/execution-jobs/events${executionJobId ? `?execution_job_id=${path(executionJobId)}` : ""}`;
   },
 };
+
+export interface StepOutputRecord {
+  id: number;
+  execution_job_id: number;
+  workflow_id: number;
+  workflow_step_id: number;
+  sample_id: string;
+  attempt_no: number;
+  assembled_model_payload: Record<string, unknown>;
+  raw_model_response: string;
+  parsed_output: unknown;
+  parse_status: "success" | "failed" | null;
+  parse_error: string | null;
+  cer: number | null;
+  wer: number | null;
+  hallucination_count: number | null;
+  time_elapsed: number;
+  started_at: string;
+  completed_at: string;
+  created_at: string;
+}

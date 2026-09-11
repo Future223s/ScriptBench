@@ -28,7 +28,7 @@ import {
 const prototypes = [
   { id: "files", label: "File panels" },
   { id: "image", label: "Image detail" },
-  { id: "artifact", label: "Artifact detail" },
+  { id: "derivative", label: "Derivative detail" },
   { id: "canvas", label: "Canvas" },
   { id: "step", label: "Step input" },
 ];
@@ -136,24 +136,24 @@ function ImageDetailPrototype() {
   );
 }
 
-function ArtifactDetailPrototype() {
+function DerivativeDetailPrototype() {
   const [open, setOpen] = useState(false);
   return (
-    <Panel eyebrow="Prototype" title="Artifact detail dialog">
+    <Panel eyebrow="Prototype" title="Derivative detail dialog">
       <Stack>
         <Button variant="primary" onClick={() => setOpen(true)}>
-          Open artifact detail
+          Open derivative detail
         </Button>
         <Notification tone="info">
-          The dialog mirrors the current artifact view: preview at left,
-          artifact details and metadata at right.
+          The dialog mirrors the current derivative view: preview at left,
+          derivative details and metadata at right.
         </Notification>
       </Stack>
       <Dialog
         open={open}
         size="wide"
         title="segmentation_line_crops"
-        description="Artifact · image/png"
+        description="Derivative · image/png"
         onClose={() => setOpen(false)}
         footer={
           <Inline>
@@ -177,7 +177,7 @@ function ArtifactDetailPrototype() {
             <Stack>
               <DescriptionList
                 items={[
-                  ["Artifact group", "Segmentation line crops"],
+                  ["Derivative group", "Segmentation line crops"],
                   ["Origin sample", "La115_1r_EMMO"],
                   ["Category", "Decomposition"],
                   ["MIME type", "image/png"],
@@ -277,7 +277,7 @@ function StepInputPrototype() {
 const prototypeById = {
   files: FilePanelsPrototype,
   image: ImageDetailPrototype,
-  artifact: ArtifactDetailPrototype,
+  derivative: DerivativeDetailPrototype,
   canvas: CanvasPrototype,
   step: StepInputPrototype,
 };

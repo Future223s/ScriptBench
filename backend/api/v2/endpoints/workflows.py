@@ -30,24 +30,7 @@ logger = logging.getLogger(__name__)
 @router.get("/api/v2/workflows", response_model=ApiListResponse[WorkflowRecord])
 def list_workflows(engine=Depends(get_engine)) -> ApiListResponse[WorkflowRecord]:
     rows = WorkflowsRepository(engine).list()
-    sample_sets_repository = SampleSetsRepository(engine)
-    items = []
-    for row in rows:
-        sample_set = (
-            sample_sets_repository.fetch(int(row["sample_set_id"]))
-            if row["sample_set_id"] is not None
-            else None
-        )
-        items.append(
-            WorkflowRecord.model_validate(
-                {
-                    **row,
-                    "sample_set_name": (
-                        sample_set["sample_set_name"] if sample_set else None
-                    ),
-                }
-            )
-        )
+    items = [WorkflowRecord.model_validate(row) for row in rows]
     return ApiListResponse[WorkflowRecord](
         message="Workflows retrieved successfully.", items=items, count=len(items)
     )
@@ -57,9 +40,9 @@ def list_workflows(engine=Depends(get_engine)) -> ApiListResponse[WorkflowRecord
 def create_workflow(
     payload: WorkflowCreateRequest, engine=Depends(get_engine)
 ) -> WorkflowCreateResponse:
-    workflow_name = payload.workflow_name.strip()
-    if not workflow_name:
-        raise HTTPException(status_code=400, detail="workflow_name is required")
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
     if payload.status != "draft":
         raise HTTPException(
             status_code=400, detail="New workflows must start in draft status"
@@ -69,19 +52,19 @@ def create_workflow(
 
     repository = WorkflowsRepository(engine)
     if any(
-        str(row["workflow_name"]).casefold() == workflow_name.casefold()
+        str(row["name"]).casefold() == name.casefold()
         for row in repository.list()
     ):
         raise HTTPException(
-            status_code=409, detail=f"Workflow already exists: {workflow_name}"
+            status_code=409, detail=f"Workflow already exists: {name}"
         )
 
     workflow_id = repository.insert(
         {
-            "workflow_name": workflow_name,
-            "workflow_description": (
-                payload.workflow_description.strip()
-                if payload.workflow_description
+            "name": name,
+            "description": (
+                payload.description.strip()
+                if payload.description
                 else None
             ),
             "sample_set_id": payload.sample_set_id,
@@ -129,21 +112,21 @@ def update_workflow(
         raise HTTPException(status_code=409, detail="Finalized workflows are immutable")
 
     changes: dict[str, object] = {}
-    if payload.workflow_name is not None:
-        workflow_name = payload.workflow_name.strip()
-        if not workflow_name:
-            raise HTTPException(status_code=400, detail="workflow_name cannot be empty")
+    if payload.name is not None:
+        name = payload.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="name cannot be empty")
         if any(
-            int(row["workflow_id"]) != workflow_id
-            and str(row["workflow_name"]).casefold() == workflow_name.casefold()
+            int(row["id"]) != workflow_id
+            and str(row["name"]).casefold() == name.casefold()
             for row in repository.list()
         ):
             raise HTTPException(
-                status_code=409, detail=f"Workflow already exists: {workflow_name}"
+                status_code=409, detail=f"Workflow already exists: {name}"
             )
-        changes["workflow_name"] = workflow_name
-    if payload.workflow_description is not None:
-        changes["workflow_description"] = payload.workflow_description.strip() or None
+        changes["name"] = name
+    if payload.description is not None:
+        changes["description"] = payload.description.strip() or None
     if payload.sample_set_id is not None:
         if SampleSetsRepository(engine).fetch(payload.sample_set_id) is None:
             raise HTTPException(status_code=404, detail="Sample set not found")

@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 function getPrototypeNav(pathname) {
   if (pathname === "/file-management") return "file-management";
-  if (pathname === "/resources") return "resources";
+  if (pathname === "/workflow-steps") return "workflow-steps";
   if (pathname === "/workspace") return "workflow-workspace";
   if (pathname === "/workflow-builder") return "workflow-builder";
   if (pathname === "/analysis") return "analysis";
@@ -21,8 +21,8 @@ export function useTopBar() {
       return;
     }
 
-    if (navKey === "resources") {
-      router.push("/resources");
+    if (navKey === "workflow-steps") {
+      router.push("/workflow-steps");
       return;
     }
 

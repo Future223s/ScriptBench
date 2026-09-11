@@ -21,7 +21,7 @@ export function WorkspacePageView({ state, actions, rootRef }) {
           <WorkspacePicker
             workflows={state.workflows}
             selectedWorkflowId={state.workspacePickerWorkflowId}
-            loading={state.loadingWorkflows}
+            loading={state.loadingWorkflows || state.loadingWorkspace || state.applyingExecutionAction}
             actions={actions}
           />
         )}

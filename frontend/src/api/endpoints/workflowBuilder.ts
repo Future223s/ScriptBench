@@ -3,9 +3,9 @@ import { apiFetch } from "../client";
 export type ApiId = string | number;
 
 export interface SampleSetSummary {
-  sample_set_id: ApiId;
-  sample_set_name: string;
-  sample_set_description?: string | null;
+  id: ApiId;
+  name: string;
+  description?: string | null;
   status?: string | null;
   created_at?: string;
   sample_ids?: string[];
@@ -31,9 +31,9 @@ export interface ApiDeleteResponse {
 }
 
 export interface WorkflowRecord {
-  workflow_id: number;
-  workflow_name: string;
-  workflow_description?: string | null;
+  id: number;
+  name: string;
+  description?: string | null;
   sample_set_id?: number | null;
   status: string;
   created_at: string;
@@ -41,7 +41,7 @@ export interface WorkflowRecord {
 }
 
 export interface WorkflowDagNodeRecord {
-  workflow_dag_node_id: number;
+  id: number;
   workflow_id: number;
   workflow_step_id: number;
   row: number;
@@ -51,19 +51,20 @@ export interface WorkflowDagNodeRecord {
 }
 
 export interface WorkflowDagEdgeRecord {
-  workflow_dag_edge_id: number;
+  id: number;
   workflow_id: number;
   from_workflow_dag_node_id: number;
   to_workflow_dag_node_id: number;
-  edge_condition: Record<string, unknown> | string | null;
+  condition: Record<string, unknown> | string | null;
   created_at: string;
 }
 
 export interface WorkflowStepRecord {
-  workflow_step_id: number;
-  step_name: string;
-  model_family: string;
-  model?: string | null;
+  id: number;
+  name: string;
+  step_executor_id: string;
+  method: string;
+  executor_config: Record<string, any>;
   payload_template_id?: number | null;
   output_spec_id?: number | null;
   created_at: string;
@@ -79,7 +80,7 @@ export interface WorkflowDagNodeCreatePayload {
 export interface WorkflowDagEdgeCreatePayload {
   from_workflow_dag_node_id: number;
   to_workflow_dag_node_id: number;
-  edge_condition?: Record<string, unknown> | string;
+  condition?: Record<string, unknown> | string;
 }
 
 export const workflowBuilderApi = {
@@ -88,8 +89,8 @@ export const workflowBuilderApi = {
   getWorkflows: () =>
     apiFetch<ApiListResponse<WorkflowRecord>>("/api/v2/workflows"),
   createWorkflow: (payload: {
-    workflow_name: string;
-    workflow_description?: string | null;
+    name: string;
+    description?: string | null;
     sample_set_id: ApiId;
     status?: string;
   }) =>
@@ -101,8 +102,8 @@ export const workflowBuilderApi = {
   saveWorkflow: (
     workflowId: ApiId,
     payload: {
-      workflow_name?: string;
-      workflow_description?: string | null;
+      name?: string;
+      description?: string | null;
       sample_set_id?: ApiId;
     },
   ) =>
@@ -151,7 +152,7 @@ export const workflowBuilderApi = {
       {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ workflow_dag_node_ids: nodeIds }),
+        body: JSON.stringify({ ids: nodeIds }),
       },
     ),
   createWorkflowDagEdge: (
@@ -172,7 +173,7 @@ export const workflowBuilderApi = {
       {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ workflow_dag_edge_id: edgeId }),
+        body: JSON.stringify({ id: edgeId }),
       },
     ),
   getWorkflowSteps: () =>

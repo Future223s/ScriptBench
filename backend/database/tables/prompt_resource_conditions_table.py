@@ -20,12 +20,12 @@ prompt_resource_conditions = Table(
     "prompt_resource_conditions",
     metadata,
     Column(
-        "prompt_resource_condition_id", Integer, primary_key=True, autoincrement=True
+        "id", Integer, primary_key=True, autoincrement=True
     ),
     Column(
         "prompt_resource_id",
         Integer,
-        ForeignKey("prompt_resources.prompt_resource_id", ondelete="CASCADE"),
+        ForeignKey("prompt_resources.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     ),

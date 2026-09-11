@@ -5,11 +5,11 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
-from ..tables.artifacts_table import artifacts
+from ..tables.derivatives_table import derivatives
 from ..tables.payload_templates_table import payload_templates
-from ..tables.prompt_resource_conditions_table import prompt_resource_conditions
-from ..tables.prompt_resources_table import prompt_resources
+from .prompt_resources_repository import PromptResourcesRepository
 from ..tables.samples_table import samples
+from ..tables.step_outputs_table import step_outputs
 from ..tables.workflow_dag_nodes_table import workflow_dag_nodes
 from ..tables.workflow_steps_table import workflow_steps
 
@@ -24,82 +24,54 @@ class PromptResolutionRepository:
         return self._one(
             select(workflow_dag_nodes).where(
                 workflow_dag_nodes.c.workflow_id == workflow_id,
-                workflow_dag_nodes.c.workflow_dag_node_id == node_id,
+                workflow_dag_nodes.c.id == node_id,
             )
         )
 
     def fetch_step(self, step_id: int) -> dict[str, Any]:
         return self._one(
-            select(workflow_steps).where(workflow_steps.c.workflow_step_id == step_id)
+            select(workflow_steps).where(workflow_steps.c.id == step_id)
         )
 
     def fetch_template(self, template_id: int) -> dict[str, Any]:
         return self._one(
             select(payload_templates).where(
-                payload_templates.c.payload_template_id == template_id
+                payload_templates.c.id == template_id
             )
         )
 
     def fetch_sample(self, sample_id: str) -> dict[str, Any]:
-        return self._one(select(samples).where(samples.c.sample_id == sample_id))
+        return self._one(select(samples).where(samples.c.id == sample_id))
 
     def list_prompt_resources(self, template_id: int) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
-            resources = connection.execute(
-                select(prompt_resources)
-                .where(prompt_resources.c.payload_template_id == template_id)
-                .order_by(prompt_resources.c.prompt_resource_id.asc())
-            ).mappings().all()
-            conditions = connection.execute(
-                select(prompt_resource_conditions)
-                .join(prompt_resources)
-                .where(prompt_resources.c.payload_template_id == template_id)
-                .order_by(
-                    prompt_resource_conditions.c.prompt_resource_id.asc(),
-                    prompt_resource_conditions.c.position.asc(),
-                )
-            ).mappings().all()
-        conditions_by_resource: dict[int, list[dict[str, Any]]] = {}
-        for condition in conditions:
-            conditions_by_resource.setdefault(
-                int(condition["prompt_resource_id"]), []
-            ).append(
-                {
-                    "field": condition["field_name"],
-                    "operator": condition["operator"],
-                    "valueType": condition["value_type"],
-                    "value": condition["value"],
-                }
-            )
-        return [
-            {
-                "name": resource["resource_name"],
-                "table": resource["source_table"],
-                "batchLimit": resource["batch_limit"],
-                "conditions": conditions_by_resource.get(
-                    int(resource["prompt_resource_id"]), []
-                ),
-            }
-            for resource in resources
-        ]
+        return PromptResourcesRepository(self.engine).list_for_template(template_id)
 
     def list_prompt_resource_rows(
         self,
         resource: dict[str, Any],
         sample: dict[str, Any],
+        execution_job_id: int | None = None,
     ) -> list[dict[str, Any]]:
-        table_name = str(resource["table"])
-        table = {"artifacts": artifacts, "samples": samples}.get(table_name)
+        table_name = str(resource["source_table"])
+        table = {
+            "derivatives": derivatives,
+            "samples": samples,
+            "step_outputs": step_outputs,
+        }.get(table_name)
         if table is None:
             raise ValueError(f"Unsupported prompt resource table: {table_name}")
         statement = select(table)
+        if table_name == "step_outputs" and execution_job_id is not None:
+            statement = statement.where(
+                step_outputs.c.execution_job_id == execution_job_id
+            )
         for condition in resource.get("conditions", []):
-            field = str(condition["field"])
+            field = str(condition["field_name"])
             if field not in table.c:
                 raise ValueError(f"Unsupported prompt resource field: {table_name}.{field}")
             value = (
                 sample.get(str(condition["value"]))
-                if condition["valueType"] == "sample-field"
+                if condition["value_type"] == "sample-field"
                 else condition["value"]
             )
             column = table.c[field]
@@ -116,9 +88,13 @@ class PromptResolutionRepository:
                 statement = statement.where(column.contains(str(value)))
             else:
                 raise ValueError(f"Unsupported prompt resource operator: {operator}")
-        name_field = "artifact_name" if table_name == "artifacts" else "sample_name"
+        name_field = {
+            "derivatives": "name",
+            "samples": "name",
+            "step_outputs": "id",
+        }[table_name]
         statement = statement.order_by(table.c[name_field].asc()).limit(
-            int(resource["batchLimit"])
+            int(resource["batch_limit"])
         )
         with self.engine.connect() as connection:
             rows = connection.execute(statement).mappings().all()

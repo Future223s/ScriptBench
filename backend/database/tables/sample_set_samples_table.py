@@ -10,13 +10,13 @@ sample_set_samples = Table(
     Column(
         "sample_set_id",
         Integer,
-        ForeignKey("sample_sets.sample_set_id", ondelete="CASCADE"),
+        ForeignKey("sample_sets.id", ondelete="CASCADE"),
         primary_key=True,
     ),
     Column(
         "sample_id",
         String(255),
-        ForeignKey("samples.sample_id", ondelete="CASCADE"),
+        ForeignKey("samples.id", ondelete="CASCADE"),
         primary_key=True,
     ),
     Column("position", Integer, nullable=False),

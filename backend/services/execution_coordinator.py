@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from backend.core.model_client import ModelClient
+from backend.services.step_executor import StepExecutor
 from backend.database.repositories.execution_jobs_repository import (
     ExecutionJobsRepository,
 )
@@ -24,8 +24,8 @@ from backend.services.payload_builder import PayloadBuilder
 logger = logging.getLogger(__name__)
 
 
-class ModelClientFactory(Protocol):
-    def for_step(self, workflow_step: dict[str, Any]) -> ModelClient:
+class StepExecutorFactory(Protocol):
+    def for_step(self, workflow_step: dict[str, Any]) -> StepExecutor:
         """Return the model client for a persisted workflow step."""
 
 
@@ -36,13 +36,13 @@ class ExecutionCoordinator:
         self,
         repository: ExecutionJobsRepository,
         output_validator: OutputValidator,
-        client_factory: ModelClientFactory,
+        executor_factory: StepExecutorFactory,
         payload_builder: PayloadBuilder,
         event_hub: JobEventHub,
     ) -> None:
         self.repository = repository
         self.output_validator = output_validator
-        self.client_factory = client_factory
+        self.executor_factory = executor_factory
         self.payload_builder = payload_builder
         self.event_hub = event_hub
         self.workflow_steps = WorkflowStepsRepository(repository.engine)
@@ -58,25 +58,26 @@ class ExecutionCoordinator:
             workflow_id=int(job["workflow_id"]),
             sample_id=str(job["sample_id"]),
             workflow_dag_node_id=int(job["workflow_dag_node_id"]),
+            execution_job_id=int(job["id"]),
         )
         workflow_step = self._workflow_step(int(job["workflow_step_id"]))
         output_spec = self._output_spec(int(workflow_step["output_spec_id"]))
-        client = self.client_factory.for_step(workflow_step)
+        client = self.executor_factory.for_step(workflow_step)
         await self.event_hub.broadcast(
             self._event("REQUEST_SENT", "Sending transcription request.", job)
         )
-        raw_response = await client.transcribe(payload)
+        raw_response = await client.execute_method(workflow_step["method"], payload)
         response = self.output_validator.resolve(
             raw_response=raw_response,
             output_spec=output_spec,
         )
         self.output_validator.persist(
             execution_job={
-                "execution_job_id": job["execution_job_id"],
+                "id": job["id"],
+                "workflow_id": job["workflow_id"],
                 "sample_id": job["sample_id"],
             },
             workflow_step_id=int(job["workflow_step_id"]),
-            workflow_dag_node_id=int(job["workflow_dag_node_id"]),
             response=response,
             assembled_payload=self._serialize(payload),
             started_at=started_at,
@@ -116,7 +117,7 @@ class ExecutionCoordinator:
             rows=[
                 {
                     "workflow_id": job.get("workflow_id"),
-                    "execution_job_id": job.get("execution_job_id"),
+                    "id": job.get("id"),
                     "workflow_dag_node_id": job.get("workflow_dag_node_id"),
                     "workflow_step_id": job.get("workflow_step_id"),
                     "status": row_status,

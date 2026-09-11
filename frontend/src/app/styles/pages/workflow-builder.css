@@ -1,8 +1,8 @@
 .workflow-builder-page {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-width: 0;
-  align-content: start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
 }
@@ -20,6 +20,7 @@
   align-items: stretch;
   gap: var(--space-3);
   min-width: 0;
+  height: auto;
 }
 
 .workflow-builder-sidebar,
@@ -31,7 +32,16 @@
   display: flex;
 }
 
+.workflow-builder-workbench .ui-canvas {
+  min-height: 320px;
+}
+
 @media (max-width: 900px) {
+  .workflow-builder-grid {
+    flex: none;
+    grid-template-rows: auto auto;
+  }
+
   .workflow-builder-header,
   .workflow-builder-grid {
     grid-template-columns: 1fr;

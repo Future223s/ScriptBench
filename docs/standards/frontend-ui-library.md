@@ -62,6 +62,8 @@ All application pages are strictly consumer pages. They may:
 
 They may not define typography, colors, spacing scales, button/form/panel/modal styling, or page-specific overrides of primitive/template classes. Page CSS is permitted only for domain geometry that cannot belong to a template (for example, workflow-canvas node positioning), and it must use locked tokens.
 
+Larger page-specific component styles that compose primitives must live in `/ui/pages/{page_name}.css`. Do not add those styles to a global CSS file; global CSS is limited to shared application-wide concerns.
+
 ## Copy casing
 
 Instructional text must use sentence case and the shared `Instruction` primitive; all-uppercase instructions are prohibited.

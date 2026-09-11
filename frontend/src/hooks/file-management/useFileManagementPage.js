@@ -15,8 +15,8 @@ function createCatalogState() {
   return {
     samples: [],
     sampleSets: [],
-    artifacts: [],
-    artifactGroups: [],
+    derivatives: [],
+    derivativeGroups: [],
     assets: [],
   };
 }
@@ -26,21 +26,21 @@ export function useFileManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [refreshingArtifactMappings, setRefreshingArtifactMappings] =
+  const [refreshingDerivativeMappings, setRefreshingDerivativeMappings] =
     useState(false);
   const [catalogs, setCatalogs] = useState(createCatalogState);
   const [collectionSelections, setCollectionSelections] = useState({
     sampleSet: [],
-    artifactGroup: [],
+    derivativeGroup: [],
   });
-  const artifactMappingStarted = useRef(false);
+  const derivativeMappingStarted = useRef(false);
 
   function setSharedError(message) {
     setError(message);
   }
 
   const browser = useFileBrowser(catalogs);
-  const detail = useFileDetail({ setError: setSharedError });
+  const detail = useFileDetail({ setError: setSharedError, derivativeGroups: catalogs.derivativeGroups });
   const selectionActions = useFileSelectionActions();
   const upload = useFileUpload();
 
@@ -51,14 +51,14 @@ export function useFileManagementPage() {
     const [
       samplesResult,
       sampleSetsResult,
-      artifactsResult,
-      artifactGroupsResult,
+      derivativesResult,
+      derivativeGroupsResult,
       assetsResult,
     ] = await Promise.allSettled([
       fileManagementApi.getSamples(),
       fileManagementApi.getSampleSets(),
-      fileManagementApi.getArtifacts(),
-      fileManagementApi.getArtifactGroups(),
+      fileManagementApi.getDerivatives(),
+      fileManagementApi.getDerivativeGroups(),
       fileManagementApi.getAssets(),
     ]);
 
@@ -67,10 +67,10 @@ export function useFileManagementPage() {
       failures.push(samplesResult.reason);
     if (sampleSetsResult.status === "rejected")
       failures.push(sampleSetsResult.reason);
-    if (artifactsResult.status === "rejected")
-      failures.push(artifactsResult.reason);
-    if (artifactGroupsResult.status === "rejected")
-      failures.push(artifactGroupsResult.reason);
+    if (derivativesResult.status === "rejected")
+      failures.push(derivativesResult.reason);
+    if (derivativeGroupsResult.status === "rejected")
+      failures.push(derivativeGroupsResult.reason);
     if (assetsResult.status === "rejected") failures.push(assetsResult.reason);
 
     setCatalogs({
@@ -82,13 +82,13 @@ export function useFileManagementPage() {
         sampleSetsResult.status === "fulfilled"
           ? sampleSetsResult.value.sample_sets || []
           : [],
-      artifacts:
-        artifactsResult.status === "fulfilled"
-          ? artifactsResult.value.artifacts || []
+      derivatives:
+        derivativesResult.status === "fulfilled"
+          ? derivativesResult.value.derivatives || []
           : [],
-      artifactGroups:
-        artifactGroupsResult.status === "fulfilled"
-          ? artifactGroupsResult.value.artifact_groups || []
+      derivativeGroups:
+        derivativeGroupsResult.status === "fulfilled"
+          ? derivativeGroupsResult.value.derivative_groups || []
           : [],
       assets:
         assetsResult.status === "fulfilled"
@@ -110,11 +110,11 @@ export function useFileManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (loading || artifactMappingStarted.current || !catalogs.artifacts.length)
+    if (loading || derivativeMappingStarted.current || !catalogs.derivatives.length)
       return;
-    artifactMappingStarted.current = true;
-    void refreshArtifactMappings();
-  }, [loading, catalogs.artifacts]);
+    derivativeMappingStarted.current = true;
+    void refreshDerivativeMappings();
+  }, [loading, catalogs.derivatives]);
 
   useEffect(() => {
     if (!syncNotifications) return undefined;
@@ -144,7 +144,7 @@ export function useFileManagementPage() {
   async function deleteSelectedCollections(type) {
     const selectedIds = collectionSelections[type] || [];
     if (!selectedIds.length) return;
-    const label = type === "sampleSet" ? "sample sets" : "artifact groups";
+    const label = type === "sampleSet" ? "sample sets" : "derivative groups";
     if (
       !window.confirm(
         `Delete ${selectedIds.length} ${label}? This cannot be undone.`,
@@ -158,7 +158,7 @@ export function useFileManagementPage() {
         );
       } else {
         await Promise.all(
-          selectedIds.map((id) => fileManagementApi.deleteArtifactGroup(id)),
+          selectedIds.map((id) => fileManagementApi.deleteDerivativeGroup(id)),
         );
       }
       setCollectionSelections((current) => ({ ...current, [type]: [] }));
@@ -174,42 +174,41 @@ export function useFileManagementPage() {
     }
   }
 
-  async function refreshArtifactMappings() {
-    const artifactRecords = catalogs.artifacts;
+  async function refreshDerivativeMappings() {
+    const derivativeRecords = catalogs.derivatives;
 
     try {
-      setRefreshingArtifactMappings(true);
+      setRefreshingDerivativeMappings(true);
       setSharedError("");
       setNotice("");
-      const mappedResponse = await fileManagementApi.mapArtifacts(
-        artifactRecords.map((record) => ({
-          artifact_id: record.artifact_id,
-          artifact_name: record.artifact_name,
+      const mappedResponse = await fileManagementApi.mapDerivatives(
+        derivativeRecords.map((record) => ({
+          id: record.id,
+          name: record.name,
         })),
       );
-      const mappedArtifacts = mappedResponse.data?.mapped_artifacts || [];
-      if (!mappedArtifacts.length) {
-        const firstRejected = mappedResponse.data?.rejected_artifacts?.[0];
+      const mappedDerivatives = mappedResponse.data?.mapped_derivatives || [];
+      if (!mappedDerivatives.length) {
+        const firstRejected = mappedResponse.data?.rejected_derivatives?.[0];
         throw new Error(
-          String(firstRejected?.reason || "No artifacts could be remapped."),
+          String(firstRejected?.reason || "No derivatives could be remapped."),
         );
       }
 
-      await fileManagementApi.patchArtifacts(
-        mappedArtifacts.map((artifact) => ({
-          artifact_id: artifact.artifact_id,
-          artifact_group_id: artifact.artifact_group_id,
-          artifact_group_name: artifact.artifact_group_name,
-          originating_sample_id: artifact.originating_sample_id,
+      await fileManagementApi.patchDerivatives(
+        mappedDerivatives.map((derivative) => ({
+          id: derivative.id,
+          derivative_group_id: derivative.derivative_group_id,
+          sample_id: derivative.sample_id,
         })),
       );
-      setNotice(`Refreshed ${mappedArtifacts.length} artifact mappings.`);
+      setNotice(`Refreshed ${mappedDerivatives.length} derivative mappings.`);
       await refresh();
       window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
     } catch (error) {
       setSharedError(error instanceof Error ? error.message : String(error));
     } finally {
-      setRefreshingArtifactMappings(false);
+      setRefreshingDerivativeMappings(false);
     }
   }
 
@@ -217,7 +216,7 @@ export function useFileManagementPage() {
     loading,
     error,
     notice,
-    refreshingArtifactMappings,
+    refreshingDerivativeMappings,
     ...catalogs,
     ...browser.state,
     ...selectionActions.state,

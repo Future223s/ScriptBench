@@ -24,7 +24,7 @@ export function DashboardPageView({
   const selectedSampleSet =
     sampleSets.find(
       (sampleSet) =>
-        Number(sampleSet.sample_set_id) === Number(selectedSampleSetId),
+        Number(sampleSet.id) === Number(selectedSampleSetId),
     ) || null;
   const hasSampleSets = sampleSets.length > 0;
 

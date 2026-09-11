@@ -19,23 +19,24 @@ class SamplesRepository:
         query: str | None = None,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
-        stmt = stmt = select(
-            samples.c.sample_id,
-            samples.c.sample_name,
-            samples.c.sample_mime_type,
+        stmt = select(
+            samples.c.id,
+            samples.c.name,
+            samples.c.mime_type,
+            samples.c.ground_truth_text,
             samples.c.created_at,
             samples.c.updated_at,
         ).order_by(
             samples.c.created_at.desc(),
-            samples.c.sample_id.asc(),
+            samples.c.id.asc(),
         )
         normalized_query = (query or "").strip()
         if normalized_query:
             pattern = f"%{normalized_query.casefold()}%"
             stmt = stmt.where(
                 or_(
-                    func.lower(samples.c.sample_id).like(pattern),
-                    func.lower(samples.c.sample_name).like(pattern),
+                    func.lower(samples.c.id).like(pattern),
+                    func.lower(samples.c.name).like(pattern),
                     func.lower(func.coalesce(samples.c.ground_truth_text, "")).like(
                         pattern
                     ),
@@ -52,7 +53,7 @@ class SamplesRepository:
     def fetch_sample(self, sample_id: str) -> dict[str, Any] | None:
         with self.engine.begin() as conn:
             row = conn.execute(
-                select(samples).where(samples.c.sample_id == sample_id)
+                select(samples).where(samples.c.id == sample_id)
             ).fetchone()
         return dict(row._mapping) if row is not None else None
 
@@ -60,15 +61,15 @@ class SamplesRepository:
         self, sample_names: Sequence[str]
     ) -> list[dict[str, Any]]:
         names = [
-            str(sample_name).strip()
-            for sample_name in sample_names
-            if str(sample_name).strip()
+            str(name).strip()
+            for name in sample_names
+            if str(name).strip()
         ]
         if not names:
             return []
         with self.engine.begin() as conn:
             rows = conn.execute(
-                select(samples).where(samples.c.sample_name.in_(names))
+                select(samples).where(samples.c.name.in_(names))
             ).fetchall()
         return [dict(row._mapping) for row in rows]
 
@@ -76,16 +77,16 @@ class SamplesRepository:
         self,
         *,
         sample_id: str,
-        sample_name: str,
+        name: str,
         ground_truth_text: str | None = None,
     ) -> None:
         with self.engine.begin() as conn:
             conn.execute(
                 insert(samples).values(
-                    sample_id=sample_id,
-                    sample_name=sample_name,
-                    sample_blob=None,
-                    sample_mime_type=None,
+                    id=sample_id,
+                    name=name,
+                    blob=None,
+                    mime_type=None,
                     ground_truth_text=ground_truth_text,
                 )
             )
@@ -94,16 +95,16 @@ class SamplesRepository:
         self,
         *,
         sample_id: str,
-        sample_blob: bytes,
-        sample_mime_type: str | None,
+        blob: bytes,
+        mime_type: str | None,
     ) -> int:
         with self.engine.begin() as conn:
             result = conn.execute(
                 update(samples)
-                .where(samples.c.sample_id == sample_id)
+                .where(samples.c.id == sample_id)
                 .values(
-                    sample_blob=sample_blob,
-                    sample_mime_type=sample_mime_type,
+                    blob=blob,
+                    mime_type=mime_type,
                 )
             )
         return int(result.rowcount or 0)
@@ -111,6 +112,6 @@ class SamplesRepository:
     def delete_sample(self, sample_id: str) -> int:
         with self.engine.begin() as conn:
             result = conn.execute(
-                delete(samples).where(samples.c.sample_id == sample_id)
+                delete(samples).where(samples.c.id == sample_id)
             )
         return int(result.rowcount or 0)

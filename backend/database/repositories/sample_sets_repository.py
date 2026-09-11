@@ -19,7 +19,7 @@ class SampleSetsRepository:
             row = (
                 conn.execute(
                     select(sample_sets).where(
-                        sample_sets.c.sample_set_id == sample_set_id
+                        sample_sets.c.id == sample_set_id
                     )
                 )
                 .mappings()
@@ -35,13 +35,13 @@ class SampleSetsRepository:
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
         stmt = select(sample_sets).order_by(
-            sample_sets.c.sample_set_name.asc(),
-            sample_sets.c.sample_set_id.asc(),
+            sample_sets.c.name.asc(),
+            sample_sets.c.id.asc(),
         )
         normalized_query = (query or "").strip()
         if normalized_query:
             stmt = stmt.where(
-                sample_sets.c.sample_set_name.ilike(f"%{normalized_query}%")
+                sample_sets.c.name.ilike(f"%{normalized_query}%")
             )
         normalized_status = (status or "").strip()
         if normalized_status:
@@ -71,7 +71,7 @@ class SampleSetsRepository:
         def run(connection: Connection) -> int:
             workflow_ids = (
                 connection.execute(
-                    select(workflows.c.workflow_id).where(
+                    select(workflows.c.id).where(
                         workflows.c.sample_set_id == sample_set_id
                     )
                 )
@@ -82,7 +82,7 @@ class SampleSetsRepository:
             for workflow_id in workflow_ids:
                 workflows_repository.delete(int(workflow_id), conn=connection)
             result = connection.execute(
-                delete(sample_sets).where(sample_sets.c.sample_set_id == sample_set_id)
+                delete(sample_sets).where(sample_sets.c.id == sample_set_id)
             )
             return int(result.rowcount or 0)
 

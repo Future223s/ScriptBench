@@ -22,4 +22,3 @@ Provider-neutral `PayloadTemplate`, `PayloadMessage` collection, `PayloadInput` 
 - **one-job rule:** One execution row and workflow step create one job; resource limits cap selected rows but never fan out work.
 - **resource ownership:** A resource belongs to exactly one payload template and is addressed by a unique template-local name.
 - **source safety:** Only source types and fields explicitly registered by the resolver may be queried.
-- **uploads:** `object_uploads` remains a future transport cache, and no upload refresh occurs in the current runtime.

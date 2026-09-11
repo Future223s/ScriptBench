@@ -17,7 +17,7 @@ OUTPUT_SPEC_TYPES: tuple[str, ...] = (
     "json",
 )
 
-ARTIFACT_CATEGORIES: tuple[str, ...] = (
+DERIVATIVE_CATEGORIES: tuple[str, ...] = (
     "companion",
     "decomposition",
 )
@@ -42,13 +42,14 @@ PAYLOAD_BINDING_MODES: tuple[str, ...] = (
 PAYLOAD_SOURCE_TYPES: tuple[str, ...] = (
     "asset",
     "sample",
-    "artifact",
-    "model_output",
+    "derivative",
+    "step_output",
 )
 
 PROMPT_RESOURCE_TABLES: tuple[str, ...] = (
-    "artifacts",
+    "derivatives",
     "samples",
+    "step_outputs",
 )
 
 PROMPT_RESOURCE_OPERATORS: tuple[str, ...] = (
@@ -82,25 +83,19 @@ PARSE_STATUSES: tuple[str, ...] = (
     "failed",
 )
 
-OBJECT_UPLOAD_TYPES: tuple[str, ...] = (
-    "asset",
-    "sample",
-    "artifact",
-)
-
 STATUS_CHECK_SQL = "status IN ('draft', 'active')"
 WORKFLOW_STATUS_CHECK_SQL = "status IN ('draft', 'finalized')"
 OUTPUT_SPEC_TYPE_CHECK_SQL = "type IN ('plain-text', 'json')"
-ARTIFACT_CATEGORY_CHECK_SQL = "artifact_category IN ('companion', 'decomposition')"
+DERIVATIVE_CATEGORY_CHECK_SQL = "category IN ('companion', 'decomposition')"
 MAPPING_TYPE_CHECK_SQL = "mapping_type IN ('one-to-one', 'one-to-many')"
 MAPPING_OPERATOR_CHECK_SQL = (
     "operator IN ('equals', 'contains', 'starts_with', 'ends_with')"
 )
 PAYLOAD_BINDING_MODE_CHECK_SQL = "binding_mode IN ('fixed', 'sample-bound')"
 PAYLOAD_SOURCE_TYPE_CHECK_SQL = (
-    "source_type IN ('asset', 'sample', 'artifact', 'model_output', 'table_rows')"
+    "source_type IN ('asset', 'sample', 'derivative', 'step_output', 'table_rows')"
 )
-PROMPT_RESOURCE_TABLE_CHECK_SQL = "source_table IN ('artifacts', 'samples')"
+PROMPT_RESOURCE_TABLE_CHECK_SQL = "source_table IN ('derivatives', 'samples', 'step_outputs')"
 PROMPT_RESOURCE_OPERATOR_CHECK_SQL = (
     "operator IN ('equals', 'not_equals', 'greater_than', 'less_than', 'contains')"
 )
@@ -110,6 +105,4 @@ EXECUTION_JOB_STATUS_CHECK_SQL = (
 )
 EXECUTION_SCOPE_CHECK_SQL = "execution_scope IN ('source', 'decomposed_item')"
 PARSE_STATUS_CHECK_SQL = "parse_status IN ('success', 'failed')"
-OBJECT_UPLOAD_TYPE_CHECK_SQL = "object_type IN ('asset', 'sample', 'artifact')"
-
 metadata = MetaData()

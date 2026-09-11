@@ -8,7 +8,7 @@ from .api import ApiResponse
 
 
 class WorkflowDagNodeRecord(BaseModel):
-    workflow_dag_node_id: int
+    id: int
     workflow_id: int
     workflow_step_id: int
     row: int
@@ -28,7 +28,7 @@ class WorkflowDagNodeCreateRequest(BaseModel):
 
 
 class WorkflowDagNodeDeleteRequest(BaseModel):
-    workflow_dag_node_ids: list[int] = Field(min_length=1)
+    ids: list[int] = Field(min_length=1)
 
     model_config = ConfigDict(extra="forbid")
 

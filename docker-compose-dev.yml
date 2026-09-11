@@ -15,23 +15,6 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
-  db-seed:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: ["python", "-m", "backend.scripts.seed_economic_upheaval"]
-    environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-scriptbench}:${POSTGRES_PASSWORD:-scriptbench}@postgres:5432/${POSTGRES_DB:-scriptbench}
-      ECONOMIC_SOURCE_ROOT: /seed-source
-    volumes:
-      - type: bind
-        source: ./seed-data/economic-upheaval
-        target: /seed-source
-        read_only: true
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   backend:
     build:
       context: ./backend
@@ -55,8 +38,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-scriptbench}:${POSTGRES_PASSWORD:-scriptbench}@postgres:5432/${POSTGRES_DB:-scriptbench}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      TESTING_MODE: ${TESTING_MODE:-true}
-      STUB_MODEL_FAIL: ${STUB_MODEL_FAIL:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DEV: ${DEV:-true}
       WATCHFILES_FORCE_POLLING: "true"
       WATCHPACK_POLLING: "true"
       WATCHPACK_POLLING_INTERVAL: "1000"
@@ -64,8 +47,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      db-seed:
-        condition: service_completed_successfully
 
   frontend:
     build:

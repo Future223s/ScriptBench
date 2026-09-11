@@ -34,9 +34,7 @@ function initialState() {
 }
 
 function visibleRows(rows) {
-  return (rows || []).filter(
-    (row) => row.execution_scope !== "decomposed_item",
-  );
+  return rows || [];
 }
 
 function columnFor(row) {
@@ -52,6 +50,8 @@ export function useWorkspacePage() {
   const [state, setState] = useState(initialState);
   const stateRef = useRef(state);
   const socketRef = useRef(null);
+  const activeWorkflowRef = useRef(null);
+  const switchingRef = useRef(false);
 
   function patchState(patch) {
     setState((current) => ({
@@ -69,18 +69,18 @@ export function useWorkspacePage() {
     if (!Array.isArray(rows) || !rows.length) return;
     patchState((current) => {
       const changed = new Map(
-        rows.map((row) => [String(row.execution_job_id), row]),
+        rows.map((row) => [String(row.id), row]),
       );
       const nextRows = current.rows.map((row) =>
-        changed.has(String(row.execution_job_id))
-          ? { ...row, ...changed.get(String(row.execution_job_id)) }
+        changed.has(String(row.id))
+          ? { ...row, ...changed.get(String(row.id)) }
           : row,
       );
       for (const row of rows) {
         if (
           !current.rows.some(
             (item) =>
-              String(item.execution_job_id) === String(row.execution_job_id),
+              String(item.id) === String(row.id),
           )
         )
           nextRows.push(row);
@@ -95,7 +95,7 @@ export function useWorkspacePage() {
           error_message: errorMessage,
           raw_payload: { event, message, rows },
         };
-        next.workspaceError = `Execution job ${failed.execution_job_id} failed: ${errorMessage}`;
+        next.workspaceError = `Execution job ${failed.id} failed: ${errorMessage}`;
       }
       return next;
     });
@@ -108,16 +108,17 @@ export function useWorkspacePage() {
     const socket = new WebSocket(url);
     socketRef.current = socket;
     patchState({ liveRowUpdateStatus: "connecting" });
-    socket.onopen = () => patchState({ liveRowUpdateStatus: "connected" });
+    socket.onopen = () => { if (socketRef.current === socket) patchState({ liveRowUpdateStatus: "connected" }); };
     socket.onmessage = (event) => {
+      if (socketRef.current !== socket) return;
       try {
         applyRowsEvent(JSON.parse(event.data));
       } catch {
         /* Ignore malformed events. */
       }
     };
-    socket.onerror = () => patchState({ liveRowUpdateStatus: "error" });
-    socket.onclose = () => patchState({ liveRowUpdateStatus: "disconnected" });
+    socket.onerror = () => { if (socketRef.current === socket) patchState({ liveRowUpdateStatus: "error" }); };
+    socket.onclose = () => { if (socketRef.current === socket) patchState({ liveRowUpdateStatus: "disconnected" }); };
   }
 
   function applyRows(rows, patch = {}) {
@@ -127,7 +128,7 @@ export function useWorkspacePage() {
         (row) =>
           row.error_message &&
           !acknowledgedFailureRowIds.some(
-            (id) => String(id) === String(row.execution_job_id),
+            (id) => String(id) === String(row.id),
           ),
       );
       return {
@@ -136,7 +137,7 @@ export function useWorkspacePage() {
         ...(failedRow && !current.failureOverlay
           ? {
               failureOverlay: failedRow,
-              workspaceError: `Execution job ${failedRow.execution_job_id} failed: ${failedRow.error_message}`,
+              workspaceError: `Execution job ${failedRow.id} failed: ${failedRow.error_message}`,
             }
           : {}),
       };
@@ -145,13 +146,14 @@ export function useWorkspacePage() {
 
   async function refreshRows(workflowId) {
     const rows = visibleRows(await workspaceApi.getExecutionJobs(workflowId));
-    applyRows(rows);
+    if (String(activeWorkflowRef.current) === String(workflowId)) applyRows(rows);
     return rows;
   }
 
   async function refreshUntilSettled(workflowId) {
     for (let attempt = 0; attempt < 30; attempt += 1) {
       await new Promise((resolve) => window.setTimeout(resolve, 500));
+      if (String(activeWorkflowRef.current) !== String(workflowId)) return;
       const rows = await refreshRows(workflowId);
       if (!rows.some((row) => ["queued", "running"].includes(row.status))) {
         return;
@@ -176,34 +178,64 @@ export function useWorkspacePage() {
     }
   }
 
-  async function openWorkflowWorkspace(workflowId) {
-    const workflow = stateRef.current.workflows.find(
-      (item) => String(item.workflow_id) === String(workflowId),
-    );
-    if (!workflow)
-      return patchState({ workspaceError: "Select a workflow first." });
-    closeSocket();
-    patchState({
-      selectedWorkflowId: workflow.workflow_id,
-      selectedWorkflowSummary: workflow,
-      rows: [],
-      selectedRowIdsByColumn: initialSelection,
-      loadingWorkspace: true,
-      workspaceError: "",
-      failureOverlay: null,
-      acknowledgedFailureRowIds: [],
-    });
+  async function switchWorkflow() {
+    if (switchingRef.current || stateRef.current.applyingExecutionAction) return;
+    const workflowId = activeWorkflowRef.current;
+    if (!workflowId) return;
+    switchingRef.current = true;
+    patchState({ applyingExecutionAction: true, workspaceError: "" });
     try {
-      const rows = visibleRows(
-        await workspaceApi.getExecutionJobs(workflow.workflow_id),
-      );
-      applyRows(rows, { loadingWorkspace: false });
-      connectEvents(workflow.workflow_id);
-    } catch (error) {
+      await workspaceApi.stopExecution(workflowId);
+      activeWorkflowRef.current = null;
+      closeSocket();
       patchState({
-        loadingWorkspace: false,
-        workspaceError: error instanceof Error ? error.message : String(error),
+        selectedWorkflowId: null, selectedWorkflowSummary: null,
+        workspacePickerWorkflowId: workflowId, rows: [],
+        selectedRowIdsByColumn: initialSelection,
+        selectedExecutionRowId: null, selectedExecutionRow: null,
+        failureOverlay: null, acknowledgedFailureRowIds: [],
+        workspaceNotice: "", liveRowUpdateStatus: "disconnected",
       });
+    } catch (exc) {
+      patchState({ workspaceError: exc instanceof Error ? exc.message : String(exc) });
+    } finally {
+      switchingRef.current = false;
+      patchState({ applyingExecutionAction: false });
+    }
+  }
+
+  async function openWorkflowWorkspace(workflowId) {
+    if (switchingRef.current) return;
+    const workflow = stateRef.current.workflows.find(
+      (item) => String(item.id) === String(workflowId),
+    );
+    if (!workflow) return patchState({ workspaceError: "Select a workflow first." });
+    switchingRef.current = true;
+    patchState({ loadingWorkspace: true, workspaceError: "" });
+    try {
+      const previousId = activeWorkflowRef.current;
+      if (previousId && String(previousId) !== String(workflow.id)) {
+        await workspaceApi.stopExecution(previousId);
+      }
+      // The worker may already be scheduling other workflows; opening is not Start.
+      await workspaceApi.stopExecution(workflow.id);
+      activeWorkflowRef.current = workflow.id;
+      closeSocket();
+      patchState({
+        selectedWorkflowId: workflow.id,
+        selectedWorkflowSummary: workflow,
+        rows: [], selectedRowIdsByColumn: initialSelection,
+        workspaceNotice: "", failureOverlay: null, acknowledgedFailureRowIds: [],
+        selectedExecutionRowId: null, selectedExecutionRow: null,
+      });
+      const rows = visibleRows(await workspaceApi.getExecutionJobs(workflow.id));
+      applyRows(rows, { loadingWorkspace: false });
+      connectEvents(workflow.id);
+    } catch (exc) {
+      patchState({ loadingWorkspace: false, workspaceError: exc instanceof Error ? exc.message : String(exc) });
+    } finally {
+      switchingRef.current = false;
+      patchState({ loadingWorkspace: false });
     }
   }
 
@@ -217,6 +249,7 @@ export function useWorkspacePage() {
     patchState({ applyingExecutionAction: true, workspaceError: "" });
     try {
       await workspaceApi.startExecution(workflowId);
+      if (String(activeWorkflowRef.current) !== String(workflowId)) return;
       const rows = await refreshRows(workflowId);
       patchState({ applyingExecutionAction: false });
       if (rows.some((row) => ["queued", "running"].includes(row.status))) {
@@ -249,7 +282,7 @@ export function useWorkspacePage() {
 
   async function resolveFailure(action) {
     const workflowId = stateRef.current.selectedWorkflowId;
-    const rowId = stateRef.current.failureOverlay?.execution_job_id;
+    const rowId = stateRef.current.failureOverlay?.id;
     if (!workflowId || !rowId) return;
     patchState({ applyingExecutionAction: true, workspaceError: "" });
     try {
@@ -291,7 +324,7 @@ export function useWorkspacePage() {
   function selectAllRows(column) {
     const ids = stateRef.current.rows
       .filter((row) => columnFor(row) === column)
-      .map((row) => String(row.execution_job_id));
+      .map((row) => String(row.id));
     patchState((current) => ({
       selectedRowIdsByColumn: {
         ...current.selectedRowIdsByColumn,
@@ -349,19 +382,30 @@ export function useWorkspacePage() {
   async function openRowDetail(rowId) {
     const workflowId = stateRef.current.selectedWorkflowId;
     const row = stateRef.current.rows.find(
-      (item) => String(item.execution_job_id) === String(rowId),
+      (item) => String(item.id) === String(rowId),
     );
     if (!workflowId || !row) return;
     patchState({ selectedExecutionRowId: rowId, selectedExecutionRow: row });
     try {
-      patchState({
-        selectedExecutionRow: await workspaceApi.getExecutionJobDetail(
-          workflowId,
-          rowId,
-        ),
-      });
-    } catch {
-      /* Keep board summary visible. */
+      const detail = await workspaceApi.getExecutionJobDetail(workflowId, rowId);
+      if (
+        String(stateRef.current.selectedWorkflowId) === String(workflowId) &&
+        String(stateRef.current.selectedExecutionRowId) === String(rowId)
+      ) {
+        patchState({ selectedExecutionRow: detail });
+      }
+    } catch (error) {
+      if (
+        String(stateRef.current.selectedWorkflowId) === String(workflowId) &&
+        String(stateRef.current.selectedExecutionRowId) === String(rowId)
+      ) {
+        patchState({
+          workspaceError:
+            error instanceof Error
+              ? error.message
+              : "Could not load execution job details.",
+        });
+      }
     }
   }
 
@@ -377,7 +421,7 @@ export function useWorkspacePage() {
   }, [state]);
   useEffect(() => {
     void loadWorkflows();
-    return closeSocket;
+    return () => { activeWorkflowRef.current = null; closeSocket(); };
   }, []);
   useEffect(() => {
     syncNotifications?.("workspace-page", [
@@ -395,6 +439,7 @@ export function useWorkspacePage() {
       openSelectedWorkflow: () =>
         void openWorkflowWorkspace(stateRef.current.workspacePickerWorkflowId),
       openWorkflowWorkspace,
+      switchWorkflow,
       startExecution,
       stopExecution,
       toggleRowSelection,

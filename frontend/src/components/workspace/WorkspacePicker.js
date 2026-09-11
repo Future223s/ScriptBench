@@ -37,8 +37,8 @@ export function WorkspacePicker({
           >
             <option value="">Choose a workflow</option>
             {workflows.map((workflow) => (
-              <option key={workflow.workflow_id} value={workflow.workflow_id}>
-                {workflow.workflow_name}
+              <option key={workflow.id} value={workflow.id}>
+                {workflow.name}
               </option>
             ))}
           </Select>
@@ -47,7 +47,7 @@ export function WorkspacePicker({
           <Button
             variant="primary"
             onClick={actions?.openSelectedWorkflow}
-            disabled={!selectedWorkflowId}
+            disabled={loading || !selectedWorkflowId}
           >
             Open workflow
           </Button>

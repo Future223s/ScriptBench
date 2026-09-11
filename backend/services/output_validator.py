@@ -3,11 +3,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 from sqlalchemy.engine import Engine
-from backend.database.repositories.execution_jobs_repository import (
-    ExecutionJobsRepository,
-)
-from backend.database.repositories.model_outputs_repository import (
-    ModelOutputsRepository,
+from backend.database.repositories.step_outputs_repository import (
+    StepOutputsRepository,
 )
 from backend.services.scoring import ErrorComputationService
 
@@ -22,8 +19,7 @@ class ResolvedOutput:
 
 class OutputValidator:
     def __init__(self, engine: Engine):
-        self.repository = ModelOutputsRepository(engine)
-        self.execution_jobs = ExecutionJobsRepository(engine)
+        self.repository = StepOutputsRepository(engine)
         self.error_computation = ErrorComputationService(engine)
 
     def resolve(self, *, raw_response: str, output_spec: dict[str, Any]):
@@ -39,7 +35,6 @@ class OutputValidator:
         *,
         execution_job,
         workflow_step_id,
-        workflow_dag_node_id,
         response,
         assembled_payload,
         started_at,
@@ -48,7 +43,8 @@ class OutputValidator:
         **metrics,
     ):
         output_id = self.repository.insert_attempt(
-            execution_job_id=int(execution_job["execution_job_id"]),
+            execution_job_id=int(execution_job["id"]),
+            workflow_id=int(execution_job["workflow_id"]),
             workflow_step_id=workflow_step_id,
             sample_id=str(execution_job["sample_id"]),
             assembled_model_payload=assembled_payload,
@@ -61,25 +57,11 @@ class OutputValidator:
             completed_at=completed_at,
             **metrics,
         )
-        self.execution_jobs.save_step_output(
-            {
-                "execution_job_id": int(execution_job["execution_job_id"]),
-                "workflow_step_id": workflow_step_id,
-                "workflow_dag_node_id": workflow_dag_node_id,
-                "sample_id": str(execution_job["sample_id"]),
-                "status": (
-                    "completed" if response.parse_status == "success" else "failed"
-                ),
-                "output_value": response.parsed_output,
-                "source_model_output_ids": [output_id],
-                "error_message": response.parse_error,
-            }
-        )
         if response.parse_status == "success" and isinstance(
             response.parsed_output, str
         ):
             self.error_computation.score(
-                model_output_id=output_id,
+                step_output_id=output_id,
                 sample_id=str(execution_job["sample_id"]),
                 output_text=response.parsed_output,
             )

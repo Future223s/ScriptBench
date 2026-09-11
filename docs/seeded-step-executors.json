@@ -1,0 +1,228 @@
+[
+  {
+    "id": "gemini",
+    "name": "Gemini",
+    "description": "Execute Gemini model requests.",
+    "config_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "temperature": {
+          "default": 0.0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Temperature",
+          "type": "number"
+        },
+        "max_tokens": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum output tokens"
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "title": "GeminiConfig",
+      "type": "object"
+    },
+    "methods": [
+      {
+        "name": "transcribe",
+        "label": "Transcribe",
+        "description": "Generate text from the resolved payload."
+      }
+    ],
+    "input_schema": {
+      "transcribe": {
+        "type": "object",
+        "required": [
+          "contents"
+        ],
+        "properties": {
+          "contents": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "parts"
+              ],
+              "properties": {
+                "role": {
+                  "type": "string"
+                },
+                "parts": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "text"
+                        ],
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "inline_data"
+                        ],
+                        "properties": {
+                          "inline_data": {
+                            "type": "object",
+                            "required": [
+                              "mime_type",
+                              "data"
+                            ],
+                            "properties": {
+                              "mime_type": {
+                                "type": "string"
+                              },
+                              "data": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "output_schema": {
+      "transcribe": {
+        "type": "string"
+      }
+    },
+    "active": true
+  },
+  {
+    "id": "anthropic",
+    "name": "Anthropic",
+    "description": "Execute Anthropic model requests.",
+    "config_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "max_tokens": {
+          "default": 4096,
+          "exclusiveMinimum": 0,
+          "title": "Maximum output tokens",
+          "type": "integer"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temperature"
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "title": "AnthropicConfig",
+      "type": "object"
+    },
+    "methods": [
+      {
+        "name": "transcribe",
+        "label": "Transcribe",
+        "description": "Generate text from the resolved payload."
+      }
+    ],
+    "input_schema": {
+      "transcribe": {
+        "type": "object",
+        "required": [
+          "messages"
+        ],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "role",
+                "content"
+              ],
+              "properties": {
+                "role": {
+                  "enum": [
+                    "user",
+                    "assistant"
+                  ]
+                },
+                "content": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "output_schema": {
+      "transcribe": {
+        "type": "string"
+      }
+    },
+    "active": true
+  }
+]

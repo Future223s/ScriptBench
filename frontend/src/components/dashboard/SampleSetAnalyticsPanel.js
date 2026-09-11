@@ -6,7 +6,6 @@ import {
   CollapsibleSection,
   Button,
   EmptyState,
-  Grid,
   Icon,
   IconButton,
   ListRow,
@@ -23,89 +22,176 @@ function metricValue(value) {
     : Number(value).toFixed(3);
 }
 
-function errorColor(value) {
-  const rate = Number(value);
-  if (!Number.isFinite(rate)) {
-    return undefined;
-  }
-
-  const firstHalf = rate <= 0.5;
-  const start = firstHalf ? [137, 207, 153] : [248, 204, 103];
-  const end = firstHalf ? [248, 204, 103] : [244, 139, 130];
-  const progress = Math.max(
-    0,
-    Math.min(1, firstHalf ? rate / 0.5 : (rate - 0.5) / 0.5),
-  );
-  const color = start.map((channel, index) =>
-    Math.round(channel + (end[index] - channel) * progress),
-  );
-
-  return `rgb(${color.join(" ")})`;
+function axisValue(value) {
+  const precision = Math.abs(value) < 1 ? 2 : Math.abs(value) < 10 ? 1 : 0;
+  return String(Number(value.toFixed(precision)));
 }
 
-function MetricPanel({ label, values, tone, vertical }) {
-  if (tone === "hallucinations") {
+function boxPlotValues(summary) {
+  const min = Number(summary?.min);
+  const max = Number(summary?.max);
+  const median = Number(summary?.median ?? summary?.mean);
+  if (![min, max, median].every(Number.isFinite)) return null;
+
+  const q1 = Number(summary?.q1);
+  const q3 = Number(summary?.q3);
+  return {
+    min,
+    q1: Number.isFinite(q1) ? q1 : (min + median) / 2,
+    median,
+    q3: Number.isFinite(q3) ? q3 : (median + max) / 2,
+    max,
+  };
+}
+
+function axisStep(maximum) {
+  const candidates = [
+    0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100,
+    250, 500, 1000,
+  ];
+  const targetIntervals = 5;
+  return candidates.reduce((best, candidate) => {
+    const count = Math.ceil(maximum / candidate);
+    const bestCount = Math.ceil(maximum / best);
+    return Math.abs(count - targetIntervals) < Math.abs(bestCount - targetIntervals)
+      ? candidate
+      : best;
+  }, candidates[0]);
+}
+
+function sharedRateScale(metricSeries) {
+  const maxima = metricSeries
+    .map((series) =>
+      Math.max(...series.flatMap(({ values }) => (values ? [values.max] : []))),
+    )
+    .filter(Number.isFinite);
+  if (!maxima.length) return null;
+
+  const minimumMaximum = Math.min(...maxima);
+  const maximum = Math.max(...maxima);
+  const cap = minimumMaximum > 0 ? minimumMaximum * 2 : maximum;
+  const limit = Math.min(maximum, cap);
+  const step = axisStep(limit || 0.01);
+  const end = Math.max(step, Math.ceil(limit / step) * step);
+  return {
+    end,
+    limit,
+    ticks: Array.from({ length: Math.round(end / step) + 1 }, (_, index) =>
+      index * step,
+    ),
+  };
+}
+
+function MetricBoxPlot({ label, unit, series, scale }) {
+  const plottedSeries = series.map((item) => ({
+    ...item,
+    values: boxPlotValues(item.summary),
+  }));
+  if (!scale) {
     return (
-      <section className="analytics-metric-group">
-        <h3>{label}</h3>
-        <p className="analytics-coming-soon">Coming soon</p>
+      <section className="analytics-boxplot">
+        <div className="analytics-boxplot-heading">
+          <h3>{label}</h3>
+          <span>{unit}</span>
+        </div>
+        <p className="analytics-coming-soon">No scored outputs yet</p>
       </section>
     );
   }
-  const items = [
-    ["Min", values?.min],
-    ["Max", values?.max],
-    ["Avg", values?.mean],
-  ];
+
+  const position = (value) =>
+    Math.max(0, Math.min(100, (Math.min(value, scale.end) / scale.end) * 100));
+
   return (
-    <section className="analytics-metric-group">
-      <h3>{label}</h3>
-      <div
-        className={`analytics-metric-circles analytics-metric-circles--${tone}${
-          vertical ? " analytics-metric-circles--vertical" : ""
-        }`}
-      >
-        {items.map(([name, value]) => (
-          <div
-            className="analytics-metric-circle analytics-metric-circle--scored"
-            key={name}
-            style={{ "--metric-color": errorColor(value) }}
-          >
-            <span>{name}</span>
-            <strong>{metricValue(value)}</strong>
-          </div>
-        ))}
+    <section className="analytics-boxplot">
+      <div className="analytics-boxplot-heading">
+        <h3>{label}</h3>
+        <span>{unit}</span>
+      </div>
+      <div className="analytics-boxplot-rows">
+        {plottedSeries.map(({ label: seriesLabel, values, workflowId }, index) => {
+          const overflow = values && values.max > scale.limit;
+          return (
+            <div
+              className="analytics-boxplot-row"
+              key={`${workflowId ?? seriesLabel}-${index}`}
+            >
+              <strong title={seriesLabel}>{seriesLabel}</strong>
+              {values ? (
+                <div
+                  className={`analytics-boxplot-track analytics-boxplot-track--${index + 1}`}
+                  title={`Min ${metricValue(values.min)} · Q1 ${metricValue(values.q1)} · Median ${metricValue(values.median)} · Q3 ${metricValue(values.q3)} · Max ${metricValue(values.max)}`}
+                >
+                  <span
+                    className="analytics-boxplot-whisker analytics-boxplot-whisker--left"
+                    style={{ left: `${position(values.min)}%`, right: `${100 - position(values.q1)}%` }}
+                  />
+                  <span
+                    className="analytics-boxplot-box"
+                    style={{ left: `${position(values.q1)}%`, right: `${100 - position(values.q3)}%` }}
+                  >
+                    <i style={{ left: `${(values.median - values.q1) / (values.q3 - values.q1 || 1) * 100}%` }} />
+                  </span>
+                  <span
+                    className="analytics-boxplot-whisker analytics-boxplot-whisker--right"
+                    style={{ left: `${position(values.q3)}%`, right: `${100 - position(values.max)}%` }}
+                  />
+                  {overflow ? <span className="analytics-boxplot-overflow">---</span> : null}
+                </div>
+              ) : (
+                <span className="analytics-boxplot-empty">No scored outputs</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="analytics-boxplot-axis">
+        <span />
+        <div>
+          {scale.ticks.map((tick) => (
+            <span key={tick}>{axisValue(tick)}</span>
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-function WorkflowMetrics({ metrics, completedCount, sampleCount, compare }) {
+function WorkflowMetrics({ series, sampleCount }) {
+  const cerSeries = series.map((item) => ({
+    ...item,
+    summary: item.metrics.cer,
+    values: boxPlotValues(item.metrics.cer),
+  }));
+  const werSeries = series.map((item) => ({
+    ...item,
+    summary: item.metrics.wer,
+    values: boxPlotValues(item.metrics.wer),
+  }));
+  const scale = sharedRateScale([cerSeries, werSeries]);
   return (
     <Panel className="analytics-workflow-panel">
-      <Grid columns={3}>
-        <MetricPanel
+      <div className="analytics-boxplot-list">
+        <MetricBoxPlot
           label="CER"
-          values={metrics.cer}
-          tone="cer"
-          vertical={compare}
+          unit=""
+          series={cerSeries}
+          scale={scale}
         />
-        <MetricPanel
+        <MetricBoxPlot
           label="WER"
-          values={metrics.wer}
-          tone="wer"
-          vertical={compare}
+          unit=""
+          series={werSeries}
+          scale={scale}
         />
-        <MetricPanel
-          label="Hallucinations"
-          values={metrics.hallucinations}
-          tone="hallucinations"
-          vertical={compare}
-        />
-      </Grid>
+      </div>
       <p className="analytics-completed-count">
         <strong>
-          {completedCount} of {sampleCount} samples fully processed
+          {series
+            .map(
+              (item) => `${item.label}: ${item.completedCount} of ${sampleCount}`,
+            )
+            .join(" · ")} samples fully processed
         </strong>
       </p>
     </Panel>
@@ -113,11 +199,10 @@ function WorkflowMetrics({ metrics, completedCount, sampleCount, compare }) {
 }
 
 function WorkflowRow({ workflow, onDelete }) {
-  const name = workflow.workflow_name || `Workflow ${workflow.workflow_id}`;
+  const name = workflow.name || `Workflow ${workflow.id}`;
   const detail = [
-    workflow.workflow_stage || workflow.stage,
-    workflow.model_family,
-    workflow.model,
+    workflow.status,
+    workflow.description,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -151,7 +236,7 @@ export function SampleSetAnalyticsPanel({
   const [comparing, setComparing] = useState(false);
   const workflowsForSelection = sampleSetAnalytics?.workflows || [];
   useEffect(() => {
-    setSelectedWorkflowId(String(workflowsForSelection[0]?.workflow_id || ""));
+    setSelectedWorkflowId(String(workflowsForSelection[0]?.id || ""));
   }, [sampleSetAnalytics]);
   if (analyticsError) {
     return (
@@ -195,12 +280,38 @@ export function SampleSetAnalyticsPanel({
     metrics: {},
     completed_sample_count: 0,
   };
+  const selectedWorkflow = workflows.find(
+    (item) => String(item.id) === String(selectedWorkflowId),
+  );
+  const comparisonWorkflow = workflows.find(
+    (item) =>
+      String(item.id) ===
+      String(comparisonWorkflowId || selectedWorkflowId),
+  );
+  const chartSeries = [
+    {
+      workflowId: selectedWorkflow?.id,
+      label: selectedWorkflow?.name || "Selected workflow",
+      metrics: selectedAnalytics.metrics,
+      completedCount: selectedAnalytics.completed_sample_count,
+    },
+    ...(comparing
+      ? [
+          {
+            workflowId: comparisonWorkflow?.id,
+            label: comparisonWorkflow?.name || "Comparison workflow",
+            metrics: comparisonAnalytics.metrics,
+            completedCount: comparisonAnalytics.completed_sample_count,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <Stack>
       <Panel
         eyebrow="Sample set"
-        title={currentSet.sample_set_name || "Sample set"}
+        title={currentSet.name || "Sample set"}
         actions={<StatusBadge>{sampleCount} samples</StatusBadge>}
       >
         <div className="analytics-workflow-controls">
@@ -209,8 +320,8 @@ export function SampleSetAnalyticsPanel({
             onChange={(event) => setSelectedWorkflowId(event.target.value)}
           >
             {workflows.map((item) => (
-              <option key={item.workflow_id} value={item.workflow_id}>
-                {item.workflow_name || `Workflow ${item.workflow_id}`}
+              <option key={item.id} value={item.id}>
+                {item.name || `Workflow ${item.id}`}
               </option>
             ))}
           </Select>
@@ -224,8 +335,8 @@ export function SampleSetAnalyticsPanel({
                 }
               >
                 {workflows.map((item) => (
-                  <option key={item.workflow_id} value={item.workflow_id}>
-                    {item.workflow_name || `Workflow ${item.workflow_id}`}
+                  <option key={item.id} value={item.id}>
+                    {item.name || `Workflow ${item.id}`}
                   </option>
                 ))}
               </Select>
@@ -234,39 +345,35 @@ export function SampleSetAnalyticsPanel({
               </Button>
             </>
           ) : (
-            <Button size="compact" onClick={() => setComparing(true)}>
+            <Button
+              size="compact"
+              onClick={() => {
+                const alternative = workflows.find(
+                  (item) => String(item.id) !== String(selectedWorkflowId),
+                );
+                setComparisonWorkflowId(
+                  String(alternative?.id || selectedWorkflowId),
+                );
+                setComparing(true);
+              }}
+            >
               + Compare
             </Button>
           )}
         </div>
       </Panel>
-      <Grid columns={comparing ? 2 : 1}>
-        <WorkflowMetrics
-          metrics={selectedAnalytics.metrics}
-          completedCount={selectedAnalytics.completed_sample_count}
-          sampleCount={sampleCount}
-          compare={comparing}
-        />
-        {comparing ? (
-          <WorkflowMetrics
-            metrics={comparisonAnalytics.metrics}
-            completedCount={comparisonAnalytics.completed_sample_count}
-            sampleCount={sampleCount}
-            compare
-          />
-        ) : null}
-      </Grid>
+      <WorkflowMetrics series={chartSeries} sampleCount={sampleCount} />
       <CollapsibleSection title="Workflows" count={workflows.length}>
         <Stack gap="compact">
           {workflows.length ? (
             workflows.map((item) => (
               <WorkflowRow
-                key={item.workflow_id}
+                key={item.id}
                 workflow={item}
                 onDelete={() =>
                   onDeleteWorkflow?.(
-                    Number(item.workflow_id),
-                    item.workflow_name || `Workflow ${item.workflow_id}`,
+                    Number(item.id),
+                    item.name || `Workflow ${item.id}`,
                   )
                 }
               />

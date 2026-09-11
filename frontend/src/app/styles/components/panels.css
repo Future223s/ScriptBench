@@ -8,6 +8,14 @@
   backdrop-filter: blur(14px);
 }
 
+.empty-state {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+}
+
 .panel__header,
 .panel-header {
   display: flex;

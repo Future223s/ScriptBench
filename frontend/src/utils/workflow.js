@@ -1,39 +1,9 @@
-export const modelFamilies = [
-  "gemini",
-  "gpt",
-  "claude",
-  "mistral",
-  "escriptorium",
-];
-
 export function defaultWorkflowDraft() {
   return {
-    workflow_name: "",
-    workflow_stage: "draft",
-    model_family: "gemini",
-    model: "",
-    groups: "",
-    input_mode: "batch",
-    batch_size: 5,
+    name: "",
     sample_set_id: null,
-    selection_group_name: "",
-    selection_group_value: "",
-    selection_query: "",
-    selection_query_mode: "contains",
-    sample_ids: [],
-    instructions: "",
-    examples: [{ title: "", instruction_text: "", assets: "" }],
-    output_format_type: "json_array",
-    item_schema_entries: defaultBatchItemSchemaEntries(),
+    description: "",
   };
-}
-
-export function defaultBatchItemSchemaEntries() {
-  return [
-    { field: "sample_id", description: "Identifier for the sample." },
-    { field: "output_text", description: "Transcribed output text." },
-    { field: "confidence", description: "Confidence score for the output." },
-  ];
 }
 
 export function defaultGroupDraft() {
@@ -60,17 +30,10 @@ export function normalizeGroupValue(value) {
   return text || "Unassigned";
 }
 
-export function splitAssets(value) {
-  return value
-    .split(/\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 export function imageDataUrl(sample) {
-  if (!sample?.sample_blob_base64 || !sample?.sample_mime_type) return "";
-  if (!String(sample.sample_mime_type).startsWith("image/")) return "";
-  return `data:${sample.sample_mime_type};base64,${sample.sample_blob_base64}`;
+  if (!sample?.blob_base64 || !sample?.mime_type) return "";
+  if (!String(sample.mime_type).startsWith("image/")) return "";
+  return `data:${sample.mime_type};base64,${sample.blob_base64}`;
 }
 
 function matchesSampleQuery(value, query, mode) {
@@ -88,7 +51,7 @@ function matchesSampleQuery(value, query, mode) {
 export function filterSamplesForPicker(samples, query, mode = "contains") {
   return samples.filter((sample) => {
     return (
-      matchesSampleQuery(sample.sample_id, query, mode) ||
+      matchesSampleQuery(sample.id, query, mode) ||
       matchesSampleQuery(sample.ground_truth_text, query, mode)
     );
   });
@@ -104,7 +67,7 @@ export function sampleHasGroup(groupings, sampleId, groupName) {
 export function visibleSamples(samples, groupings, groupFilter) {
   if (!groupFilter) return samples;
   return samples.filter((sample) =>
-    sampleHasGroup(groupings, sample.sample_id, groupFilter),
+    sampleHasGroup(groupings, sample.id, groupFilter),
   );
 }
 
@@ -122,10 +85,10 @@ export function visibleWorkflowSamples(
   const normalizedGroupValue = normalizeGroupValue(groupValue);
 
   return samples.filter((sample) => {
-    if (!Object.hasOwn(assignments, sample.sample_id)) return false;
+    if (!Object.hasOwn(assignments, sample.id)) return false;
     if (!groupValue) return true;
     return (
-      normalizeGroupValue(assignments[sample.sample_id]) ===
+      normalizeGroupValue(assignments[sample.id]) ===
       normalizedGroupValue
     );
   });
@@ -159,73 +122,11 @@ export function valuesForGrouping(group) {
     .sort((a, b) => a.value.localeCompare(b.value));
 }
 
-export function buildWorkflowPayload(draft, sampleSets = []) {
-  const selectionMode = draft.input_mode === "single" ? "single" : "batch";
-  const batchSize =
-    selectionMode === "single" ? 1 : Math.max(1, Number(draft.batch_size) || 5);
-  const examples = draft.examples
-    .filter(
-      (example) =>
-        example.title.trim() ||
-        example.instruction_text.trim() ||
-        example.assets.trim(),
-    )
-    .map((example) => ({
-      title: example.title.trim(),
-      instruction_text: example.instruction_text.trim(),
-      assets: splitAssets(example.assets),
-    }));
-  const itemSchemaEntries = Array.isArray(draft.item_schema_entries)
-    ? draft.item_schema_entries
-    : [];
-  const itemSchema = Object.fromEntries(
-    itemSchemaEntries
-      .map((entry) => ({
-        field: String(entry?.field || "").trim(),
-        description: String(entry?.description || "").trim(),
-      }))
-      .filter((entry) => entry.field && entry.description)
-      .map((entry) => [entry.field, entry.description]),
-  );
-  const normalizedItemSchema = Object.keys(itemSchema).length
-    ? itemSchema
-    : null;
-  const outputFormatType = draft.output_format_type.trim() || "plain_text";
-  const sampleSetId = Number(draft.sample_set_id) || null;
-  const sampleSet =
-    sampleSets.find((item) => Number(item.sample_set_id) === sampleSetId) ||
-    null;
-  const sampleIds =
-    Array.isArray(draft.sample_ids) && draft.sample_ids.length
-      ? draft.sample_ids
-      : Array.isArray(sampleSet?.sample_ids)
-        ? sampleSet.sample_ids
-        : [];
-
+export function buildWorkflowPayload(draft) {
   return {
-    workflow_name: draft.workflow_name.trim(),
-    workflow_stage: draft.workflow_stage.trim(),
-    sample_set_id: sampleSetId,
-    model_family: draft.model_family,
-    model: draft.model.trim() || null,
-    groups: draft.groups
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean),
-    prompt_spec: {
-      instructions: draft.instructions.trim(),
-      examples,
-      inputs: {
-        sample_ids: sampleIds,
-        selection_mode: selectionMode,
-        batch_size: batchSize,
-      },
-      output_format: {
-        type: outputFormatType,
-        item_schema:
-          outputFormatType === "plain_text" ? null : normalizedItemSchema,
-      },
-    },
+    name: draft.name.trim(),
+    description: draft.description.trim() || null,
+    sample_set_id: Number(draft.sample_set_id) || null,
     status: "draft",
   };
 }

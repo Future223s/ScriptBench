@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
-from backend.database.repositories.model_outputs_repository import (
-    ModelOutputsRepository,
+from backend.database.repositories.step_outputs_repository import (
+    StepOutputsRepository,
 )
 from backend.database.tables.samples_table import samples
 
@@ -22,15 +22,15 @@ class ErrorComputationService:
 
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
-        self.model_outputs = ModelOutputsRepository(engine)
+        self.step_outputs = StepOutputsRepository(engine)
 
-    def score(self, *, model_output_id: int, sample_id: str, output_text: str) -> None:
+    def score(self, *, step_output_id: int, sample_id: str, output_text: str) -> None:
         ground_truth = self._ground_truth(sample_id)
         if ground_truth is None:
             return
         metrics = compute_metrics(ground_truth, output_text)
-        self.model_outputs.update_metrics(
-            model_output_id,
+        self.step_outputs.update_metrics(
+            step_output_id,
             cer=metrics.cer,
             wer=metrics.wer,
         )
@@ -39,7 +39,7 @@ class ErrorComputationService:
         with self.engine.connect() as connection:
             value = connection.execute(
                 select(samples.c.ground_truth_text).where(
-                    samples.c.sample_id == sample_id
+                    samples.c.id == sample_id
                 )
             ).scalar_one_or_none()
         return str(value) if value is not None else None

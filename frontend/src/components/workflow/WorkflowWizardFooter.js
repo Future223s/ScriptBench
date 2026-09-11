@@ -19,10 +19,10 @@ export function WorkflowWizardFooter({ wizardStep, actions }) {
         size="compact"
         variant="primary"
         onClick={
-          wizardStep < 2 ? actions.nextWorkflowStep : actions.submitWorkflow
+          wizardStep < 1 ? actions.nextWorkflowStep : actions.submitWorkflow
         }
       >
-        {wizardStep < 2 ? "Next" : "Create"}
+        {wizardStep < 1 ? "Next" : "Create"}
       </Button>
     </Inline>
   );

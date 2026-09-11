@@ -8,22 +8,22 @@ from .api import ApiDeleteResponse, ApiListResponse, ApiResponse
 
 
 class SampleSetRecord(BaseModel):
-    sample_set_id: int
-    sample_set_name: str
-    sample_set_description: str | None = None
+    model_config = ConfigDict(extra="forbid")
+    id: int
+    name: str
+    description: str | None = None
     status: str
     created_at: datetime
 
-    model_config = ConfigDict(extra="forbid")
 
 
 class SampleSetSampleRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     sample_set_id: int
     sample_id: str
     position: int
     created_at: datetime
 
-    model_config = ConfigDict(extra="forbid")
 
 
 class SampleSetResponse(SampleSetRecord):
@@ -31,8 +31,9 @@ class SampleSetResponse(SampleSetRecord):
 
 
 class SampleSetCreateRequest(BaseModel):
-    sample_set_name: str
-    sample_set_description: str | None = None
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    description: str | None = None
     sample_ids: list[str] = Field(default_factory=list)
 
 

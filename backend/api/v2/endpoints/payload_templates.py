@@ -40,7 +40,7 @@ def delete_payload_templates(
     payload: PayloadTemplateDeleteRequest,
     engine=Depends(get_engine),
 ) -> ApiDeleteResponse:
-    template_ids = list(dict.fromkeys(payload.payload_template_ids))
+    template_ids = list(dict.fromkeys(payload.ids))
     repository = PayloadTemplatesRepository(engine)
     missing_ids = [item for item in template_ids if repository.fetch(item) is None]
     if missing_ids:
@@ -62,10 +62,10 @@ def create_payload_template(
     payload: PayloadTemplateCreateRequest,
     engine=Depends(get_engine),
 ) -> ApiResponse[PayloadTemplateRecord]:
-    if not payload.payload_template_name.strip() or not payload.model_family.strip():
+    if not payload.name.strip() or not payload.model_family.strip():
         raise HTTPException(
             status_code=400,
-            detail="payload_template_name and model_family are required",
+            detail="name and model_family are required",
         )
     resource_names = [resource.name.strip() for resource in payload.resources]
     if any(not name for name in resource_names) or len(resource_names) != len(
@@ -74,20 +74,32 @@ def create_payload_template(
         raise HTTPException(status_code=400, detail="Prompt resource names must be unique")
 
     allowed_fields = {
-        "artifacts": {
-            "artifact_id", "artifact_name", "originating_sample_id", "artifact_group_id",
-            "artifact_category", "artifact_mime_type",
+        "derivatives": {
+            "id", "name", "sample_id", "derivative_group_id",
+            "category", "mime_type",
         },
         "samples": {
-            "sample_id", "sample_name", "sample_mime_type", "ground_truth_text",
+            "id", "name", "mime_type", "ground_truth_text",
+        },
+        "step_outputs": {
+            "id", "execution_job_id", "workflow_id", "workflow_step_id",
+            "sample_id", "attempt_no", "parsed_output", "parse_status",
+            "parse_error", "cer", "wer", "hallucination_count", "time_elapsed",
+            "started_at", "completed_at", "created_at",
         },
     }
     for resource in payload.resources:
         for condition in resource.conditions:
-            if condition.field not in allowed_fields[resource.table]:
+            if condition.field_name not in allowed_fields[resource.source_table]:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Unsupported prompt resource field: {resource.table}.{condition.field}",
+                    detail=f"Unsupported prompt resource field: {resource.source_table}.{condition.field_name}",
+                )
+
+            if condition.value_type == "sample-field" and condition.value not in allowed_fields["samples"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported sample field: {condition.value}",
                 )
 
     templates = PayloadTemplatesRepository(engine)
@@ -95,9 +107,9 @@ def create_payload_template(
     with engine.begin() as connection:
         template_id = templates.insert(
             {
-                "payload_template_name": payload.payload_template_name.strip(),
+                "name": payload.name.strip(),
                 "model_family": payload.model_family.strip(),
-                "payload_template": payload.payload_template,
+                "payload": payload.payload,
                 "status": "draft",
             },
             conn=connection,
@@ -106,8 +118,8 @@ def create_payload_template(
             resource_id = resources.insert(
                 {
                     "payload_template_id": template_id,
-                    "resource_name": resource.name.strip(),
-                    "source_table": resource.table,
+                    "name": resource.name.strip(),
+                    "source_table": resource.source_table,
                     "batch_limit": resource.batch_limit,
                 },
                 conn=connection,
@@ -116,7 +128,7 @@ def create_payload_template(
                 resources.insert_condition(
                     {
                         "prompt_resource_id": resource_id,
-                        "field_name": condition.field,
+                        "field_name": condition.field_name,
                         "operator": condition.operator,
                         "value_type": condition.value_type,
                         "value": condition.value,
@@ -129,5 +141,5 @@ def create_payload_template(
         raise HTTPException(status_code=500, detail="Failed to load payload template")
     return ApiResponse(
         message="Payload template created successfully.",
-        data=PayloadTemplateRecord.model_validate(record),
+        data=PayloadTemplateRecord.model_validate({**record, "resources": resources.list_for_template(template_id)}),
     )

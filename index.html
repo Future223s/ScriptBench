@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ECharts Box Plot Comparison</title>
+
+  <!-- Apache ECharts -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 32px;
+      font-family: Inter, system-ui, sans-serif;
+      background: #f5f7fb;
+    }
+
+    .dashboard {
+      max-width: 1000px;
+      margin: auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .metric-card {
+      background: white;
+      border-radius: 16px;
+      padding: 18px 20px;
+      box-shadow:
+        0 1px 2px rgba(0,0,0,0.04),
+        0 8px 24px rgba(0,0,0,0.05);
+    }
+
+    .metric-header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .metric-title {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .metric-unit {
+      font-size: 13px;
+      color: #7b8190;
+    }
+
+    .chart {
+      width: 100%;
+      height: 190px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="dashboard" id="dashboard"></div>
+
+<script>
+  // -------------------------------------------------------
+  // Example data
+  //
+  // Each box plot is:
+  // [minimum, Q1, median, Q3, maximum]
+  // -------------------------------------------------------
+
+  const metrics = [
+    {
+      name: "Latency",
+      unit: "ms",
+      sources: {
+        "Production": [84, 108, 131, 159, 218],
+        "Candidate":  [71, 96, 117, 142, 190]
+      }
+    },
+
+    {
+      name: "Accuracy",
+      unit: "%",
+      sources: {
+        "Production": [87.2, 89.4, 91.1, 93.0, 95.1],
+        "Candidate":  [88.7, 91.0, 92.8, 94.6, 96.0]
+      }
+    },
+
+    {
+      name: "Memory",
+      unit: "MB",
+      sources: {
+        "Production": [210, 245, 280, 330, 410],
+        "Candidate":  [185, 220, 255, 290, 350]
+      }
+    },
+
+    {
+      name: "Throughput",
+      unit: "req/s",
+      sources: {
+        "Production": [710, 820, 930, 1050, 1180],
+        "Candidate":  [790, 910, 1040, 1170, 1320]
+      }
+    }
+  ];
+
+
+  // -------------------------------------------------------
+  // Build one independent ECharts instance per metric.
+  // This is important because every metric gets its own
+  // numeric x-axis scale.
+  // -------------------------------------------------------
+
+  const dashboard = document.getElementById("dashboard");
+  const charts = [];
+
+  metrics.forEach((metric, index) => {
+
+    // Card
+    const card = document.createElement("div");
+    card.className = "metric-card";
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "metric-header";
+
+    header.innerHTML = `
+      <div class="metric-title">${metric.name}</div>
+      <div class="metric-unit">${metric.unit}</div>
+    `;
+
+    // Chart container
+    const chartDiv = document.createElement("div");
+    chartDiv.className = "chart";
+
+    card.appendChild(header);
+    card.appendChild(chartDiv);
+
+    dashboard.appendChild(card);
+
+
+    // -------------------------------------------------------
+    // Create ECharts chart
+    // -------------------------------------------------------
+
+    const chart = echarts.init(chartDiv);
+
+    const sourceNames = Object.keys(metric.sources);
+
+
+    // -------------------------------------------------------
+    // Important:
+    //
+    // We create ONE boxplot series per source.
+    //
+    // Since each series uses the same category positions,
+    // ECharts will place them side-by-side.
+    // -------------------------------------------------------
+
+    const series = sourceNames.map(sourceName => ({
+      name: sourceName,
+      type: "boxplot",
+
+      // Boxplot expects:
+      // [min, Q1, median, Q3, max]
+      data: [
+        metric.sources[sourceName]
+      ],
+
+      boxWidth: [20, 42],
+
+      itemStyle: {
+        borderWidth: 2
+      },
+
+      emphasis: {
+        focus: "series",
+        itemStyle: {
+          borderWidth: 3,
+          shadowBlur: 12,
+          shadowOffsetY: 3,
+          shadowColor: "rgba(0, 0, 0, 0.18)"
+        }
+      }
+    }));
+
+
+    const option = {
+
+      animationDuration: 700,
+      animationEasing: "cubicOut",
+
+      legend: {
+        top: 2,
+        right: 8,
+        icon: "roundRect",
+        itemWidth: 14,
+        itemHeight: 10,
+        textStyle: {
+          fontSize: 12
+        }
+      },
+
+      tooltip: {
+        trigger: "item",
+        confine: true,
+
+        formatter(params) {
+
+          const values = params.data;
+
+          return `
+            <div style="min-width: 160px">
+              <div style="
+                font-weight: 700;
+                margin-bottom: 8px;
+              ">
+                ${params.seriesName}
+              </div>
+
+              <div>
+                Min:
+                <b>${values[0]} ${metric.unit}</b>
+              </div>
+
+              <div>
+                Q1:
+                <b>${values[1]} ${metric.unit}</b>
+              </div>
+
+              <div>
+                Median:
+                <b>${values[2]} ${metric.unit}</b>
+              </div>
+
+              <div>
+                Q3:
+                <b>${values[3]} ${metric.unit}</b>
+              </div>
+
+              <div>
+                Max:
+                <b>${values[4]} ${metric.unit}</b>
+              </div>
+            </div>
+          `;
+        }
+      },
+
+      grid: {
+        left: 24,
+        right: 28,
+        top: 48,
+        bottom: 36,
+        containLabel: true
+      },
+
+
+      // -------------------------------------------------------
+      // X axis = actual metric value
+      //
+      // Each chart has its OWN axis.
+      // So latency can be 0-250 while accuracy can be 85-100.
+      // -------------------------------------------------------
+
+      xAxis: {
+        type: "value",
+
+        name: metric.unit,
+
+        nameLocation: "end",
+
+        axisLine: {
+          lineStyle: {
+            opacity: 0.35
+          }
+        },
+
+        splitLine: {
+          lineStyle: {
+            type: "dashed",
+            opacity: 0.25
+          }
+        }
+      },
+
+
+      // -------------------------------------------------------
+      // Category axis
+      //
+      // We're essentially giving ECharts one "row".
+      // The individual source series sit beside each other.
+      // -------------------------------------------------------
+
+      yAxis: {
+        type: "category",
+
+        data: [""],
+
+        axisTick: {
+          show: false
+        },
+
+        axisLine: {
+          show: false
+        },
+
+        axisLabel: {
+          show: false
+        }
+      },
+
+      series
+    };
+
+
+    chart.setOption(option);
+
+    charts.push(chart);
+  });
+
+
+  // -------------------------------------------------------
+  // Responsive resizing
+  // -------------------------------------------------------
+
+  window.addEventListener("resize", () => {
+    charts.forEach(chart => chart.resize());
+  });
+
+</script>
+
+</body>
+</html>

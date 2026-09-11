@@ -8,11 +8,11 @@ export const managementModes = {
     createLabel: "Save sample set",
     deleteLabel: "Delete selected",
   },
-  artifact: {
-    title: "Artifacts",
-    description: "Search artifacts and review the current set.",
-    createAction: "create-artifact-group",
-    createLabel: "Save artifact group",
+  derivative: {
+    title: "Derivatives",
+    description: "Search derivatives and review the current set.",
+    createAction: "create-derivative-group",
+    createLabel: "Save derivative group",
     deleteLabel: "Delete selected",
   },
   asset: {
@@ -30,11 +30,11 @@ export const DEFAULT_FILTERS = {
     queryMode: "contains",
     sampleSetId: "",
   },
-  artifact: {
+  derivative: {
     query: "",
     queryMode: "contains",
-    artifactGroupId: "",
-    artifactCategory: "",
+    derivativeGroupId: "",
+    derivativeCategory: "",
   },
   asset: {
     query: "",
@@ -45,7 +45,7 @@ export const DEFAULT_FILTERS = {
     query: "",
     status: "",
   },
-  artifactGroup: {
+  derivativeGroup: {
     query: "",
     queryMode: "contains",
     mappingType: "",
@@ -53,21 +53,21 @@ export const DEFAULT_FILTERS = {
 };
 
 export const DEFAULT_DRAFTS = {
-  sample_set_name: "",
-  sample_set_description: "",
-  artifact_group_name: "",
-  artifact_group_description: "",
+  sampleSetName: "",
+  sampleSetDescription: "",
+  derivativeGroupName: "",
+  derivativeGroupDescription: "",
 };
 
 export const DEFAULT_SELECTIONS = {
   sample: [],
-  artifact: [],
+  derivative: [],
   asset: [],
 };
 
 export const MANAGEMENT_DEFAULT_ACTION = {
   sample: "create-sample-set",
-  artifact: "create-artifact-group",
+  derivative: "create-derivative-group",
   asset: "delete",
 };
 
@@ -83,17 +83,17 @@ export function createEmptyFolderUploadProgress() {
 export function cloneFilters(filters = DEFAULT_FILTERS) {
   return {
     sample: { ...filters.sample },
-    artifact: { ...filters.artifact },
+    derivative: { ...filters.derivative },
     asset: { ...filters.asset },
     sampleSet: { ...filters.sampleSet },
-    artifactGroup: { ...filters.artifactGroup },
+    derivativeGroup: { ...filters.derivativeGroup },
   };
 }
 
 export function cloneSelections(selections = DEFAULT_SELECTIONS) {
   return {
     sample: [...(selections.sample || [])],
-    artifact: [...(selections.artifact || [])],
+    derivative: [...(selections.derivative || [])],
     asset: [...(selections.asset || [])],
   };
 }
@@ -103,7 +103,7 @@ export function currentDefaultAction(type) {
 }
 
 export function normalizeManagementType(type) {
-  if (type === "artifact" || type === "asset") return type;
+  if (type === "derivative" || type === "asset") return type;
   return "sample";
 }
 
@@ -113,7 +113,7 @@ export function normalizeManagementAction(type, action) {
 }
 
 export function objectTypeLabel(type) {
-  if (type === "artifact") return "Artifacts";
+  if (type === "derivative") return "Derivatives";
   if (type === "asset") return "Assets";
   return "Samples";
 }
@@ -123,9 +123,9 @@ export function recordIdToString(recordId) {
 }
 
 export function recordIdForType(type, record) {
-  if (type === "artifact") return recordIdToString(record?.artifact_id);
-  if (type === "asset") return recordIdToString(record?.asset_id);
-  return recordIdToString(record?.sample_id);
+  if (type === "derivative") return recordIdToString(record?.id);
+  if (type === "asset") return recordIdToString(record?.id);
+  return recordIdToString(record?.id);
 }
 
 function metadataEntriesFromObject(source, excludedKeys) {
@@ -139,43 +139,42 @@ function metadataEntriesFromObject(source, excludedKeys) {
   });
 }
 
-export function normalizeRecordPreview(type, record) {
+export function normalizeRecordPreview(type, record, derivativeGroups = []) {
   const normalizedType = normalizeManagementType(type);
   if (!record) return null;
 
-  if (normalizedType === "artifact") {
+  if (normalizedType === "derivative") {
     const metadata = [
-      ["ID", record.artifact_id],
-      ["Origin", record.originating_sample_id],
-      ["Group", record.artifact_group_name || "Ungrouped"],
-      ["Category", record.artifact_category],
-      ["Mime", record.artifact_mime_type],
+      ["ID", record.id],
+      ["Origin", record.sample_id],
+      ["Group", derivativeGroupLookup(derivativeGroups).get(String(record.derivative_group_id))?.name || "Ungrouped"],
+      ["Category", record.category],
+      ["Mime", record.mime_type],
       [
         "Size",
-        record.artifact_blob_size ? `${record.artifact_blob_size} bytes` : "",
+        record.blob_size ? `${record.blob_size} bytes` : "",
       ],
     ].filter(
       ([, value]) => value !== undefined && value !== null && value !== "",
     );
 
     return {
-      id: recordIdToString(record.artifact_id),
-      name: record.artifact_name || "Artifact",
+      id: recordIdToString(record.id),
+      name: record.name || "Derivative",
       type: normalizedType,
-      typeLabel: "Artifact",
-      mimeType: record.artifact_mime_type || "",
-      blobBase64: record.artifact_blob_base64 || "",
-      blobSize: record.artifact_blob_size || 0,
+      typeLabel: "Derivative",
+      mimeType: record.mime_type || "",
+      blobBase64: record.blob_base64 || "",
+      blobSize: record.blob_size || 0,
       metadata,
       detailSections: [
         {
-          title: "Artifact details",
+          title: "Derivative details",
           content: JSON.stringify(
             {
-              artifact_group_id: record.artifact_group_id || null,
-              artifact_group_name: record.artifact_group_name || "",
-              artifact_category: record.artifact_category || "",
-              originating_sample_id: record.originating_sample_id || null,
+              derivative_group_id: record.derivative_group_id || null,
+              category: record.category || "",
+              sample_id: record.sample_id || null,
             },
             null,
             2,
@@ -185,15 +184,14 @@ export function normalizeRecordPreview(type, record) {
       additionalMetadata: metadataEntriesFromObject(
         record,
         new Set([
-          "artifact_id",
-          "artifact_name",
-          "originating_sample_id",
-          "artifact_group_id",
-          "artifact_group_name",
-          "artifact_category",
-          "artifact_mime_type",
-          "artifact_blob_size",
-          "artifact_blob_base64",
+          "id",
+          "name",
+          "sample_id",
+          "derivative_group_id",
+          "category",
+          "mime_type",
+          "blob_size",
+          "blob_base64",
         ]),
       ),
       raw: record,
@@ -202,32 +200,32 @@ export function normalizeRecordPreview(type, record) {
 
   if (normalizedType === "asset") {
     const metadata = [
-      ["ID", record.asset_id],
-      ["Type", record.asset_type],
-      ["Mime", record.asset_mime_type],
-      ["Size", record.asset_blob_size ? `${record.asset_blob_size} bytes` : ""],
+      ["ID", record.id],
+      ["Type", record.type],
+      ["Mime", record.mime_type],
+      ["Size", record.blob_size ? `${record.blob_size} bytes` : ""],
     ].filter(
       ([, value]) => value !== undefined && value !== null && value !== "",
     );
 
     return {
-      id: recordIdToString(record.asset_id),
-      name: record.asset_name || "Asset",
+      id: recordIdToString(record.id),
+      name: record.name || "Asset",
       type: normalizedType,
       typeLabel: "Asset",
-      mimeType: record.asset_mime_type || "",
-      blobBase64: record.asset_blob_base64 || "",
-      blobSize: record.asset_blob_size || 0,
+      mimeType: record.mime_type || "",
+      blobBase64: record.blob_base64 || "",
+      blobSize: record.blob_size || 0,
       metadata,
       additionalMetadata: metadataEntriesFromObject(
         record,
         new Set([
-          "asset_id",
-          "asset_name",
-          "asset_type",
-          "asset_mime_type",
-          "asset_blob_size",
-          "asset_blob_base64",
+          "id",
+          "name",
+          "type",
+          "mime_type",
+          "blob_size",
+          "blob_base64",
         ]),
       ),
       raw: record,
@@ -235,21 +233,21 @@ export function normalizeRecordPreview(type, record) {
   }
 
   const metadata = [
-    ["ID", record.sample_id],
-    ["Mime", record.sample_mime_type],
-    ["Size", record.sample_blob_size ? `${record.sample_blob_size} bytes` : ""],
+    ["ID", record.id],
+    ["Mime", record.mime_type],
+    ["Size", record.blob_size ? `${record.blob_size} bytes` : ""],
   ].filter(
     ([, value]) => value !== undefined && value !== null && value !== "",
   );
 
   return {
-    id: recordIdToString(record.sample_id),
-    name: record.sample_name || record.sample_id || "Sample",
+    id: recordIdToString(record.id),
+    name: record.name || record.id || "Sample",
     type: "sample",
     typeLabel: "Sample",
-    mimeType: record.sample_mime_type || "",
-    blobBase64: record.sample_blob_base64 || "",
-    blobSize: record.sample_blob_size || 0,
+    mimeType: record.mime_type || "",
+    blobBase64: record.blob_base64 || "",
+    blobSize: record.blob_size || 0,
     metadata,
     detailSections: [
       {
@@ -260,11 +258,11 @@ export function normalizeRecordPreview(type, record) {
     additionalMetadata: metadataEntriesFromObject(
       record,
       new Set([
-        "sample_id",
-        "sample_name",
-        "sample_mime_type",
-        "sample_blob_size",
-        "sample_blob_base64",
+        "id",
+        "name",
+        "mime_type",
+        "blob_size",
+        "blob_base64",
         "ground_truth_text",
       ]),
     ),
@@ -330,8 +328,8 @@ export function createSampleFilterConfig({ filters, sampleSets, onChange }) {
       options: [
         { value: "", label: "All sample sets" },
         ...(sampleSets || []).map((sampleSet) => ({
-          value: String(sampleSet.sample_set_id),
-          label: sampleSet.sample_set_name,
+          value: String(sampleSet.id),
+          label: sampleSet.name,
         })),
       ],
     },
@@ -363,19 +361,19 @@ export function createSampleSetFilterConfig({ filters, onChange }) {
   ];
 }
 
-export function createArtifactGroupFilterConfig({
+export function createDerivativeGroupFilterConfig({
   filters,
-  artifactGroups,
+  derivativeGroups,
   onChange,
 }) {
   const mappingTypes = [
     ...new Set(
-      (artifactGroups || []).map((group) => group.mapping_type).filter(Boolean),
+      (derivativeGroups || []).map((group) => group.mapping_type).filter(Boolean),
     ),
   ].sort();
   return [
     {
-      id: "artifact-group-search",
+      id: "derivative-group-search",
       label: "Search",
       kind: "text",
       value: filters.query,
@@ -383,7 +381,7 @@ export function createArtifactGroupFilterConfig({
       onChange: (value) => onChange("query", value),
     },
     {
-      id: "artifact-group-mapping-type",
+      id: "derivative-group-mapping-type",
       label: "Mapping type",
       kind: "select",
       value: filters.mappingType,
@@ -394,7 +392,7 @@ export function createArtifactGroupFilterConfig({
       ],
     },
     {
-      id: "artifact-group-match-mode",
+      id: "derivative-group-match-mode",
       label: "Match",
       kind: "select",
       value: filters.queryMode,
@@ -411,16 +409,16 @@ export function createArtifactGroupFilterConfig({
 function sampleSetLookup(sampleSets) {
   return new Map(
     (sampleSets || []).map((sampleSet) => [
-      String(sampleSet.sample_set_id),
+      String(sampleSet.id),
       sampleSet,
     ]),
   );
 }
 
-function artifactGroupLookup(artifactGroups) {
+function derivativeGroupLookup(derivativeGroups) {
   return new Map(
-    (artifactGroups || []).map((group) => [
-      String(group.artifact_group_id),
+    (derivativeGroups || []).map((group) => [
+      String(group.id),
       group,
     ]),
   );
@@ -437,14 +435,14 @@ function visibleSamples(state) {
     : null;
 
   return (state.samples || []).filter((sample) => {
-    if (sampleIdsInSet && !sampleIdsInSet.has(sample.sample_id)) return false;
+    if (sampleIdsInSet && !sampleIdsInSet.has(sample.id)) return false;
     return (
       matchesTextMode(
-        sample.sample_name || sample.sample_id,
+        sample.name || sample.id,
         filters.query,
         filters.queryMode,
       ) ||
-      matchesTextMode(sample.sample_id, filters.query, filters.queryMode) ||
+      matchesTextMode(sample.id, filters.query, filters.queryMode) ||
       matchesTextMode(
         sample.ground_truth_text || "",
         filters.query,
@@ -454,44 +452,42 @@ function visibleSamples(state) {
   });
 }
 
-function visibleArtifacts(state) {
-  const filters = state.appliedFilters.artifact;
-  const groupLookup = artifactGroupLookup(state.artifactGroups);
+function visibleDerivatives(state) {
+  const filters = state.appliedFilters.derivative;
+  const groupLookup = derivativeGroupLookup(state.derivativeGroups);
 
-  return (state.artifacts || []).filter((artifact) => {
+  return (state.derivatives || []).filter((derivative) => {
     if (
-      filters.artifactGroupId &&
-      String(artifact.artifact_group_id || "") !==
-        String(filters.artifactGroupId)
+      filters.derivativeGroupId &&
+      String(derivative.derivative_group_id || "") !==
+        String(filters.derivativeGroupId)
     ) {
       return false;
     }
     if (
-      filters.artifactCategory &&
-      String(artifact.artifact_category || "").toLowerCase() !==
-        String(filters.artifactCategory).toLowerCase()
+      filters.derivativeCategory &&
+      String(derivative.category || "").toLowerCase() !==
+        String(filters.derivativeCategory).toLowerCase()
     ) {
       return false;
     }
     const groupName =
-      artifact.artifact_group_name ||
-      groupLookup.get(String(artifact.artifact_group_id || ""))
-        ?.artifact_group_name ||
+      groupLookup.get(String(derivative.derivative_group_id || ""))?.name ||
       "";
     return (
       matchesTextMode(
-        artifact.artifact_name,
+        derivative.name,
         filters.query,
         filters.queryMode,
       ) ||
       matchesTextMode(
-        artifact.originating_sample_id,
+        derivative.sample_id,
         filters.query,
         filters.queryMode,
       ) ||
       matchesTextMode(groupName, filters.query, filters.queryMode) ||
       matchesTextMode(
-        artifact.artifact_category,
+        derivative.category,
         filters.query,
         filters.queryMode,
       )
@@ -505,16 +501,16 @@ function visibleAssets(state) {
   return (state.assets || []).filter((asset) => {
     if (
       filters.assetType &&
-      String(asset.asset_type || "").toLowerCase() !==
+      String(asset.type || "").toLowerCase() !==
         String(filters.assetType).toLowerCase()
     ) {
       return false;
     }
     return (
-      matchesTextMode(asset.asset_name, filters.query, filters.queryMode) ||
-      matchesTextMode(asset.asset_type, filters.query, filters.queryMode) ||
+      matchesTextMode(asset.name, filters.query, filters.queryMode) ||
+      matchesTextMode(asset.type, filters.query, filters.queryMode) ||
       matchesTextMode(
-        asset.asset_mime_type || "",
+        asset.mime_type || "",
         filters.query,
         filters.queryMode,
       )
@@ -527,7 +523,7 @@ function visibleSampleSets(state) {
   return (state.sampleSets || []).filter(
     (sampleSet) =>
       matchesTextMode(
-        `${sampleSet.sample_set_name || ""} ${sampleSet.sample_set_description || ""}`,
+        `${sampleSet.name || ""} ${sampleSet.description || ""}`,
         filters.query,
         "contains",
       ) &&
@@ -535,12 +531,12 @@ function visibleSampleSets(state) {
   );
 }
 
-function visibleArtifactGroups(state) {
-  const filters = state.appliedFilters.artifactGroup;
-  return (state.artifactGroups || []).filter(
+function visibleDerivativeGroups(state) {
+  const filters = state.appliedFilters.derivativeGroup;
+  return (state.derivativeGroups || []).filter(
     (group) =>
       matchesTextMode(
-        `${group.artifact_group_name || ""} ${group.artifact_group_description || ""}`,
+        `${group.name || ""} ${group.description || ""}`,
         filters.query,
         filters.queryMode,
       ) &&
@@ -550,8 +546,8 @@ function visibleArtifactGroups(state) {
 
 export function visibleRecordsForType(state, type) {
   if (type === "sampleSet") return visibleSampleSets(state);
-  if (type === "artifactGroup") return visibleArtifactGroups(state);
-  if (type === "artifact") return visibleArtifacts(state);
+  if (type === "derivativeGroup") return visibleDerivativeGroups(state);
+  if (type === "derivative") return visibleDerivatives(state);
   if (type === "asset") return visibleAssets(state);
   return visibleSamples(state);
 }

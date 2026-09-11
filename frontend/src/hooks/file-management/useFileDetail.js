@@ -9,7 +9,7 @@ import {
   recordIdToString,
 } from "./fileManagementShared.js";
 
-export function useFileDetail({ setError }) {
+export function useFileDetail({ setError, derivativeGroups }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailType, setDetailType] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -29,13 +29,13 @@ export function useFileDetail({ setError }) {
       const normalizedId = recordIdToString(recordId);
       const normalizedType = normalizeManagementType(type);
       const record =
-        normalizedType === "artifact"
-          ? await fileManagementApi.getArtifact(normalizedId)
+        normalizedType === "derivative"
+          ? await fileManagementApi.getDerivative(normalizedId)
           : normalizedType === "asset"
             ? await fileManagementApi.getAsset(normalizedId)
             : await fileManagementApi.getSample(normalizedId);
 
-      setSelectedRecord(normalizeRecordPreview(normalizedType, record));
+      setSelectedRecord(normalizeRecordPreview(normalizedType, record, derivativeGroups));
       setDetailType(normalizedType);
       setDetailOpen(true);
       setError("");

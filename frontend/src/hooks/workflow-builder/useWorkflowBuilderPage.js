@@ -13,37 +13,23 @@ const INITIAL_CANVAS_COLS = 7;
 function createEmptyWorkflowDraft() {
   return {
     ...defaultWorkflowDraft(),
-    workflow_description: "",
-  };
-}
-
-function normalizeStep(record) {
-  return {
-    id: String(record.workflow_step_id),
-    workflow_step_id: Number(record.workflow_step_id),
-    name: record.step_name || `Workflow step ${record.workflow_step_id}`,
-    step_name: record.step_name || `Workflow step ${record.workflow_step_id}`,
-    version: 1,
-    model_family: record.model_family || "unknown",
-    model: record.model || "",
-    status: record.status || "draft",
     description: "",
   };
 }
 
+function normalizeStep(record) {
+  return { ...record, id: String(record.id), name: record.name || `Workflow step ${record.id}` };
+}
+
 function normalizeNode(record, stepCatalog) {
-  const step = stepCatalog.find(
-    (item) => Number(item.workflow_step_id) === Number(record.workflow_step_id),
-  );
+  const step = stepCatalog.find((item) => Number(item.id) === Number(record.workflow_step_id));
   return {
-    id: Number(record.workflow_dag_node_id),
-    workflow_dag_node_id: Number(record.workflow_dag_node_id),
-    workflow_step_id: Number(record.workflow_step_id),
+    ...record,
+    id: Number(record.id),
     label: step?.name || `Workflow step ${record.workflow_step_id}`,
-    step_name: step?.name || `Workflow step ${record.workflow_step_id}`,
-    version: 1,
-    model_family: step?.model_family || "unknown",
-    model: step?.model || "",
+    name: step?.name || `Workflow step ${record.workflow_step_id}`,
+    step_executor_id: step?.step_executor_id,
+    executor_config: step?.executor_config || {},
     description: step?.description || "",
     row: Number(record.row),
     col: Number(record.col),
@@ -52,11 +38,11 @@ function normalizeNode(record, stepCatalog) {
 
 function normalizeEdge(record) {
   return {
-    id: Number(record.workflow_dag_edge_id),
-    workflow_dag_edge_id: Number(record.workflow_dag_edge_id),
+    ...record,
+    id: Number(record.id),
     from: Number(record.from_workflow_dag_node_id),
     to: Number(record.to_workflow_dag_node_id),
-    edge_condition: record.edge_condition || { type: "depends_on" },
+    condition: record.condition || { type: "depends_on" },
   };
 }
 
@@ -129,11 +115,11 @@ export function useWorkflowBuilderPage() {
       setState((current) => ({
         ...current,
         workflowLoading: false,
-        selectedWorkflowId: Number(workflow.workflow_id),
+        selectedWorkflowId: Number(workflow.id),
         workflowDraft: {
           ...current.workflowDraft,
-          workflow_name: workflow.workflow_name || "",
-          workflow_description: workflow.workflow_description || "",
+          name: workflow.name || "",
+          description: workflow.description || "",
           sample_set_id: workflow.sample_set_id || null,
           status: workflow.status || "draft",
         },
@@ -179,12 +165,12 @@ export function useWorkflowBuilderPage() {
           sample_set_id:
             current.workflowDraft.sample_set_id ||
             Number(firstWorkflow?.sample_set_id) ||
-            Number(sampleSets[0]?.sample_set_id) ||
+            Number(sampleSets[0]?.id) ||
             null,
         },
       }));
       if (firstWorkflow) {
-        await loadWorkflow(firstWorkflow.workflow_id, stepCatalog);
+        await loadWorkflow(firstWorkflow.id, stepCatalog);
       }
     } catch (error) {
       setState((current) => ({
@@ -213,7 +199,7 @@ export function useWorkflowBuilderPage() {
           ...createEmptyWorkflowDraft(),
           sample_set_id:
             current.workflowDraft.sample_set_id ||
-            Number(current.sampleSets[0]?.sample_set_id) ||
+            Number(current.sampleSets[0]?.id) ||
             null,
         },
         nodes: [],
@@ -408,7 +394,7 @@ export function useWorkflowBuilderPage() {
         const response = await workflowBuilderApi.createWorkflowDagNode(
           current.selectedWorkflowId,
           {
-            workflow_step_id: selectedStep.workflow_step_id,
+            workflow_step_id: Number(selectedStep.id),
             row: current.selectedPlacement.row,
             col: current.selectedPlacement.col,
           },
@@ -422,8 +408,8 @@ export function useWorkflowBuilderPage() {
         const nodeId = getNextId(current.nodes);
         nextNode = normalizeNode(
           {
-            workflow_dag_node_id: nodeId,
-            workflow_step_id: selectedStep.workflow_step_id,
+            id: nodeId,
+            workflow_step_id: Number(selectedStep.id),
             row: current.selectedPlacement.row,
             col: current.selectedPlacement.col,
           },
@@ -540,7 +526,7 @@ export function useWorkflowBuilderPage() {
           {
             from_workflow_dag_node_id: sourceNodeId,
             to_workflow_dag_node_id: targetNodeId,
-            edge_condition: { type: "depends_on" },
+            condition: { type: "depends_on" },
           },
         );
         if (!response.data)
@@ -553,7 +539,7 @@ export function useWorkflowBuilderPage() {
           id: getNextId(current.edges),
           from: sourceNodeId,
           to: targetNodeId,
-          edge_condition: { type: "depends_on" },
+          condition: { type: "depends_on" },
         };
       }
       setState((value) => ({
@@ -617,7 +603,7 @@ export function useWorkflowBuilderPage() {
       }));
       return;
     }
-    if (!String(current.workflowDraft.workflow_name || "").trim()) {
+    if (!String(current.workflowDraft.name || "").trim()) {
       setState((value) => ({ ...value, error: "Workflow name is required." }));
       return;
     }
@@ -627,9 +613,9 @@ export function useWorkflowBuilderPage() {
         const response = await workflowBuilderApi.saveWorkflow(
           current.selectedWorkflowId,
           {
-            workflow_name: current.workflowDraft.workflow_name.trim(),
-            workflow_description:
-              current.workflowDraft.workflow_description.trim() || null,
+            name: current.workflowDraft.name.trim(),
+            description:
+              current.workflowDraft.description.trim() || null,
             sample_set_id: sampleSetId,
           },
         );
@@ -641,7 +627,7 @@ export function useWorkflowBuilderPage() {
           ...value,
           saving: false,
           workflows: value.workflows.map((workflow) =>
-            workflow.workflow_id === response.data.workflow_id
+            workflow.id === response.data.id
               ? response.data
               : workflow,
           ),
@@ -659,9 +645,9 @@ export function useWorkflowBuilderPage() {
     try {
       setState((value) => ({ ...value, saving: true, error: "" }));
       const createdResponse = await workflowBuilderApi.createWorkflow({
-        workflow_name: current.workflowDraft.workflow_name.trim(),
-        workflow_description:
-          current.workflowDraft.workflow_description.trim() || null,
+        name: current.workflowDraft.name.trim(),
+        description:
+          current.workflowDraft.description.trim() || null,
         sample_set_id: sampleSetId,
         status: "draft",
       });
@@ -671,7 +657,7 @@ export function useWorkflowBuilderPage() {
       const nodeIdMap = new Map();
       for (const node of current.nodes) {
         const response = await workflowBuilderApi.createWorkflowDagNode(
-          workflow.workflow_id,
+          workflow.id,
           {
             workflow_step_id: node.workflow_step_id,
             row: node.row,
@@ -682,23 +668,23 @@ export function useWorkflowBuilderPage() {
           throw new Error(
             "Workflow DAG node response did not include node data.",
           );
-        nodeIdMap.set(node.id, response.data.workflow_dag_node_id);
+        nodeIdMap.set(node.id, response.data.id);
       }
       for (const edge of current.edges) {
-        await workflowBuilderApi.createWorkflowDagEdge(workflow.workflow_id, {
+        await workflowBuilderApi.createWorkflowDagEdge(workflow.id, {
           from_workflow_dag_node_id: nodeIdMap.get(edge.from),
           to_workflow_dag_node_id: nodeIdMap.get(edge.to),
-          edge_condition: edge.edge_condition || { type: "depends_on" },
+          condition: edge.condition || { type: "depends_on" },
         });
       }
       setState((value) => ({
         ...value,
         saving: false,
         workflows: [...value.workflows, workflow],
-        selectedWorkflowId: workflow.workflow_id,
+        selectedWorkflowId: workflow.id,
         notice: "Workflow saved.",
       }));
-      await loadWorkflow(workflow.workflow_id, current.stepCatalog);
+      await loadWorkflow(workflow.id, current.stepCatalog);
       window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
     } catch (error) {
       setState((value) => ({
@@ -731,7 +717,7 @@ export function useWorkflowBuilderPage() {
         finalizing: false,
         workflowDraft: { ...value.workflowDraft, status: response.data.status },
         workflows: value.workflows.map((workflow) =>
-          workflow.workflow_id === response.data.workflow_id
+          workflow.id === response.data.id
             ? response.data
             : workflow,
         ),

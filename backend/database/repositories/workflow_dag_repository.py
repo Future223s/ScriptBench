@@ -20,7 +20,7 @@ class WorkflowDagRepository:
                     .order_by(
                         workflow_dag_nodes.c.row.asc(),
                         workflow_dag_nodes.c.col.asc(),
-                        workflow_dag_nodes.c.workflow_dag_node_id.asc(),
+                        workflow_dag_nodes.c.id.asc(),
                     )
                 )
                 .mappings()
@@ -37,7 +37,7 @@ class WorkflowDagRepository:
                     .order_by(
                         workflow_dag_nodes.c.row.asc(),
                         workflow_dag_nodes.c.col.asc(),
-                        workflow_dag_nodes.c.workflow_dag_node_id.asc(),
+                        workflow_dag_nodes.c.id.asc(),
                     )
                     .limit(1)
                 )
@@ -51,7 +51,7 @@ class WorkflowDagRepository:
             row = (
                 connection.execute(
                     select(workflow_dag_nodes).where(
-                        workflow_dag_nodes.c.workflow_dag_node_id
+                        workflow_dag_nodes.c.id
                         == workflow_dag_node_id
                     )
                 )
@@ -68,7 +68,7 @@ class WorkflowDagRepository:
                 connection.execute(
                     insert(workflow_dag_nodes)
                     .values(**row)
-                    .returning(workflow_dag_nodes.c.workflow_dag_node_id)
+                    .returning(workflow_dag_nodes.c.id)
                 ).scalar_one()
             )
 
@@ -84,7 +84,7 @@ class WorkflowDagRepository:
             result = connection.execute(
                 delete(workflow_dag_nodes).where(
                     workflow_dag_nodes.c.workflow_id == workflow_id,
-                    workflow_dag_nodes.c.workflow_dag_node_id.in_(node_ids),
+                    workflow_dag_nodes.c.id.in_(node_ids),
                 )
             )
             return int(result.rowcount or 0)
@@ -100,7 +100,7 @@ class WorkflowDagRepository:
                 connection.execute(
                     select(workflow_dag_edges)
                     .where(workflow_dag_edges.c.workflow_id == workflow_id)
-                    .order_by(workflow_dag_edges.c.workflow_dag_edge_id.asc())
+                    .order_by(workflow_dag_edges.c.id.asc())
                 )
                 .mappings()
                 .all()
@@ -112,7 +112,7 @@ class WorkflowDagRepository:
             row = (
                 connection.execute(
                     select(workflow_dag_edges).where(
-                        workflow_dag_edges.c.workflow_dag_edge_id
+                        workflow_dag_edges.c.id
                         == workflow_dag_edge_id
                     )
                 )
@@ -129,7 +129,7 @@ class WorkflowDagRepository:
                 connection.execute(
                     insert(workflow_dag_edges)
                     .values(**row)
-                    .returning(workflow_dag_edges.c.workflow_dag_edge_id)
+                    .returning(workflow_dag_edges.c.id)
                 ).scalar_one()
             )
 
@@ -145,7 +145,7 @@ class WorkflowDagRepository:
             result = connection.execute(
                 delete(workflow_dag_edges).where(
                     workflow_dag_edges.c.workflow_id == workflow_id,
-                    workflow_dag_edges.c.workflow_dag_edge_id == edge_id,
+                    workflow_dag_edges.c.id == edge_id,
                 )
             )
             return int(result.rowcount or 0)

@@ -90,16 +90,16 @@ class ExecutionWorker:
     async def _run_job(self, job):
         try:
             await self.coordinator.execute(job)
-        except Exception as error:
+        except Exception as exc:
             self.stop(int(job["workflow_id"]))
-            self.repository.set_job_failed(int(job["execution_job_id"]), str(error))
+            self.repository.set_job_failed(int(job["id"]), str(exc))
             if self.event_hub:
                 await self.event_hub.broadcast(
                     EventPayload.build(
                         event="FAILED",
                         message="Execution job failed.",
                         rows=[
-                            {**job, "status": "pending", "error_message": str(error)}
+                            {**job, "status": "pending", "error_message": str(exc)}
                         ],
                     )
                 )

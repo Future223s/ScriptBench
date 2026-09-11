@@ -50,7 +50,7 @@ class JobEventHub:
             if (
                 execution_job_id is not None
                 and not any(
-                    int(row.get("execution_job_id", -1)) == execution_job_id
+                    int(row.get("id", -1)) == execution_job_id
                     for row in rows
                 )
             ):

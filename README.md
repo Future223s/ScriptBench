@@ -56,14 +56,60 @@ From the repository root, run:
 docker compose -f docker-compose-dev.yml up --build
 ```
 
-Compose starts PostgreSQL, runs the Economic Upheaval seed script, and then starts the
-backend. The seed is safe to rerun: it refreshes the 19 source samples, 523 line-crop
-artifacts, the `Test` sample set, and the `Line Crops` mapping group without duplicating
-them. Its source files live in `seed-data/economic-upheaval`, so Docker does not need
-access to the Box folder. To run the seed again after changing the source files, use:
+Compose starts PostgreSQL, the backend, and the frontend. Bootstrap scripts do not
+run on startup. Both bootstrappers are idempotent: rerunning them updates their
+named demo records without duplication.
 
-```powershell
-docker compose -f docker-compose-dev.yml run --rm db-seed
+The `step_executors` table is the runtime metadata source. Startup and dataset
+seeding insert missing Gemini and Anthropic catalog records and overwrite all
+seed-managed metadata on existing records, including `active`. IDs and `created_at`
+are preserved; `updated_at` is refreshed. See [the exact seed inventory](docs/seeding.md). The wizard lists active executor names on stage one, then gets
+the selected record on stage two to render configuration and method selection.
+`input_schema` and `output_schema` are keyed by method and validate internal
+operation inputs/results; they are separate from payload templates and output specs.
+The code registry only maps supported executor methods to implementations.
+Anthropic image inputs use the [documented base64 message format](https://platform.claude.com/docs/en/build-with-claude/vision).
+Set `ANTHROPIC_API_KEY` alongside `GEMINI_API_KEY` for real execution;
+`DEV=true` enables the small development-settings icon at the top right of the
+navbar. Open it to toggle **Use stub executor** and **Force stub failure** without
+restarting. Development starts with stub execution on and forced failure off.
+With `DEV=false` (the backend default), the controls are hidden, updates are rejected,
+and real providers are used. Compose defaults `DEV` to `true` for development.
+
+Both controls are shared by clients of the same backend process and apply to the
+next executor created; already-running executions keep their settings. Changes are
+in memory, reset on backend restart, and are not shared across multiple backend
+worker processes. The development Compose setup runs one worker. Opening the
+control refreshes its state from the backend. When stub mode is off, the forced
+failure switch is disabled and has no effect. `DEV` is read once at startup; only
+changing that development gate requires a restart.
+
+Tables and API records use local fields (`id`, `name`, `description`, `blob`,
+`mime_type`, `payload`) and qualified foreign keys (`sample_id`,
+`derivative_group_id`, `step_executor_id`, etc.). Existing databases must be
+recreated: there are no migrations or compatibility aliases. See the
+[complete canonical schema and exact recreation/bootstrap commands](docs/canonical-schema.md).
+Seeding does not reset or migrate the database.
+
+Run the manuscript bootstrap independently after the PostgreSQL service is healthy.
+It accepts an `EMMO` directory containing `images`, `ground_truth_txt`, and
+`segementation_line_crops`; it creates the samples, derivatives, mappings, and demo
+sample set. If the stack is not already running, start it with
+`docker compose -f docker-compose-dev.yml up -d postgres` first:
+
+```bash
+docker compose -f docker-compose-dev.yml run --rm --no-deps \
+  -v "/absolute/path/to/EMMO:/emmo:ro" \
+  -e EMMO_ROOT=/emmo \
+  backend python -m backend.scripts.bootstrapping.manuscripts
+```
+
+Create one executor-specific demo workflow after bootstrapping manuscripts. This
+creates its payload template, output specification, workflow step, workflow, and DAG node:
+
+```bash
+docker compose -f docker-compose-dev.yml run --rm --no-deps \
+  backend python -m backend.scripts.bootstrapping.workflow --executor gemini
 ```
 
 Then open:
@@ -77,7 +123,7 @@ To stop the stack, press `Ctrl+C` and then run:
 docker compose -f docker-compose-dev.yml down
 ```
 
-The Docker setup keeps the backend database and frontend build artifacts in named volumes, so your data and cached build state persist between runs.
+The Docker setup keeps the backend database and frontend build derivatives in named volumes, so your data and cached build state persist between runs.
 
 ## High-Level Workflow
 

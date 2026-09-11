@@ -8,8 +8,8 @@ from .api import ApiResponse
 
 
 class OutputSpecRecord(BaseModel):
-    output_spec_id: int
-    output_spec_name: str
+    id: int
+    name: str
     type: str
     item_schema: dict[str, Any] | None = None
     instructions: str | None = None
@@ -20,10 +20,16 @@ class OutputSpecRecord(BaseModel):
 
 
 class OutputSpecCreateRequest(BaseModel):
-    output_spec_name: str
+    name: str
     type: Literal["plain-text", "json"]
     item_schema: dict[str, Any] | None = None
     instructions: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class OutputSpecDeleteRequest(BaseModel):
+    ids: list[int]
 
     model_config = ConfigDict(extra="forbid")
 

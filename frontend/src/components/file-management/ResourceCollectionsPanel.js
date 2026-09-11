@@ -8,7 +8,7 @@ import {
 } from "../../ui/primitives/index.js";
 import { FileManagementListPanel } from "./FileManagementListPanel.js";
 import {
-  createArtifactGroupFilterConfig,
+  createDerivativeGroupFilterConfig,
   createSampleSetFilterConfig,
   visibleRecordsForType,
 } from "../../hooks/file-management/fileManagementShared.js";
@@ -16,9 +16,8 @@ import {
 function CollectionRow({ type, record, selected, onSelectedChange }) {
   const isSampleSet = type === "sampleSet";
   const name = isSampleSet
-    ? record.sample_set_name || `Sample set ${record.sample_set_id}`
-    : record.artifact_group_name ||
-      `Artifact group ${record.artifact_group_id}`;
+    ? record.name || `Sample set ${record.id}`
+    : record.name || `Derivative group ${record.id}`;
   const details = isSampleSet
     ? `${(record.sample_ids || []).length} samples`
     : record.mapping_type || "Mapping group";
@@ -37,19 +36,19 @@ export function ResourceCollectionsPanel({ state, actions }) {
   const type =
     state.managementType === "sample"
       ? "sampleSet"
-      : state.managementType === "artifact"
-        ? "artifactGroup"
+      : state.managementType === "derivative"
+        ? "derivativeGroup"
         : null;
   if (!type) {
     return (
       <FileManagementListPanel
         title="Related collections"
-        description="Collections are shown for Samples and Artifacts."
+        description="Collections are shown for Samples and Derivatives."
         filters={[]}
         actions={null}
         summary=""
         rows={null}
-        emptyState="Switch to Samples or Artifacts to browse related collections."
+        emptyState="Switch to Samples or Derivatives to browse related collections."
       />
     );
   }
@@ -62,15 +61,22 @@ export function ResourceCollectionsPanel({ state, actions }) {
         onChange: (field, value) =>
           actions.setFilterField("sampleSet", field, value),
       })
-    : createArtifactGroupFilterConfig({
-        filters: state.filters.artifactGroup,
-        artifactGroups: state.artifactGroups,
+    : createDerivativeGroupFilterConfig({
+        filters: state.filters.derivativeGroup,
+        derivativeGroups: state.derivativeGroups,
         onChange: (field, value) =>
-          actions.setFilterField("artifactGroup", field, value),
+          actions.setFilterField("derivativeGroup", field, value),
       });
   const filterActions = (
     <Inline gap="default">
-      <Button variant="primary" onClick={actions.openManagementModal}>
+      <Button
+        variant="primary"
+        onClick={
+          isSampleSet
+            ? actions.openManagementModal
+            : actions.workflowStepsActions?.openCreateDerivativeGroup
+        }
+      >
         Create
       </Button>
       {selectedIds.length ? (
@@ -85,21 +91,21 @@ export function ResourceCollectionsPanel({ state, actions }) {
   );
   const rows = state.loading ? (
     <EmptyState>
-      Loading {isSampleSet ? "sample sets" : "artifact groups"}...
+      Loading {isSampleSet ? "sample sets" : "derivative groups"}...
     </EmptyState>
   ) : records.length ? (
     records.map((record) => (
       <CollectionRow
-        key={isSampleSet ? record.sample_set_id : record.artifact_group_id}
+        key={isSampleSet ? record.id : record.id}
         type={type}
         record={record}
         selected={selectedIds.includes(
-          String(isSampleSet ? record.sample_set_id : record.artifact_group_id),
+          String(isSampleSet ? record.id : record.id),
         )}
         onSelectedChange={(selected) =>
           actions.toggleCollectionSelection(
             type,
-            isSampleSet ? record.sample_set_id : record.artifact_group_id,
+            isSampleSet ? record.id : record.id,
             selected,
           )
         }
@@ -109,12 +115,12 @@ export function ResourceCollectionsPanel({ state, actions }) {
 
   return (
     <FileManagementListPanel
-      title={isSampleSet ? "Sample sets" : "Artifact groups"}
+      title={isSampleSet ? "Sample sets" : "Derivative groups"}
       filters={filters}
       actions={filterActions}
-      summary={`${records.length} ${isSampleSet ? "sample sets" : "artifact groups"}`}
+      summary={`${records.length} ${isSampleSet ? "sample sets" : "derivative groups"}`}
       rows={rows}
-      emptyState={`No ${isSampleSet ? "sample sets" : "artifact groups"} match the current filters.`}
+      emptyState={`No ${isSampleSet ? "sample sets" : "derivative groups"} match the current filters.`}
     />
   );
 }

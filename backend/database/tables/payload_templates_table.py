@@ -14,15 +14,15 @@ from sqlalchemy import (
 
 from ..schema import STATUS_CHECK_SQL, metadata
 
-payload_template = Table(
-    "payload_template",
+payload_templates = Table(
+    "payload_templates",
     metadata,
-    Column("payload_template_id", Integer, primary_key=True, autoincrement=True),
+    Column("id", Integer, primary_key=True, autoincrement=True),
     Column(
-        "payload_template_name", String(255), nullable=False, unique=True, index=True
+        "name", String(255), nullable=False, unique=True, index=True
     ),
     Column("model_family", String(64), nullable=False, index=True),
-    Column("payload_template", JSON, nullable=False),
+    Column("payload", JSON, nullable=False),
     Column("status", String(32), nullable=False, server_default="draft", index=True),
     Column(
         "created_at",
@@ -30,8 +30,6 @@ payload_template = Table(
         nullable=False,
         server_default=func.current_timestamp(),
     ),
-    UniqueConstraint("payload_template_name", name="uq_payload_template_name"),
-    CheckConstraint(STATUS_CHECK_SQL, name="ck_payload_template_status"),
+    UniqueConstraint("name", name="uq_payload_templates_name"),
+    CheckConstraint(STATUS_CHECK_SQL, name="ck_payload_templates_status"),
 )
-
-payload_templates = payload_template

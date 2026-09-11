@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timedelta, timezone
-from io import BytesIO
 from typing import Any
 
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
-from backend.core.llm_models import File
-from backend.core.model_client import ModelClient
+from backend.services.step_executor import StepError, StepExecutionError, StepExecutor
 
 
-class GeminiClient(ModelClient):
+class GeminiClient(StepExecutor):
     """Gemini adapter for completed native Gemini request JSON."""
 
     def __init__(
@@ -23,18 +20,20 @@ class GeminiClient(ModelClient):
         model: str,
         api_key: str | None = None,
         temperature: float = 0.0,
-        file_ttl: timedelta = timedelta(hours=24),
+        max_tokens: int | None = None,
     ) -> None:
         load_dotenv(override=True)
         resolved_api_key = api_key or os.getenv("GEMINI_API_KEY")
         if not resolved_api_key:
             raise EnvironmentError("GEMINI_API_KEY is required")
-        super().__init__(
-            model=model,
-            api_key=resolved_api_key,
-            temperature=temperature,
-            file_ttl=file_ttl,
-        )
+        if not model.strip():
+            raise ValueError("model is required")
+        if not 0 <= temperature <= 2:
+            raise ValueError("temperature must be between 0 and 2")
+        super().__init__(name=model)
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
         self.client = genai.Client(api_key=resolved_api_key)
 
     async def transcribe(self, payload: dict[str, Any]) -> str:
@@ -43,54 +42,28 @@ class GeminiClient(ModelClient):
             self.client.models.generate_content,
             model=self.model,
             contents=contents,
-            config=types.GenerateContentConfig(temperature=self.temperature),
+            config=types.GenerateContentConfig(temperature=self.temperature, max_output_tokens=self.max_tokens),
         )
         return response.text or ""
 
-    async def upload_file(self, file_blob: File) -> File:
-        if file_blob.blob is None:
-            raise ValueError(f"File blob is missing for {file_blob.source_id}")
-        uploaded = await asyncio.to_thread(
-            self.client.files.upload,
-            file=BytesIO(file_blob.blob),
-            config={
-                "display_name": file_blob.source_id,
-                "mime_type": file_blob.mime_type,
-            },
+    def translate_error(self, exc: Exception) -> StepExecutionError | None:
+        if not isinstance(exc, errors.APIError):
+            return None
+        status = exc.code
+        code = {
+            400: "invalid_input",
+            401: "authentication_required",
+            403: "permission_denied",
+            404: "not_found",
+            429: "rate_limited",
+        }.get(status, "provider_error")
+        return StepExecutionError(
+            StepError(
+                message=str(exc),
+                code=code,
+                retryable=status in {429, 500, 502, 503, 504},
+            )
         )
-        file_blob.uploaded_ref = str(getattr(uploaded, "name", "")) or None
-        file_blob.uploaded_uri = str(getattr(uploaded, "uri", "")) or None
-        file_blob.uploaded_at = datetime.now(timezone.utc)
-        if not file_blob.uploaded_ref:
-            raise RuntimeError("Gemini did not return an uploaded file reference")
-        return file_blob
-
-    async def refresh_file_ref(
-        self,
-        file_blob: File,
-        time_since_last_updated: timedelta | None,
-    ) -> File:
-        if file_blob.transport == "inline" or (
-            file_blob.transport == "auto"
-            and file_blob.blob is not None
-            and len(file_blob.blob) <= 20 * 1024 * 1024
-        ):
-            return file_blob
-        if (
-            file_blob.uploaded_ref
-            and time_since_last_updated is not None
-            and time_since_last_updated <= self.file_ttl
-        ):
-            try:
-                uploaded = await asyncio.to_thread(
-                    self.client.files.get,
-                    name=file_blob.uploaded_ref,
-                )
-                file_blob.uploaded_uri = str(getattr(uploaded, "uri", "")) or None
-                return file_blob
-            except Exception:
-                pass
-        return await self.upload_file(file_blob)
 
     @staticmethod
     def _content(content: dict[str, Any]) -> types.Content:

@@ -22,21 +22,25 @@ class PayloadBuilder:
         workflow_id: int,
         sample_id: str,
         workflow_dag_node_id: int,
+        execution_job_id: int | None = None,
     ) -> dict[str, Any]:
         node = self.repository.fetch_node(workflow_id, workflow_dag_node_id)
         step = self.repository.fetch_step(int(node["workflow_step_id"]))
         template = self.repository.fetch_template(int(step["payload_template_id"]))
         sample = self.repository.fetch_sample(sample_id)
-        resources = {
-            str(resource["name"]): self.repository.list_prompt_resource_rows(
-                resource,
-                sample,
+        resources = {}
+        for resource in self.repository.list_prompt_resources(
+            int(step["payload_template_id"])
+        ):
+            rows = (
+                self.repository.list_prompt_resource_rows(
+                    resource, sample, execution_job_id
+                )
+                if execution_job_id is not None
+                else self.repository.list_prompt_resource_rows(resource, sample)
             )
-            for resource in self.repository.list_prompt_resources(
-                int(step["payload_template_id"])
-            )
-        }
-        return self._render(template["payload_template"], resources, sample, {})
+            resources[str(resource["name"])] = rows
+        return self._render(template["payload"], resources, sample, {})
 
     def _render(
         self,
@@ -91,11 +95,11 @@ class PayloadBuilder:
         sample: dict[str, Any],
         local: dict[str, dict[str, Any]],
     ) -> Any:
-        resource_name, field_name = reference.split(".", 1)
-        row = local.get(resource_name) or (
-            sample if resource_name == "sample" else None
+        name, field_name = reference.split(".", 1)
+        row = local.get(name) or (
+            sample if name == "sample" else None
         )
         if row is None:
-            rows = resources.get(resource_name, [])
+            rows = resources.get(name, [])
             row = rows[0] if len(rows) == 1 else {}
         return row.get(field_name)

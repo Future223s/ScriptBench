@@ -8,11 +8,11 @@ from .api import ApiResponse
 
 
 class WorkflowDagEdgeRecord(BaseModel):
-    workflow_dag_edge_id: int
+    id: int
     workflow_id: int
     from_workflow_dag_node_id: int
     to_workflow_dag_node_id: int
-    edge_condition: dict[str, object] | str
+    condition: dict[str, object] | str | None = None
     created_at: datetime
 
     model_config = ConfigDict(extra="forbid")
@@ -21,7 +21,7 @@ class WorkflowDagEdgeRecord(BaseModel):
 class WorkflowDagEdgeCreateRequest(BaseModel):
     from_workflow_dag_node_id: int = Field(gt=0)
     to_workflow_dag_node_id: int = Field(gt=0)
-    edge_condition: dict[str, object] | str = Field(
+    condition: dict[str, object] | str = Field(
         default_factory=lambda: {"type": "depends_on"}
     )
 
@@ -29,7 +29,7 @@ class WorkflowDagEdgeCreateRequest(BaseModel):
 
 
 class WorkflowDagEdgeDeleteRequest(BaseModel):
-    workflow_dag_edge_id: int = Field(gt=0)
+    id: int = Field(gt=0)
 
     model_config = ConfigDict(extra="forbid")
 

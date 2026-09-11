@@ -16,7 +16,7 @@ class WorkflowsRepository:
         def run(connection: Connection) -> int:
             return int(
                 connection.execute(
-                    insert(workflows).values(**row).returning(workflows.c.workflow_id)
+                    insert(workflows).values(**row).returning(workflows.c.id)
                 ).scalar_one()
             )
 
@@ -29,7 +29,7 @@ class WorkflowsRepository:
         with self.engine.connect() as connection:
             return (
                 connection.execute(
-                    select(workflows).where(workflows.c.workflow_id == workflow_id)
+                    select(workflows).where(workflows.c.id == workflow_id)
                 )
                 .mappings()
                 .first()
@@ -40,7 +40,7 @@ class WorkflowsRepository:
             rows = (
                 connection.execute(
                     select(workflows).order_by(
-                        workflows.c.workflow_name.asc(), workflows.c.workflow_id.asc()
+                        workflows.c.name.asc(), workflows.c.id.asc()
                     )
                 )
                 .mappings()
@@ -52,7 +52,7 @@ class WorkflowsRepository:
         with self.engine.begin() as connection:
             result = connection.execute(
                 update(workflows)
-                .where(workflows.c.workflow_id == workflow_id)
+                .where(workflows.c.id == workflow_id)
                 .values(**row, updated_at=func.current_timestamp())
             )
         return int(result.rowcount or 0)
@@ -69,18 +69,18 @@ class WorkflowsRepository:
                 .all()
             )
             result = connection.execute(
-                delete(workflows).where(workflows.c.workflow_id == workflow_id)
+                delete(workflows).where(workflows.c.id == workflow_id)
             )
             for workflow_step_id in set(step_ids):
                 still_used = connection.execute(
-                    select(workflow_dag_nodes.c.workflow_dag_node_id)
+                    select(workflow_dag_nodes.c.id)
                     .where(workflow_dag_nodes.c.workflow_step_id == workflow_step_id)
                     .limit(1)
                 ).scalar_one_or_none()
                 if still_used is None:
                     connection.execute(
                         delete(workflow_steps).where(
-                            workflow_steps.c.workflow_step_id == workflow_step_id
+                            workflow_steps.c.id == workflow_step_id
                         )
                     )
             return int(result.rowcount or 0)

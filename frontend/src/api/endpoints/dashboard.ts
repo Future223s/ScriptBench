@@ -3,10 +3,9 @@ import { apiFetch } from "../client";
 export type ApiId = string | number;
 
 export interface SampleSetSummary {
-  sample_set_id: ApiId;
-  sample_set_name: string;
-  sample_set_description?: string | null;
-  sample_set_type?: string | null;
+  id: ApiId;
+  name: string;
+  description?: string | null;
   sample_count?: number;
   completed_sample_count?: number;
   workflow_count?: number;
@@ -18,20 +17,22 @@ export interface SampleSetSummary {
 
 export interface MetricSummary {
   min?: number | null;
+  q1?: number | null;
   median?: number | null;
+  q3?: number | null;
   max?: number | null;
   mean?: number | null;
   stddev?: number | null;
 }
 
 export interface WorkflowSummary {
-  workflow_id: ApiId;
-  workflow_name?: string | null;
-  workflow_stage?: string | null;
-  model_family?: string | null;
-  model?: string | null;
-  groups?: string[] | null;
-  sample_set_id?: ApiId | null;
+  id: ApiId;
+  name: string;
+  description: string | null;
+  sample_set_id: ApiId;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SampleSetsResponse {
@@ -71,12 +72,14 @@ export interface SampleSetAnalyticsResponse {
 }
 
 export interface DeleteSampleSetResponse {
-  sample_set_id: ApiId;
+  success: boolean;
+  message: string;
   deleted: true;
 }
 
 export interface DeleteWorkflowResponse {
-  workflow_id: ApiId;
+  success: boolean;
+  message: string;
   deleted: true;
 }
 
@@ -86,39 +89,11 @@ export interface ApiResponse<T> {
   data: T | null;
 }
 
-export interface WorkflowCreatePromptExample {
-  title: string;
-  instruction_text: string;
-  assets: string[];
-}
-
-export interface WorkflowCreatePromptInputs {
-  sample_ids: string[];
-  selection_mode: "single" | "batch";
-  batch_size: number;
-}
-
-export interface WorkflowCreatePromptOutputFormat {
-  type: string;
-  item_schema: Record<string, string> | null;
-}
-
-export interface WorkflowCreatePromptSpec {
-  instructions: string;
-  examples: WorkflowCreatePromptExample[];
-  inputs: WorkflowCreatePromptInputs;
-  output_format: WorkflowCreatePromptOutputFormat;
-}
-
 export interface WorkflowCreatePayload {
-  workflow_name: string;
-  workflow_stage: string;
+  name: string;
+  description?: string | null;
   sample_set_id: ApiId;
-  model_family: string;
-  model?: string | null;
-  groups?: string[];
-  prompt_spec: WorkflowCreatePromptSpec;
-  status?: string;
+  status?: "draft";
 }
 
 export const dashboardApi = {

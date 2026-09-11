@@ -16,7 +16,7 @@ class PromptResourcesRepository:
             conn.execute(
                 insert(prompt_resources)
                 .values(**row)
-                .returning(prompt_resources.c.prompt_resource_id)
+                .returning(prompt_resources.c.id)
             ).scalar_one()
         )
 
@@ -25,7 +25,7 @@ class PromptResourcesRepository:
             conn.execute(
                 insert(prompt_resource_conditions)
                 .values(**row)
-                .returning(prompt_resource_conditions.c.prompt_resource_condition_id)
+                .returning(prompt_resource_conditions.c.id)
             ).scalar_one()
         )
 
@@ -39,7 +39,7 @@ class PromptResourcesRepository:
                     .where(
                         prompt_resources.c.payload_template_id == payload_template_id
                     )
-                    .order_by(prompt_resources.c.prompt_resource_id.asc())
+                    .order_by(prompt_resources.c.id.asc())
                 )
                 .mappings()
                 .all()
@@ -68,7 +68,7 @@ class PromptResourcesRepository:
                 {
                     **dict(resource),
                     "conditions": by_resource.get(
-                        int(resource["prompt_resource_id"]), []
+                        int(resource["id"]), []
                     ),
                 }
                 for resource in resources

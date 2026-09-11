@@ -60,12 +60,12 @@ export function formatFamilyLabel(value) {
 
 export function formatStepOptionLabel(step) {
   if (!step) return "Choose a step";
-  const family = formatFamilyLabel(step.model_family);
+  const family = formatFamilyLabel(step.step_executor_id);
   const version = Number(step.version) || 1;
   return `${step.name} — ${family}, v${version}`;
 }
 
 export function formatStepSummary(step) {
   if (!step) return "";
-  return `${formatFamilyLabel(step.model_family)} · ${step.model || "Unknown"} · Version ${Number(step.version) || 1}`;
+  return `${formatFamilyLabel(step.step_executor_id)} · ${step.executor_config?.model || "Unknown"} · Version ${Number(step.version) || 1}`;
 }

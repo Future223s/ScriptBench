@@ -210,7 +210,6 @@
     "specs/endpoints/README.md",
     "specs/endpoints/payload_templates.md",
     "specs/endpoints/output_specs.md",
-    "specs/endpoints/object_uploads.md",
     "specs/endpoints/model_outputs.md",
     "specs/endpoints/execution_rows.md",
     "specs/endpoints/cross_object_processing.md",

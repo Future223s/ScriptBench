@@ -30,20 +30,25 @@ logger = logging.getLogger(__name__)
 
 
 def _asset_summary_payload(row: dict[str, object]) -> dict[str, object]:
-    payload = row_to_dict(row, exclude={"asset_blob"})
-    asset_blob = row.get("asset_blob")
-    asset_blob_size = len(asset_blob) if asset_blob is not None else 0
-    payload["has_asset_blob"] = asset_blob is not None
-    payload["asset_blob_size"] = asset_blob_size
+    payload = row_to_dict(row, exclude={"blob"})
+    blob = row.get("blob")
+    payload["has_blob"] = bool(
+        payload.get("has_blob", blob is not None)
+    )
+    payload["blob_size"] = (
+        int(payload["blob_size"])
+        if payload.get("blob_size") is not None
+        else len(blob) if blob is not None else 0
+    )
     return payload
 
 
 def _asset_detail_payload(row: dict[str, object]) -> dict[str, object]:
     payload = _asset_summary_payload(row)
-    asset_blob = row.get("asset_blob")
-    payload["asset_blob_base64"] = (
-        row_to_dict({"asset_blob": asset_blob})["asset_blob"]
-        if asset_blob is not None
+    blob = row.get("blob")
+    payload["blob_base64"] = (
+        row_to_dict({"blob": blob})["blob"]
+        if blob is not None
         else None
     )
     return payload
@@ -52,23 +57,23 @@ def _asset_detail_payload(row: dict[str, object]) -> dict[str, object]:
 @router.get("/api/v2/assets", response_model=ApiListResponse[AssetSummaryResponse])
 def list_assets(
     engine=Depends(get_engine),
-    asset_name: str | None = Query(default=None),
-    asset_type: str | None = Query(default=None),
+    name: str | None = Query(default=None),
+    type: str | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1),
 ) -> ApiListResponse[AssetSummaryResponse]:
     assets_repository = AssetsRepository(engine)
     asset_rows = assets_repository.list_assets(
-        asset_name=asset_name, asset_type=asset_type, limit=limit
+        name=name, type=type, limit=limit
     )
     items = [
         AssetSummaryResponse.model_validate(_asset_summary_payload(row))
         for row in asset_rows
     ]
     logger.info(
-        "Listed asset records from v2 assets endpoint (asset_count=%s, asset_name=%s, asset_type=%s, limit=%s)",
+        "Listed asset records from v2 assets endpoint (asset_count=%s, name=%s, type=%s, limit=%s)",
         len(items),
-        asset_name,
-        asset_type,
+        name,
+        type,
         limit,
     )
     return ApiListResponse[AssetSummaryResponse](
@@ -102,20 +107,20 @@ def create_asset(
     engine=Depends(get_engine),
 ) -> ApiResponse[AssetResponse]:
     assets_repository = AssetsRepository(engine)
-    asset_name = payload.asset_name.strip()
-    asset_type = payload.asset_type.strip()
-    if not asset_name:
-        raise HTTPException(status_code=400, detail="asset_name is required")
-    if not asset_type:
-        raise HTTPException(status_code=400, detail="asset_type is required")
+    name = payload.name.strip()
+    type = payload.type.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    if not type:
+        raise HTTPException(status_code=400, detail="type is required")
 
-    if assets_repository.fetch_assets_by_names([asset_name]):
+    if assets_repository.fetch_assets_by_names([name]):
         raise HTTPException(
-            status_code=409, detail=f"Asset already exists: {asset_name}"
+            status_code=409, detail=f"Asset already exists: {name}"
         )
 
     asset_id = assets_repository.insert_asset_metadata(
-        asset_name=asset_name, asset_type=asset_type
+        name=name, type=type
     )
     row = assets_repository.fetch_asset(asset_id)
     if row is None:
@@ -123,9 +128,9 @@ def create_asset(
 
     asset_response = AssetResponse.model_validate(_asset_detail_payload(row))
     logger.info(
-        "Created asset metadata row in v2 assets endpoint (asset_id=%s, asset_name=%s)",
+        "Created asset metadata row in v2 assets endpoint (asset_id=%s, name=%s)",
         asset_id,
-        asset_name,
+        name,
     )
     return ApiResponse[AssetResponse](
         message="Asset created successfully.",
@@ -147,14 +152,14 @@ async def upload_asset_blob(
     if asset_row is None:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    asset_blob = await file.read()
-    if not asset_blob:
+    blob = await file.read()
+    if not blob:
         raise HTTPException(status_code=400, detail="Asset file is empty")
 
     updated = assets_repository.update_asset_blob(
         asset_id=asset_id,
-        asset_blob=asset_blob,
-        asset_mime_type=file.content_type,
+        blob=blob,
+        mime_type=file.content_type,
     )
     if updated != 1:
         raise HTTPException(
@@ -164,7 +169,7 @@ async def upload_asset_blob(
     logger.info("Updated asset blob in v2 assets endpoint (asset_id=%s)", asset_id)
     return ApiResponse[AssetBlobUploadResponse](
         message="Asset blob uploaded successfully.",
-        data=AssetBlobUploadResponse(asset_id=asset_id),
+        data=AssetBlobUploadResponse(id=asset_id),
     )
 
 
@@ -193,7 +198,7 @@ def delete_assets(
     payload: AssetDeleteRequest = Body(...),
     engine=Depends(get_engine),
 ) -> ApiDeleteResponse:
-    asset_ids = [int(asset_id) for asset_id in payload.asset_ids]
+    asset_ids = [int(asset_id) for asset_id in payload.ids]
     if not asset_ids:
         raise HTTPException(status_code=400, detail="asset_ids is required")
 

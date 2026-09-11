@@ -16,7 +16,8 @@ from backend.database.repositories.execution_jobs_repository import ExecutionJob
 from backend.services.execution_coordinator import ExecutionCoordinator
 from backend.services.execution_worker import ExecutionWorker
 from backend.services.payload_builder import PayloadBuilder
-from backend.services.model_client_factory import ModelClientFactory
+from backend.services.dev_settings import DevSettings
+from backend.services.step_executor_factory import StepExecutorFactory
 from backend.services.output_validator import OutputValidator
 from backend.services.job_events import JobEventHub
 
@@ -30,6 +31,7 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.dev_settings = DevSettings.from_environment()
     app.state.engine = get_engine()
     app.state.job_events = JobEventHub()
     app.state.job_events.bind_loop(asyncio.get_running_loop())
@@ -40,7 +42,7 @@ async def lifespan(app: FastAPI):
         ExecutionCoordinator(
             repository=execution_repository,
             output_validator=OutputValidator(app.state.engine),
-            client_factory=ModelClientFactory(),
+            executor_factory=StepExecutorFactory(app.state.engine, settings=app.state.dev_settings),
             payload_builder=payload_builder,
             event_hub=app.state.job_events,
         ),
