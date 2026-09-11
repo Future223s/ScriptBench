@@ -193,6 +193,88 @@ class CanonicalContractsTests(unittest.TestCase):
         response = self.client.request('DELETE', '/api/v2/output-specs', json={'ids': [spec['id']]})
         self.assertEqual(200, response.status_code, response.text)
 
+    def test_workflow_finalization_validates_dag_and_step_output_dependencies(self):
+        self.post('samples', {'id': 'page', 'name': 'Page'})
+        sample_set = self.post('sample-sets', {'name': 'Pages', 'sample_ids': ['page']})
+        specification = self.post('output-specs', {'name': 'Text', 'type': 'plain-text'})
+        source_template = self.post('payload-templates', {
+            'name': 'Source prompt', 'model_family': 'gemini', 'payload': {},
+        })
+        source_step = self.post('workflow-steps', {
+            'name': 'Transcribe', 'step_executor_id': 'gemini', 'method': 'transcribe',
+            'executor_config': {'model': 'test'},
+            'payload_template_id': source_template['id'], 'output_spec_id': specification['id'],
+        })
+        dependent_template = self.post('payload-templates', {
+            'name': 'Review prompt', 'model_family': 'gemini', 'payload': {},
+            'resources': [{
+                'name': 'step_output', 'source_table': 'step_outputs', 'batch_limit': 1,
+                'conditions': [{
+                    'field_name': 'workflow_step_id', 'operator': 'equals',
+                    'value_type': 'manual', 'value': str(source_step['id']),
+                }],
+            }],
+        })
+        dependent_step = self.post('workflow-steps', {
+            'name': 'Review', 'step_executor_id': 'gemini', 'method': 'transcribe',
+            'executor_config': {'model': 'test'},
+            'payload_template_id': dependent_template['id'], 'output_spec_id': specification['id'],
+        })
+
+        valid = self.post('workflows', {'name': 'Valid chain', 'sample_set_id': sample_set['id']})
+        valid_base = f"workflows/{valid['id']}"
+        source_node = self.post(valid_base + '/workflow-dag-nodes', {
+            'workflow_step_id': source_step['id'], 'row': 1, 'col': 1,
+        })
+        dependent_node = self.post(valid_base + '/workflow-dag-nodes', {
+            'workflow_step_id': dependent_step['id'], 'row': 1, 'col': 2,
+        })
+        self.post(valid_base + '/workflow-dag-edges', {
+            'from_workflow_dag_node_id': source_node['id'],
+            'to_workflow_dag_node_id': dependent_node['id'],
+        })
+        response = self.client.patch('/api/v2/' + valid_base + '/finalize')
+        self.assertEqual(200, response.status_code, response.text)
+
+        invalid = self.post('workflows', {'name': 'Invalid chain', 'sample_set_id': sample_set['id']})
+        invalid_base = f"workflows/{invalid['id']}"
+        dependent_node = self.post(invalid_base + '/workflow-dag-nodes', {
+            'workflow_step_id': dependent_step['id'], 'row': 1, 'col': 1,
+        })
+        source_node = self.post(invalid_base + '/workflow-dag-nodes', {
+            'workflow_step_id': source_step['id'], 'row': 1, 'col': 2,
+        })
+        self.post(invalid_base + '/workflow-dag-edges', {
+            'from_workflow_dag_node_id': dependent_node['id'],
+            'to_workflow_dag_node_id': source_node['id'],
+        })
+        response = self.client.patch('/api/v2/' + invalid_base + '/finalize')
+        self.assertEqual(409, response.status_code, response.text)
+        self.assertIn('upstream workflow step', response.json()['detail'])
+
+        cyclic = self.post('workflows', {'name': 'Cycle', 'sample_set_id': sample_set['id']})
+        cyclic_base = f"workflows/{cyclic['id']}"
+        first_node = self.post(cyclic_base + '/workflow-dag-nodes', {
+            'workflow_step_id': source_step['id'], 'row': 1, 'col': 1,
+        })
+        second_node = self.post(cyclic_base + '/workflow-dag-nodes', {
+            'workflow_step_id': source_step['id'], 'row': 1, 'col': 2,
+        })
+        self.post(cyclic_base + '/workflow-dag-edges', {
+            'from_workflow_dag_node_id': first_node['id'],
+            'to_workflow_dag_node_id': second_node['id'],
+        })
+        with self.engine.begin() as connection:
+            connection.execute(metadata.tables['workflow_dag_edges'].insert().values(
+                workflow_id=cyclic['id'],
+                from_workflow_dag_node_id=second_node['id'],
+                to_workflow_dag_node_id=first_node['id'],
+                condition={'type': 'depends_on'},
+            ))
+        response = self.client.patch('/api/v2/' + cyclic_base + '/finalize')
+        self.assertEqual(409, response.status_code, response.text)
+        self.assertIn('contains a cycle', response.json()['detail'])
+
     def test_job_event_subscription_matches_canonical_job_id(self):
         import asyncio
         from unittest.mock import AsyncMock
