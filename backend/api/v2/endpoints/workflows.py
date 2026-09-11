@@ -88,6 +88,11 @@ def validate_workflow_dag(engine, workflow_id: int) -> None:
         nodes_by_step.setdefault(int(node["workflow_step_id"]), []).append(
             int(node["id"])
         )
+    if any(len(node_ids) != 1 for node_ids in nodes_by_step.values()):
+        raise HTTPException(
+            status_code=409,
+            detail="Each workflow step may appear only once in a workflow DAG",
+        )
 
     steps = WorkflowStepsRepository(engine)
     resources = PromptResourcesRepository(engine)

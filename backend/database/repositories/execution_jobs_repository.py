@@ -20,6 +20,76 @@ class ExecutionJobsRepository:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
 
+    @staticmethod
+    def _canvas_order(node: dict[str, Any]) -> tuple[int, int, int]:
+        """Order canvas positions from bottom-left to top-right."""
+        return (-int(node["row"]), int(node["col"]), int(node["id"]))
+
+    def _breadth_first_nodes(self, conn, workflow_id: int) -> list[dict[str, Any]]:
+        rows = conn.execute(
+            select(workflow_dag_nodes).where(
+                workflow_dag_nodes.c.workflow_id == workflow_id
+            )
+        ).mappings().all()
+        nodes = {int(row["id"]): dict(row) for row in rows}
+        if not nodes:
+            return []
+        children = {node_id: [] for node_id in nodes}
+        incoming = {node_id: 0 for node_id in nodes}
+        edges = conn.execute(
+            select(
+                workflow_dag_edges.c.from_workflow_dag_node_id,
+                workflow_dag_edges.c.to_workflow_dag_node_id,
+            ).where(workflow_dag_edges.c.workflow_id == workflow_id)
+        ).mappings().all()
+        for edge in edges:
+            source_id = int(edge["from_workflow_dag_node_id"])
+            target_id = int(edge["to_workflow_dag_node_id"])
+            if source_id not in nodes or target_id not in nodes:
+                raise LookupError(
+                    f"Workflow {workflow_id} has an edge outside its DAG nodes"
+                )
+            children[source_id].append(target_id)
+            incoming[target_id] += 1
+
+        current_level = sorted(
+            (nodes[node_id] for node_id, count in incoming.items() if count == 0),
+            key=self._canvas_order,
+        )
+        ordered: list[dict[str, Any]] = []
+        while current_level:
+            next_level: list[dict[str, Any]] = []
+            for node in current_level:
+                ordered.append(node)
+                for child_id in children[int(node["id"])]:
+                    incoming[child_id] -= 1
+                    if incoming[child_id] == 0:
+                        next_level.append(nodes[child_id])
+            current_level = sorted(next_level, key=self._canvas_order)
+        if len(ordered) != len(nodes):
+            raise LookupError(f"Workflow {workflow_id} DAG contains a cycle")
+        return ordered
+
+    def _next_node_id(
+        self,
+        conn,
+        job: dict[str, Any],
+        completed_step_id: int | None = None,
+    ) -> int | None:
+        completed_step_ids = set(
+            conn.execute(
+                select(step_outputs.c.workflow_step_id).where(
+                    step_outputs.c.execution_job_id == job["id"]
+                )
+            ).scalars().all()
+        )
+        if completed_step_id is not None:
+            completed_step_ids.add(completed_step_id)
+        for node in self._breadth_first_nodes(conn, int(job["workflow_id"])):
+            if int(node["workflow_step_id"]) not in completed_step_ids:
+                return int(node["id"])
+        return None
+
     def list_for_workflow(self, workflow_id: int) -> list[dict[str, Any]]:
         with self.engine.connect() as conn:
             rows = (
@@ -66,16 +136,8 @@ class ExecutionJobsRepository:
         if not sample_ids:
             return
         with self.engine.begin() as conn:
-            initial_node_id = conn.execute(
-                select(workflow_dag_nodes.c.id)
-                .where(workflow_dag_nodes.c.workflow_id == workflow_id)
-                .order_by(
-                    workflow_dag_nodes.c.row.asc(),
-                    workflow_dag_nodes.c.col.asc(),
-                    workflow_dag_nodes.c.id.asc(),
-                )
-                .limit(1)
-            ).scalar_one_or_none()
+            initial_nodes = self._breadth_first_nodes(conn, workflow_id)
+            initial_node_id = int(initial_nodes[0]["id"]) if initial_nodes else None
             if initial_node_id is None:
                 raise LookupError(f"Workflow {workflow_id} has no executable DAG node")
             for sample_id in sample_ids:
@@ -180,18 +242,8 @@ class ExecutionJobsRepository:
                 .mappings()
                 .one()
             )
-            node_id = (
-                job["current_workflow_dag_node_id"]
-                or conn.execute(
-                    select(workflow_dag_nodes.c.id)
-                    .where(workflow_dag_nodes.c.workflow_id == job["workflow_id"])
-                    .order_by(
-                        workflow_dag_nodes.c.row,
-                        workflow_dag_nodes.c.col,
-                        workflow_dag_nodes.c.id,
-                    )
-                    .limit(1)
-                ).scalar_one_or_none()
+            node_id = job["current_workflow_dag_node_id"] or self._next_node_id(
+                conn, dict(job)
             )
             if node_id is None:
                 raise LookupError(
@@ -231,17 +283,10 @@ class ExecutionJobsRepository:
         return {**job, "workflow_dag_node_id": node_id, "workflow_step_id": step_id}
 
     def complete_job_and_advance(self, job: dict[str, Any]) -> str:
-        node_id = int(job["workflow_dag_node_id"])
         with self.engine.begin() as conn:
-            next_node = conn.execute(
-                select(workflow_dag_edges.c.to_workflow_dag_node_id)
-                .where(
-                    workflow_dag_edges.c.workflow_id == job["workflow_id"],
-                    workflow_dag_edges.c.from_workflow_dag_node_id == node_id,
-                )
-                .order_by(workflow_dag_edges.c.id)
-                .limit(1)
-            ).scalar_one_or_none()
+            next_node = self._next_node_id(
+                conn, job, completed_step_id=int(job["workflow_step_id"])
+            )
             values = (
                 {"status": "completed"}
                 if next_node is None

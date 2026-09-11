@@ -4,6 +4,7 @@ from backend.services.dev_settings import DevSettings
 import asyncio
 import unittest
 from unittest import mock
+from datetime import datetime, timezone
 
 from sqlalchemy import create_engine, insert, select, update
 
@@ -18,6 +19,7 @@ from backend.database.tables.workflow_dag_edges_table import workflow_dag_edges
 from backend.database.tables.workflow_dag_nodes_table import workflow_dag_nodes
 from backend.database.tables.workflow_steps_table import workflow_steps
 from backend.database.tables.workflows_table import workflows
+from backend.database.tables.step_outputs_table import step_outputs
 from backend.services.clients.stub_client import StubModelClient
 from backend.services.step_executor_factory import StepExecutorFactory
 from backend.services.payload_builder import PayloadBuilder
@@ -76,30 +78,42 @@ class ExecutionLifecycleTests(unittest.TestCase):
             connection.execute(insert(workflow_steps), [
                 {'id': i, 'name': f'step-{i}', 'step_executor_id': 'gemini',
                  'method': 'transcribe', 'executor_config': {'model': 'test'}}
-                for i in (1, 2)
+                for i in (1, 2, 3, 4)
             ])
             connection.execute(insert(workflow_dag_nodes), [
-                {'id': i, 'workflow_id': 1, 'workflow_step_id': i, 'row': 1, 'col': i}
-                for i in (1, 2)
+                {'id': 1, 'workflow_id': 1, 'workflow_step_id': 1, 'row': 2, 'col': 1},
+                {'id': 2, 'workflow_id': 1, 'workflow_step_id': 2, 'row': 1, 'col': 1},
+                {'id': 3, 'workflow_id': 1, 'workflow_step_id': 3, 'row': 2, 'col': 2},
+                {'id': 4, 'workflow_id': 1, 'workflow_step_id': 4, 'row': 1, 'col': 2},
             ])
-            connection.execute(insert(workflow_dag_edges).values(
-                workflow_id=1, from_workflow_dag_node_id=1, to_workflow_dag_node_id=2))
+            connection.execute(insert(workflow_dag_edges), [
+                {'workflow_id': 1, 'from_workflow_dag_node_id': 1, 'to_workflow_dag_node_id': 3},
+                {'workflow_id': 1, 'from_workflow_dag_node_id': 2, 'to_workflow_dag_node_id': 4},
+            ])
         self.repository = ExecutionJobsRepository(self.engine)
         self.repository.create_jobs(workflow_id=1, sample_ids=['sample-1'])
         self.repository.queue(1, [1])
 
-    def test_same_job_advances_through_both_nodes(self):
-        job = self.repository.claim_next_job()
-        self.assertEqual(1, job['id'])
-        self.assertEqual(1, job['workflow_step_id'])
-        self.assertEqual('queued', self.repository.complete_job_and_advance(job))
-        next_job = self.repository.claim_next_job()
-        self.assertEqual(job['id'], next_job['id'])
-        self.assertEqual(2, next_job['current_workflow_dag_node_id'])
-        self.assertEqual(2, next_job['workflow_step_id'])
-        self.assertEqual('completed', self.repository.complete_job_and_advance(next_job))
+    def test_same_job_advances_in_bottom_left_breadth_first_order(self):
+        executed_steps = []
+        for expected_step_id in (1, 2, 3, 4):
+            job = self.repository.claim_next_job()
+            self.assertIsNotNone(job)
+            self.assertEqual(expected_step_id, job['workflow_step_id'])
+            executed_steps.append(job['workflow_step_id'])
+            with self.engine.begin() as connection:
+                connection.execute(insert(step_outputs).values(
+                    execution_job_id=job['id'], workflow_id=1,
+                    workflow_step_id=job['workflow_step_id'], sample_id='sample-1',
+                    attempt_no=1, assembled_model_payload={}, raw_model_response='done',
+                    time_elapsed=0.0, started_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(timezone.utc),
+                ))
+            expected_status = 'completed' if expected_step_id == 4 else 'queued'
+            self.assertEqual(expected_status, self.repository.complete_job_and_advance(job))
         self.assertIsNone(self.repository.claim_next_job())
         self.assertEqual(1, len(self.repository.list_for_workflow(1)))
+        self.assertEqual([1, 2, 3, 4], executed_steps)
 
     def test_job_creation_is_idempotent(self):
         self.repository.create_jobs(workflow_id=1, sample_ids=['sample-1'])
