@@ -1,6 +1,6 @@
 "use client";
 
-import { EmptyState, Panel } from "../../ui/primitives/index.js";
+import { EmptyState, Panel, Stack } from "../../ui/primitives/index.js";
 import { WorkflowBuilderCanvas } from "./WorkflowBuilderCanvas.js";
 import { WorkflowBuilderMetadataForm } from "./WorkflowBuilderMetadataForm.js";
 import { WorkflowBuilderPageHeader } from "./WorkflowBuilderPageHeader.js";
@@ -34,14 +34,23 @@ export function WorkflowBuilderPageView({ state, actions }) {
         workflows={state.workflows}
         selectedWorkflowId={state.selectedWorkflowId || ""}
         onSelectWorkflow={actions.selectWorkflow}
+        onNewWorkflow={() => actions.selectWorkflow("")}
         onSave={actions.saveWorkflow}
         onFinalize={actions.finalizeWorkflow}
       />
-      <div className="workflow-builder-grid">
+      <div
+        className="workflow-builder-grid"
+        style={{ minHeight: "calc(100dvh - 190px)" }}
+      >
         <aside className="workflow-builder-sidebar">
-          <WorkflowBuilderMetadataForm state={state} actions={actions} />
+          <Stack>
+            <WorkflowBuilderMetadataForm state={state} actions={actions} />
+          </Stack>
         </aside>
-        <section className="workflow-builder-workbench">
+        <section
+          className="workflow-builder-workbench"
+          style={{ minHeight: "calc(100dvh - 190px)" }}
+        >
           <WorkflowBuilderCanvas state={state} actions={actions} />
         </section>
       </div>

@@ -1,5 +1,3 @@
-@import "../globals.css";
-
 @import "./tokens.css";
 @import "./reset.css";
 @import "./utilities.css";
@@ -17,5 +15,6 @@
 @import "./pages/file-management.css";
 @import "./pages/workflow-steps.css";
 @import "./pages/dashboard.css";
+@import "./pages/analysis.css";
 @import "./pages/workflow-builder.css";
 @import "./pages/workspace.css";

@@ -5,16 +5,17 @@ import { useEffect, useState } from "react";
 import {
   CollapsibleSection,
   Button,
+  DataTable,
   EmptyState,
   Icon,
   IconButton,
-  ListRow,
   LoadingPlaceholder,
   Panel,
   Select,
   Stack,
   StatusBadge,
 } from "../../ui/primitives/index.js";
+import { formatDate } from "../../utils/date.js";
 
 function metricValue(value) {
   return value == null || Number.isNaN(Number(value))
@@ -31,6 +32,7 @@ function boxPlotValues(summary) {
   const min = Number(summary?.min);
   const max = Number(summary?.max);
   const median = Number(summary?.median ?? summary?.mean);
+  const mean = summary?.mean == null ? null : Number(summary.mean);
   if (![min, max, median].every(Number.isFinite)) return null;
 
   const q1 = Number(summary?.q1);
@@ -39,6 +41,7 @@ function boxPlotValues(summary) {
     min,
     q1: Number.isFinite(q1) ? q1 : (min + median) / 2,
     median,
+    mean: mean != null && Number.isFinite(mean) ? mean : null,
     q3: Number.isFinite(q3) ? q3 : (median + max) / 2,
     max,
   };
@@ -120,7 +123,7 @@ function MetricBoxPlot({ label, unit, series, scale }) {
               {values ? (
                 <div
                   className={`analytics-boxplot-track analytics-boxplot-track--${index + 1}`}
-                  title={`Min ${metricValue(values.min)} · Q1 ${metricValue(values.q1)} · Median ${metricValue(values.median)} · Q3 ${metricValue(values.q3)} · Max ${metricValue(values.max)}`}
+                  title={`Min ${metricValue(values.min)} · Q1 ${metricValue(values.q1)} · Median ${metricValue(values.median)} · Mean ${metricValue(values.mean)} · Q3 ${metricValue(values.q3)} · Max ${metricValue(values.max)}`}
                 >
                   <span
                     className="analytics-boxplot-whisker analytics-boxplot-whisker--left"
@@ -136,6 +139,13 @@ function MetricBoxPlot({ label, unit, series, scale }) {
                     className="analytics-boxplot-whisker analytics-boxplot-whisker--right"
                     style={{ left: `${position(values.q3)}%`, right: `${100 - position(values.max)}%` }}
                   />
+                  {values.mean != null ? (
+                    <span
+                      className="analytics-boxplot-mean"
+                      style={{ left: `${position(values.mean)}%` }}
+                      aria-label={`Mean ${metricValue(values.mean)}`}
+                    />
+                  ) : null}
                   {overflow ? <span className="analytics-boxplot-overflow">---</span> : null}
                 </div>
               ) : (
@@ -198,29 +208,55 @@ function WorkflowMetrics({ series, sampleCount }) {
   );
 }
 
-function WorkflowRow({ workflow, onDelete }) {
-  const name = workflow.name || `Workflow ${workflow.id}`;
-  const detail = [
-    workflow.status,
-    workflow.description,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    <ListRow
-      title={name}
-      detail={detail || "No model details"}
-      action={
+function workflowColumns(onDeleteWorkflow) {
+  return [
+    {
+      id: "name",
+      label: "Name",
+      width: "34%",
+      className: "ui-data-table__primary",
+      render: (workflow) => workflow.name || `Workflow ${workflow.id}`,
+    },
+    {
+      id: "status",
+      label: "Status",
+      width: "18%",
+      render: (workflow) => (
+        <StatusBadge>{workflow.status || "draft"}</StatusBadge>
+      ),
+    },
+    {
+      id: "updated",
+      label: "Updated",
+      width: "24%",
+      render: (workflow) =>
+        formatDate(workflow.updated_at || workflow.created_at) || "—",
+    },
+    {
+      id: "description",
+      label: "Description",
+      width: "18%",
+      render: (workflow) => workflow.description || "—",
+    },
+    {
+      id: "actions",
+      label: "",
+      width: "6%",
+      className: "ui-data-table__actions",
+      render: (workflow) => {
+        const name = workflow.name || `Workflow ${workflow.id}`;
+        return (
         <IconButton
           label={`Delete workflow ${name}`}
           variant="danger"
-          onClick={onDelete}
+          onClick={() => onDeleteWorkflow?.(Number(workflow.id), name)}
         >
           <Icon name="delete" />
         </IconButton>
-      }
-    />
-  );
+        );
+      },
+    },
+  ];
 }
 
 export function SampleSetAnalyticsPanel({
@@ -232,11 +268,11 @@ export function SampleSetAnalyticsPanel({
   onDeleteWorkflow,
 }) {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState("");
-  const [comparisonWorkflowId, setComparisonWorkflowId] = useState("");
-  const [comparing, setComparing] = useState(false);
+  const [comparisonWorkflowIds, setComparisonWorkflowIds] = useState([]);
   const workflowsForSelection = sampleSetAnalytics?.workflows || [];
   useEffect(() => {
     setSelectedWorkflowId(String(workflowsForSelection[0]?.id || ""));
+    setComparisonWorkflowIds([]);
   }, [sampleSetAnalytics]);
   if (analyticsError) {
     return (
@@ -274,20 +310,14 @@ export function SampleSetAnalyticsPanel({
     metrics: {},
     completed_sample_count: 0,
   };
-  const comparisonAnalytics = analyticsByWorkflow[
-    String(comparisonWorkflowId || selectedWorkflowId)
-  ] || {
-    metrics: {},
-    completed_sample_count: 0,
-  };
   const selectedWorkflow = workflows.find(
     (item) => String(item.id) === String(selectedWorkflowId),
   );
-  const comparisonWorkflow = workflows.find(
-    (item) =>
-      String(item.id) ===
-      String(comparisonWorkflowId || selectedWorkflowId),
-  );
+  const comparisonWorkflows = comparisonWorkflowIds
+    .map((workflowId) =>
+      workflows.find((item) => String(item.id) === String(workflowId)),
+    )
+    .filter(Boolean);
   const chartSeries = [
     {
       workflowId: selectedWorkflow?.id,
@@ -295,17 +325,34 @@ export function SampleSetAnalyticsPanel({
       metrics: selectedAnalytics.metrics,
       completedCount: selectedAnalytics.completed_sample_count,
     },
-    ...(comparing
-      ? [
-          {
-            workflowId: comparisonWorkflow?.id,
-            label: comparisonWorkflow?.name || "Comparison workflow",
-            metrics: comparisonAnalytics.metrics,
-            completedCount: comparisonAnalytics.completed_sample_count,
-          },
-        ]
-      : []),
+    ...comparisonWorkflows.map((comparisonWorkflow) => {
+      const comparisonAnalytics = analyticsByWorkflow[
+        String(comparisonWorkflow.id)
+      ] || { metrics: {}, completed_sample_count: 0 };
+      return {
+        workflowId: comparisonWorkflow.id,
+        label: comparisonWorkflow.name || "Comparison workflow",
+        metrics: comparisonAnalytics.metrics,
+        completedCount: comparisonAnalytics.completed_sample_count,
+      };
+    }),
   ];
+
+  function addComparison() {
+    const alternative = workflows.find(
+      (item) =>
+        String(item.id) !== String(selectedWorkflowId) &&
+        !comparisonWorkflowIds.includes(String(item.id)),
+    );
+    if (!alternative) return;
+    setComparisonWorkflowIds((current) => [...current, String(alternative.id)]);
+  }
+
+  function updateComparison(index, workflowId) {
+    setComparisonWorkflowIds((current) =>
+      current.map((item, itemIndex) => (itemIndex === index ? workflowId : item)),
+    );
+  }
 
   return (
     <Stack>
@@ -325,14 +372,12 @@ export function SampleSetAnalyticsPanel({
               </option>
             ))}
           </Select>
-          {comparing ? (
-            <>
+          {comparisonWorkflowIds.map((comparisonWorkflowId, index) => (
+            <div className="analytics-workflow-comparison" key={`${comparisonWorkflowId}-${index}`}>
               <span className="analytics-workflow-versus">vs.</span>
               <Select
-                value={comparisonWorkflowId || selectedWorkflowId}
-                onChange={(event) =>
-                  setComparisonWorkflowId(event.target.value)
-                }
+                value={comparisonWorkflowId}
+                onChange={(event) => updateComparison(index, event.target.value)}
               >
                 {workflows.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -340,59 +385,52 @@ export function SampleSetAnalyticsPanel({
                   </option>
                 ))}
               </Select>
-              <Button size="compact" onClick={() => setComparing(false)}>
+              <Button size="compact" onClick={() => setComparisonWorkflowIds((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
                 Remove compare
               </Button>
-            </>
-          ) : (
+            </div>
+          ))}
+          {comparisonWorkflowIds.length < 3 ? (
             <Button
               size="compact"
-              onClick={() => {
-                const alternative = workflows.find(
-                  (item) => String(item.id) !== String(selectedWorkflowId),
-                );
-                setComparisonWorkflowId(
-                  String(alternative?.id || selectedWorkflowId),
-                );
-                setComparing(true);
-              }}
+              onClick={addComparison}
+              disabled={!workflows.some(
+                (item) =>
+                  String(item.id) !== String(selectedWorkflowId) &&
+                  !comparisonWorkflowIds.includes(String(item.id)),
+              )}
             >
               + Compare
             </Button>
-          )}
+          ) : null}
         </div>
       </Panel>
       <WorkflowMetrics series={chartSeries} sampleCount={sampleCount} />
       <CollapsibleSection title="Workflows" count={workflows.length}>
-        <Stack gap="compact">
-          {workflows.length ? (
-            workflows.map((item) => (
-              <WorkflowRow
-                key={item.id}
-                workflow={item}
-                onDelete={() =>
-                  onDeleteWorkflow?.(
-                    Number(item.id),
-                    item.name || `Workflow ${item.id}`,
-                  )
-                }
-              />
-            ))
-          ) : (
-            <EmptyState title="No workflows" />
-          )}
-        </Stack>
+        <div className="dashboard-workflow-list">
+          <DataTable
+            ariaLabel="Sample set workflows"
+            columns={workflowColumns(onDeleteWorkflow)}
+            rows={workflows}
+            emptyState="No workflows are connected to this sample set."
+          />
+        </div>
       </CollapsibleSection>
       <CollapsibleSection title="Samples" count={sampleIds.length}>
-        <Stack gap="compact">
-          {sampleIds.length ? (
-            sampleIds.map((sampleId) => (
-              <ListRow key={sampleId} title={String(sampleId)} />
-            ))
-          ) : (
-            <EmptyState title="No samples" />
-          )}
-        </Stack>
+        <div className="dashboard-sample-list">
+          <DataTable
+            ariaLabel="Sample set samples"
+            columns={[
+              {
+                id: "id",
+                label: "Sample",
+                className: "ui-data-table__primary",
+              },
+            ]}
+            rows={sampleIds.map((sampleId) => ({ id: String(sampleId) }))}
+            emptyState="No samples are connected to this sample set."
+          />
+        </div>
       </CollapsibleSection>
     </Stack>
   );

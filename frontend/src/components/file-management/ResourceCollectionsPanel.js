@@ -2,10 +2,11 @@
 
 import {
   Button,
-  EmptyState,
+  DataTable,
   Inline,
-  SelectableRow,
+  StatusBadge,
 } from "../../ui/primitives/index.js";
+import { formatDate } from "../../utils/date.js";
 import { FileManagementListPanel } from "./FileManagementListPanel.js";
 import {
   createDerivativeGroupFilterConfig,
@@ -13,23 +14,52 @@ import {
   visibleRecordsForType,
 } from "../../hooks/file-management/fileManagementShared.js";
 
-function CollectionRow({ type, record, selected, onSelectedChange }) {
+function collectionName(type, record) {
   const isSampleSet = type === "sampleSet";
-  const name = isSampleSet
+  return isSampleSet
     ? record.name || `Sample set ${record.id}`
     : record.name || `Derivative group ${record.id}`;
-  const details = isSampleSet
-    ? `${(record.sample_ids || []).length} samples`
-    : record.mapping_type || "Mapping group";
+}
 
-  return (
-    <SelectableRow
-      title={name}
-      detail={[details, record.created_at].filter(Boolean).join(" / ")}
-      selected={selected}
-      onSelectedChange={onSelectedChange}
-    />
-  );
+function collectionColumns(type) {
+  const isSampleSet = type === "sampleSet";
+  return [
+    {
+      id: "name",
+      label: "Name",
+      width: "38%",
+      className: "ui-data-table__primary",
+      render: (record) => collectionName(type, record),
+    },
+    isSampleSet
+      ? {
+          id: "samples",
+          label: "Samples",
+          width: "18%",
+          className: "ui-data-table__numeric",
+          render: (record) => (record.sample_ids || []).length,
+        }
+      : {
+          id: "mappingType",
+          label: "Mapping type",
+          width: "24%",
+          render: (record) => record.mapping_type || "—",
+        },
+    {
+      id: "status",
+      label: "Status",
+      width: "18%",
+      render: (record) => (
+        <StatusBadge>{record.status || "draft"}</StatusBadge>
+      ),
+    },
+    {
+      id: "created",
+      label: "Created",
+      width: isSampleSet ? "26%" : "20%",
+      render: (record) => formatDate(record.created_at) || "—",
+    },
+  ];
 }
 
 export function ResourceCollectionsPanel({ state, actions }) {
@@ -89,29 +119,32 @@ export function ResourceCollectionsPanel({ state, actions }) {
       ) : null}
     </Inline>
   );
-  const rows = state.loading ? (
-    <EmptyState>
-      Loading {isSampleSet ? "sample sets" : "derivative groups"}...
-    </EmptyState>
-  ) : records.length ? (
-    records.map((record) => (
-      <CollectionRow
-        key={isSampleSet ? record.id : record.id}
-        type={type}
-        record={record}
-        selected={selectedIds.includes(
-          String(isSampleSet ? record.id : record.id),
-        )}
-        onSelectedChange={(selected) =>
-          actions.toggleCollectionSelection(
-            type,
-            isSampleSet ? record.id : record.id,
-            selected,
-          )
-        }
-      />
-    ))
-  ) : null;
+  const rows = (
+    <DataTable
+      ariaLabel={isSampleSet ? "Sample sets" : "Derivative groups"}
+      columns={collectionColumns(type)}
+      rows={state.loading ? [] : records}
+      getRowId={(record) => record.id}
+      getRowLabel={(record) => collectionName(type, record)}
+      selectedRowIds={selectedIds}
+      onRowActivate={(record) => {
+        const recordId = String(record.id);
+        actions.toggleCollectionSelection(
+          type,
+          recordId,
+          !selectedIds.includes(recordId),
+        );
+      }}
+      onRowSelectedChange={(record, selected) =>
+        actions.toggleCollectionSelection(type, record.id, selected)
+      }
+      emptyState={
+        state.loading
+          ? `Loading ${isSampleSet ? "sample sets" : "derivative groups"}...`
+          : `No ${isSampleSet ? "sample sets" : "derivative groups"} match the current filters.`
+      }
+    />
+  );
 
   return (
     <FileManagementListPanel

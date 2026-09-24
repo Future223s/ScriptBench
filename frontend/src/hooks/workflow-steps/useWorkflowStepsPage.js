@@ -30,6 +30,7 @@ function createCatalogState() {
     workflowSteps: [],
     outputSpecs: [],
     assets: [],
+    documents: [],
     samples: [],
     derivatives: [],
   };
@@ -41,28 +42,10 @@ function createDerivativeGroupDraftState() {
     description: "",
     mappingType: "one-to-many",
     ordering: "alphabetical",
-    membershipDerivativeField: "name",
-    membershipOperator: "contains",
-    membershipPattern: "",
-    membershipCaseSensitive: false,
     membershipConditions: [
       {
         field: "name",
-        operator: "contains",
-        valueType: "manual",
         value: "",
-      },
-    ],
-    sampleMappingDerivativeField: "name",
-    sampleMappingSampleField: "name",
-    sampleMappingOperator: "contains",
-    sampleMappingCaseSensitive: false,
-    sampleMappingConditions: [
-      {
-        field: "name",
-        operator: "contains",
-        valueType: "sample-field",
-        value: "name",
       },
     ],
   };
@@ -105,10 +88,11 @@ const TABLE_SOURCE_FIELDS = {
     "workflow_id",
     "workflow_step_id",
     "sample_id",
-    "parsed_output",
-    "parse_status",
-    "parse_error",
-    "completed_at",
+    "output_scope",
+    "entity_type",
+    "entity_key",
+    "output",
+    "created_at",
   ],
 };
 
@@ -124,11 +108,9 @@ function createTableSourceConfig() {
 function createOutputSpecDraftState() {
   return {
     name: "",
-    type: "json",
     instructions: "",
-    schemaMode: "fields",
+    itemType: "string",
     fields: [],
-    itemSchema: "{}",
   };
 }
 
@@ -138,6 +120,8 @@ function createWorkflowStepDraftState() {
     stepExecutor: "",
     method: "",
     executorConfig: {},
+    executionScope: "samples",
+    outputScope: "samples",
     payloadTemplateId: "",
     outputSpecId: "",
   };
@@ -236,6 +220,7 @@ export function useWorkflowStepsPage() {
       workflowStepsResult,
       outputSpecsResult,
       assetsResult,
+      documentsResult,
       samplesResult,
       derivativesResult,
       executorsResult,
@@ -246,6 +231,7 @@ export function useWorkflowStepsPage() {
       workflowStepsApi.getWorkflowSteps(),
       workflowStepsApi.getOutputSpecs(),
       workflowStepsApi.getAssets(),
+      workflowStepsApi.getDocuments(),
       workflowStepsApi.getSamples(),
       workflowStepsApi.getDerivatives(),
       workflowStepsApi.getStepExecutors(),
@@ -264,6 +250,7 @@ export function useWorkflowStepsPage() {
     if (outputSpecsResult.status === "rejected")
       failures.push(outputSpecsResult.reason);
     if (assetsResult.status === "rejected") failures.push(assetsResult.reason);
+    if (documentsResult.status === "rejected") failures.push(documentsResult.reason);
     if (samplesResult.status === "rejected")
       failures.push(samplesResult.reason);
     if (derivativesResult.status === "rejected")
@@ -294,6 +281,10 @@ export function useWorkflowStepsPage() {
       assets:
         assetsResult.status === "fulfilled"
           ? extractSourceItems(assetsResult.value)
+          : [],
+      documents:
+        documentsResult.status === "fulfilled"
+          ? extractSourceItems(documentsResult.value)
           : [],
       samples:
         samplesResult.status === "fulfilled"
@@ -623,7 +614,10 @@ export function useWorkflowStepsPage() {
   function addOutputSpecField() {
     setCreateOutputSpecDraft((current) => ({
       ...current,
-      fields: [...current.fields, { name: "", description: "" }],
+      fields: [
+        ...current.fields,
+        { name: "", type: "string", required: true, description: "" },
+      ],
     }));
   }
   function updateOutputSpecField(index, field, value) {
@@ -648,13 +642,27 @@ export function useWorkflowStepsPage() {
     try {
       setCreateOutputSpecLoading(true);
       setError("");
-      const itemSchema =
-        createOutputSpecDraft.schemaMode === "fields"
-          ? { fields: createOutputSpecDraft.fields }
-          : JSON.parse(createOutputSpecDraft.itemSchema || "{}");
+      const itemSchema = createOutputSpecDraft.itemType === "string"
+        ? { type: "string" }
+        : {
+            type: "object",
+            properties: Object.fromEntries(
+              createOutputSpecDraft.fields
+                .filter((field) => field.name.trim())
+                .map((field) => [
+                  field.name.trim(),
+                  {
+                    type: field.type,
+                    required: Boolean(field.required),
+                    ...(field.description.trim()
+                      ? { description: field.description.trim() }
+                      : {}),
+                  },
+                ]),
+            ),
+          };
       await workflowStepsApi.createOutputSpec({
         name: createOutputSpecDraft.name.trim(),
-        type: createOutputSpecDraft.type,
         instructions: createOutputSpecDraft.instructions.trim() || null,
         item_schema: itemSchema,
       });
@@ -689,6 +697,7 @@ export function useWorkflowStepsPage() {
   function workflowStepError(stage) {
     const draft = createWorkflowStepDraft;
     if (!draft.stepName.trim() || !draft.stepExecutor) return "Step name and executor are required.";
+    if (!draft.executionScope || !draft.outputScope) return "Execution and output scopes are required.";
     const executor = executorDefinition;
     if (!catalogs.stepExecutors.some((item) => item.id === draft.stepExecutor)) return "Select an available executor.";
     if (stage >= 2) {
@@ -713,6 +722,10 @@ export function useWorkflowStepsPage() {
     }
     if (stage >= 3 && !draft.payloadTemplateId) return "Select a payload template.";
     if (stage >= 4 && !draft.outputSpecId) return "Select an output specification.";
+    if (stage >= 4 && (draft.executionScope.endsWith("_batch") || draft.outputScope.endsWith("_batch"))) {
+      const outputSpec = catalogs.outputSpecs.find((item) => String(item.id) === String(draft.outputSpecId));
+      if (outputSpec?.type !== "json") return "Batch scopes require a JSON output specification.";
+    }
     return "";
   }
   async function nextCreateWorkflowStep() {
@@ -757,6 +770,8 @@ export function useWorkflowStepsPage() {
         step_executor_id: createWorkflowStepDraft.stepExecutor,
         method: createWorkflowStepDraft.method,
         executor_config: Object.fromEntries(Object.entries(createWorkflowStepDraft.executorConfig).filter(([, value]) => value != null && value !== "")),
+        execution_scope: createWorkflowStepDraft.executionScope,
+        output_scope: createWorkflowStepDraft.outputScope,
         payload_template_id: Number(createWorkflowStepDraft.payloadTemplateId),
         output_spec_id: Number(createWorkflowStepDraft.outputSpecId),
       });
@@ -802,10 +817,10 @@ export function useWorkflowStepsPage() {
         ...current.resources,
         {
           name: "",
+          type: "binding",
           table: "",
-          conditions: [],
-          cardinality: "many",
-          batchLimit: 1,
+          rowId: "",
+          rowLabel: "",
         },
       ],
     }));
@@ -814,64 +829,16 @@ export function useWorkflowStepsPage() {
     setCreatePayloadTemplateDraft((current) => ({
       ...current,
       resources: current.resources.map((resource, resourceIndex) =>
-        resourceIndex === index ? { ...resource, [field]: value } : resource,
-      ),
-    }));
-  }
-  function updatePayloadResourceCondition(
-    resourceIndex,
-    conditionIndex,
-    field,
-    value,
-  ) {
-    setCreatePayloadTemplateDraft((current) => ({
-      ...current,
-      resources: current.resources.map((resource, index) =>
-        index === resourceIndex
-          ? {
-              ...resource,
-              conditions: resource.conditions.map((condition, itemIndex) =>
-                itemIndex === conditionIndex
-                  ? { ...condition, [field]: value }
-                  : condition,
-              ),
-            }
-          : resource,
-      ),
-    }));
-  }
-  function addPayloadResourceCondition(index) {
-    setCreatePayloadTemplateDraft((current) => ({
-      ...current,
-      resources: current.resources.map((resource, resourceIndex) =>
         resourceIndex === index
-          ? {
-              ...resource,
-              conditions: [
-                ...resource.conditions,
-                {
-                  field: "",
-                  operator: "equals",
-                  valueType: "manual",
-                  value: "",
-                },
-              ],
-            }
-          : resource,
-      ),
-    }));
-  }
-  function removePayloadResourceCondition(resourceIndex, conditionIndex) {
-    setCreatePayloadTemplateDraft((current) => ({
-      ...current,
-      resources: current.resources.map((resource, index) =>
-        index === resourceIndex
-          ? {
-              ...resource,
-              conditions: resource.conditions.filter(
-                (_, itemIndex) => itemIndex !== conditionIndex,
-              ),
-            }
+          ? field === "table" || field === "type"
+            ? {
+                ...resource,
+                [field]: value,
+                table: field === "type" ? "" : value,
+                rowId: "",
+                rowLabel: "",
+              }
+            : { ...resource, [field]: value }
           : resource,
       ),
     }));
@@ -1074,20 +1041,23 @@ export function useWorkflowStepsPage() {
       const prompt = JSON.parse(draft.promptJson || "{}");
       if (!prompt || typeof prompt !== "object" || Array.isArray(prompt))
         throw new Error("Prompt JSON must be an object.");
+      for (const resource of draft.resources) {
+        if (!resource.name.trim() || !resource.table) {
+          throw new Error("Each prompt-data item needs a name and source.");
+        }
+        if (resource.type === "content" && !resource.rowId) {
+          throw new Error("Choose one database record for each content item.");
+        }
+      }
       const requestPayload = {
         name: draft.name.trim(),
         model_family: draft.modelFamily.trim(),
         payload: prompt,
         resources: draft.resources.map((resource) => ({
           name: resource.name.trim(),
+          type: resource.type,
           source_table: resource.table,
-          batch_limit: Number(resource.batchLimit) || 1,
-          conditions: resource.conditions.map((condition) => ({
-            field_name: condition.field,
-            operator: condition.operator,
-            value_type: condition.valueType,
-            value: condition.value,
-          })),
+          row_id: resource.type === "content" ? resource.rowId : null,
         })),
       };
       console.log("[PayloadTemplate] create request payload", requestPayload);
@@ -1120,8 +1090,7 @@ export function useWorkflowStepsPage() {
   }
 
   function updateDerivativeGroupCondition(kind, index, field, value) {
-    const conditionsField =
-      kind === "membership" ? "membershipConditions" : "sampleMappingConditions";
+    const conditionsField = "membershipConditions";
     setCreateDerivativeGroupDraft((current) => ({
       ...current,
       [conditionsField]: current[conditionsField].map((condition, conditionIndex) =>
@@ -1131,25 +1100,21 @@ export function useWorkflowStepsPage() {
   }
 
   function addDerivativeGroupCondition(kind) {
-    const conditionsField =
-      kind === "membership" ? "membershipConditions" : "sampleMappingConditions";
+    const conditionsField = "membershipConditions";
     setCreateDerivativeGroupDraft((current) => ({
       ...current,
       [conditionsField]: [
         ...current[conditionsField],
         {
           field: "name",
-          operator: "contains",
-          valueType: kind === "membership" ? "manual" : "sample-field",
-          value: kind === "membership" ? "" : "name",
+          value: "",
         },
       ],
     }));
   }
 
   function removeDerivativeGroupCondition(kind, index) {
-    const conditionsField =
-      kind === "membership" ? "membershipConditions" : "sampleMappingConditions";
+    const conditionsField = "membershipConditions";
     setCreateDerivativeGroupDraft((current) => ({
       ...current,
       [conditionsField]: current[conditionsField].filter(
@@ -1159,28 +1124,8 @@ export function useWorkflowStepsPage() {
   }
 
   function nextCreateDerivativeGroupStep() {
-    if (createDerivativeGroupStep === 1) {
-      if (!createDerivativeGroupDraft.groupName.trim()) {
-        setError("Derivative group name is required.");
-        return;
-      }
-    }
-    if (createDerivativeGroupStep === 2) {
-      if (!createDerivativeGroupDraft.membershipConditions.some(
-        (condition) => condition.field && condition.value.trim(),
-      )) {
-        setError("Add a membership condition.");
-        return;
-      }
-    }
-    if (createDerivativeGroupStep === 3 && !createDerivativeGroupDraft.sampleMappingConditions.some(
-      (condition) => condition.field && condition.value,
-    )) {
-      setError("Add a sample-mapping condition.");
-      return;
-    }
     setError("");
-    setCreateDerivativeGroupStep((current) => Math.min(4, current + 1));
+    setCreateDerivativeGroupStep((current) => Math.min(3, current + 1));
   }
 
   function previousCreateDerivativeGroupStep() {
@@ -1189,31 +1134,24 @@ export function useWorkflowStepsPage() {
   }
 
   async function submitCreateDerivativeGroup() {
-    if (!createDerivativeGroupDraft.groupName.trim()) {
-      setError("Derivative group name is required.");
-      return;
-    }
-    if (!createDerivativeGroupDraft.membershipConditions.some((condition) => condition.value.trim())) {
-      setError("Membership pattern is required.");
-      return;
-    }
-
     const membershipConditions = createDerivativeGroupDraft.membershipConditions
       .filter((condition) => condition.field && condition.value.trim());
-    const sampleMappingConditions = createDerivativeGroupDraft.sampleMappingConditions
-      .filter((condition) => condition.field && condition.value);
-    if (!membershipConditions.length || !sampleMappingConditions.length) {
-      setError("Add a membership condition and a sample-mapping condition.");
-      return;
-    }
-    const membershipCondition = membershipConditions[0];
-    const sampleMappingCondition = sampleMappingConditions[0];
+    const membershipCondition = membershipConditions[0] || {
+      field: "name",
+      value: "",
+    };
+    const persistedMembershipConditions = membershipConditions.map((condition) => ({
+      field: condition.field,
+      operator: "contains",
+      valueType: "manual",
+      value: condition.value.trim(),
+    }));
 
     try {
       setCreateDerivativeGroupLoading(true);
       setError("");
       await workflowStepsApi.createDerivativeGroup({
-        name: createDerivativeGroupDraft.groupName.trim(),
+        name: createDerivativeGroupDraft.groupName.trim() || "Derivative group",
         description:
           createDerivativeGroupDraft.description.trim() || null,
         mapping_type: createDerivativeGroupDraft.mappingType,
@@ -1221,14 +1159,9 @@ export function useWorkflowStepsPage() {
           strategy: createDerivativeGroupDraft.ordering,
           membership_pattern: membershipCondition.value.trim(),
           membership_derivative_field: membershipCondition.field,
-          membership_operator: membershipCondition.operator,
+          membership_operator: "contains",
           membership_case_sensitive: false,
-          sample_mapping_derivative_field: sampleMappingCondition.field,
-          sample_mapping_sample_field: sampleMappingCondition.value,
-          sample_mapping_operator: sampleMappingCondition.operator,
-          sample_mapping_case_sensitive: false,
-          membership_conditions: membershipConditions,
-          sample_mapping_conditions: sampleMappingConditions,
+          membership_conditions: persistedMembershipConditions,
         },
       });
       await refresh();
@@ -1312,9 +1245,6 @@ export function useWorkflowStepsPage() {
       updatePayloadDraft,
       addPayloadResource,
       updatePayloadResource,
-      updatePayloadResourceCondition,
-      addPayloadResourceCondition,
-      removePayloadResourceCondition,
       removePayloadResource,
       addPayloadMessage,
       updatePayloadMessage,

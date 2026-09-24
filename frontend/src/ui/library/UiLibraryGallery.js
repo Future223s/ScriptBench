@@ -5,6 +5,8 @@ import {
   Button,
   Checkbox,
   CollapsibleSection,
+  CompactFilterBar,
+  DataTable,
   DescriptionList,
   Dialog,
   EmptyState,
@@ -14,13 +16,14 @@ import {
   IconButton,
   ImageFrame,
   Inline,
+  ListPreview,
   ListRow,
   LoadingPlaceholder,
   LoadingState,
   Notification,
   Panel,
   RadioGroup,
-  SelectableRow,
+  SectionTitle,
   SegmentedControl,
   Select,
   Stack,
@@ -32,8 +35,8 @@ import {
 } from "../primitives/index.js";
 
 const options = [
-  { id: "overview", label: "Overview" },
-  { id: "activity", label: "Activity" },
+  { id: "overview", label: "Overview", count: 18 },
+  { id: "activity", label: "Activity", count: 7 },
   { id: "settings", label: "Settings" },
 ];
 const themeNames = {
@@ -48,6 +51,12 @@ const wizardSteps = [
 ];
 const manuscriptPreview =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='460' viewBox='0 0 720 460'%3E%3Crect width='720' height='460' fill='%23ede2cc'/%3E%3Cpath d='M90 60h540v340H90z' fill='%23f9f1df' stroke='%239c8869' stroke-width='3'/%3E%3Cg fill='%23826a51' opacity='.72'%3E%3Cpath d='M130 112h390v7H130zm0 27h445v7H130zm0 27h360v7H130zm0 27h410v7H130zm0 27h350v7H130zm0 27h430v7H130zm0 27h375v7H130zm0 27h445v7H130z'/%3E%3C/g%3E%3C/svg%3E";
+
+const catalogRows = [
+  { id: "sample", name: "EMMO-La115_1r.png", workflow: "Gemini transcription", status: "Ready", updated: "Sep 17" },
+  { id: "artifact", name: "EMMO-La115_1v.png", workflow: "Fable review", status: "Needs review", updated: "Sep 16" },
+  { id: "proof", name: "EMMO-La116_2r.png", workflow: "Gemini transcription", status: "Ready", updated: "Sep 14" },
+];
 
 function WizardExample() {
   const [open, setOpen] = useState(false);
@@ -115,7 +124,7 @@ function WizardExample() {
                 variant="zoomable"
                 src={manuscriptPreview}
                 alt="Selected manuscript sample"
-                caption="La115_1r_EMMO.png"
+                caption="EMMO-La115_1r.png"
               />
               <Stack>
                 <Field label="Sample set">
@@ -150,8 +159,14 @@ export function UiLibraryGallery({ theme }) {
   const [mode, setMode] = useState("review");
   const [visibility, setVisibility] = useState("team");
   const [selectedFiles, setSelectedFiles] = useState(["sample"]);
-  const [selectedResource, setSelectedResource] = useState("payload");
+  const [selectedRecord, setSelectedRecord] = useState("sample");
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogWorkflow, setCatalogWorkflow] = useState("");
   const themeName = themeNames[theme];
+  const visibleCatalogRows = catalogRows.filter((row) =>
+    (!catalogQuery || row.name.toLowerCase().includes(catalogQuery.toLowerCase())) &&
+    (!catalogWorkflow || row.workflow === catalogWorkflow));
+  const previewRecord = catalogRows.find((row) => row.id === selectedRecord);
 
   return (
     <main className="ui-library-page" data-ui-theme={theme}>
@@ -309,83 +324,70 @@ export function UiLibraryGallery({ theme }) {
         <WizardExample />
       </section>
       <section className="ui-library-section">
-        <h2>Containers and rows</h2>
-        <div className="ui-library-grid">
-          <Panel
-            eyebrow="Sample set"
-            title="Standard panel"
-            actions={<Button size="compact">Button / compact</Button>}
-          >
-            <div className="ui-library-stack">
-              <ListRow
-                title="EMMO manuscript pages"
-                detail="48 samples"
-                action={<StatusBadge tone="success">Ready</StatusBadge>}
-              />
-              <ListRow
-                title="Pending import"
-                detail="6 samples"
-                selected
-                action={<Button size="compact">Button / compact</Button>}
-              />
-            </div>
-          </Panel>
-          <Panel variant="inset" title="Inset panel">
-            Supporting content uses the same locked spacing, border, and type
-            scale.
-          </Panel>
-        </div>
+        <h2>Structured browsing</h2>
+        <CompactFilterBar
+          filters={[
+            { id: "catalog-search", label: "Search samples", value: catalogQuery, onChange: setCatalogQuery },
+            {
+              id: "catalog-workflow",
+              label: "Workflow",
+              kind: "select",
+              value: catalogWorkflow,
+              onChange: setCatalogWorkflow,
+              options: [
+                { value: "", label: "All workflows" },
+                { value: "Gemini transcription", label: "Gemini transcription" },
+                { value: "Fable review", label: "Fable review" },
+              ],
+            },
+            {
+              id: "catalog-status",
+              label: "Status",
+              kind: "select",
+              value: "",
+              onChange: () => {},
+              overflow: true,
+              options: [{ value: "", label: "All statuses" }, { value: "ready", label: "Ready" }],
+            },
+          ]}
+          activeFilters={[
+            ...(catalogQuery ? [{ id: "query", label: `Search: ${catalogQuery}`, onRemove: () => setCatalogQuery("") }] : []),
+            ...(catalogWorkflow ? [{ id: "workflow", label: `Workflow: ${catalogWorkflow}`, onRemove: () => setCatalogWorkflow("") }] : []),
+          ]}
+          onClearAll={() => { setCatalogQuery(""); setCatalogWorkflow(""); }}
+        />
+        <ListPreview
+          list={
+            <DataTable
+              ariaLabel="Sample records"
+              columns={[
+                { id: "name", label: "Sample", width: "34%", className: "ui-data-table__primary" },
+                { id: "workflow", label: "Workflow", width: "30%" },
+                { id: "status", label: "Status", render: (row) => <StatusBadge tone={row.status === "Ready" ? "success" : "warning"}>{row.status}</StatusBadge> },
+                { id: "updated", label: "Updated" },
+                { id: "actions", label: "", width: "48px", className: "ui-data-table__actions", render: (row) => <IconButton label={`Delete ${row.name}`} variant="danger"><Icon name="delete" /></IconButton> },
+              ]}
+              rows={visibleCatalogRows}
+              selectedRowId={selectedRecord}
+              onRowActivate={(row) => setSelectedRecord(row.id)}
+              selectedRowIds={selectedFiles}
+              onRowSelectedChange={(row, checked) => setSelectedFiles((items) => checked ? [...items, row.id] : items.filter((item) => item !== row.id))}
+            />
+          }
+          preview={previewRecord ? (
+            <Stack gap="compact">
+              <SectionTitle>{previewRecord.name}</SectionTitle>
+              <DescriptionList items={[["Workflow", previewRecord.workflow], ["Status", previewRecord.status], ["Updated", previewRecord.updated]]} />
+              <Button size="compact">Open full detail</Button>
+            </Stack>
+          ) : <EmptyState title="Select a sample" />}
+        />
       </section>
       <section className="ui-library-section">
-        <h2>Selectable row</h2>
-        <div className="ui-library-grid">
-          <Panel title="Primitive">
-            <div className="ui-library-stack">
-              <SelectableRow
-                title="La115_1r_EMMO.png"
-                detail="Sample · 12.4 MB"
-                selected={selectedFiles.includes("sample")}
-                onSelectedChange={(checked) =>
-                  setSelectedFiles((items) =>
-                    checked
-                      ? [...items, "sample"]
-                      : items.filter((item) => item !== "sample"),
-                  )
-                }
-              />
-              <SelectableRow
-                title="segmentation_line_crops"
-                detail="Artifact · 46 files"
-                selected={selectedFiles.includes("artifact")}
-                onSelectedChange={(checked) =>
-                  setSelectedFiles((items) =>
-                    checked
-                      ? [...items, "artifact"]
-                      : items.filter((item) => item !== "artifact"),
-                  )
-                }
-              />
-            </div>
-          </Panel>
-          <Panel title="Use case: active resource">
-            <div className="ui-library-stack">
-              <SelectableRow
-                selectionMode="single"
-                title="Payload template"
-                detail="Reusable request definition"
-                selected={selectedResource === "payload"}
-                onSelectedChange={() => setSelectedResource("payload")}
-              />
-              <SelectableRow
-                selectionMode="single"
-                title="Output specification"
-                detail="Reusable output definition"
-                selected={selectedResource === "output"}
-                onSelectedChange={() => setSelectedResource("output")}
-              />
-            </div>
-          </Panel>
-        </div>
+        <h2>Simple list row</h2>
+        <Panel title="Use only when columns are unnecessary">
+          <ListRow title="Transcription review" detail="A short, single-detail record" />
+        </Panel>
       </section>
       <section className="ui-library-section">
         <h2>Feedback</h2>

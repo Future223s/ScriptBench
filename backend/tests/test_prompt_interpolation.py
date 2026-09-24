@@ -52,6 +52,67 @@ class PromptInterpolationTests(unittest.TestCase):
 
         self.assertEqual(b"image-bytes", rendered["inline_data"]["data"])
 
+    def test_expands_inline_each_into_array_siblings(self):
+        rendered = self.builder._render(
+            {
+                "contents": [
+                    {"role": "user", "parts": [{"text": "Transcribe every sample."}]},
+                    {
+                        "$each": {
+                            "resource": "Samples",
+                            "template": {
+                                "role": "user",
+                                "parts": [
+                                    {"text": "Sample ID: {{Samples.id}}"},
+                                    {
+                                        "inline_data": {
+                                            "mime_type": "{{Samples.mime_type}}",
+                                            "data": "{{Samples.blob}}",
+                                        }
+                                    },
+                                ],
+                            },
+                        }
+                    },
+                ]
+            },
+            {
+                "Samples": [
+                    {"id": "sample-1", "mime_type": "image/png", "blob": b"one"},
+                    {"id": "sample-2", "mime_type": "image/jpeg", "blob": b"two"},
+                ]
+            },
+            {},
+            {},
+        )
+
+        self.assertEqual(
+            rendered["contents"],
+            [
+                {"role": "user", "parts": [{"text": "Transcribe every sample."}]},
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": "Sample ID: sample-1"},
+                        {"inline_data": {"mime_type": "image/png", "data": b"one"}},
+                    ],
+                },
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": "Sample ID: sample-2"},
+                        {"inline_data": {"mime_type": "image/jpeg", "data": b"two"}},
+                    ],
+                },
+            ],
+        )
+
+    def test_rejects_an_unknown_prompt_resource(self):
+        with self.assertRaisesRegex(ValueError, "Unknown prompt resource: prompt"):
+            self.builder._render(
+                {"text": "{{prompt.text}}"}, {}, {}, {}
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

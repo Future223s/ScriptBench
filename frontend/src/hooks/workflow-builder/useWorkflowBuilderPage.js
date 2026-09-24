@@ -14,6 +14,7 @@ function createEmptyWorkflowDraft() {
   return {
     ...defaultWorkflowDraft(),
     description: "",
+    execution_mode: "continuous",
   };
 }
 
@@ -31,6 +32,8 @@ function normalizeNode(record, stepCatalog) {
     step_executor_id: step?.step_executor_id,
     executor_config: step?.executor_config || {},
     description: step?.description || "",
+    execution_scope: step?.execution_scope || record.execution_scope || "samples",
+    output_scope: step?.output_scope || record.output_scope || "samples",
     row: Number(record.row),
     col: Number(record.col),
   };
@@ -95,6 +98,33 @@ function resetCanvasSelections(current) {
   };
 }
 
+function validateWorkflowGraph(nodes, edges) {
+  const nodeIds = new Set(nodes.map((node) => Number(node.id)));
+  const adjacency = new Map([...nodeIds].map((nodeId) => [nodeId, []]));
+  for (const edge of edges) {
+    const sourceId = Number(edge.from);
+    const targetId = Number(edge.to);
+    if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) {
+      return "A workflow dependency references a missing step.";
+    }
+    adjacency.get(sourceId).push(targetId);
+  }
+
+  const visiting = new Set();
+  const visited = new Set();
+  function visit(nodeId) {
+    if (visiting.has(nodeId)) return true;
+    if (visited.has(nodeId)) return false;
+    visiting.add(nodeId);
+    const hasCycle = adjacency.get(nodeId).some(visit);
+    visiting.delete(nodeId);
+    visited.add(nodeId);
+    return hasCycle;
+  }
+
+  return [...nodeIds].some(visit) ? "Workflow DAG contains a cycle." : null;
+}
+
 export function useWorkflowBuilderPage() {
   const { syncNotifications } = useNotificationOverlay() || {};
   const [state, setState] = useState(createInitialState);
@@ -122,6 +152,7 @@ export function useWorkflowBuilderPage() {
           description: workflow.description || "",
           sample_set_id: workflow.sample_set_id || null,
           status: workflow.status || "draft",
+          execution_mode: workflow.execution_mode || "continuous",
         },
         nodes: (nodesResponse.items || []).map((node) =>
           normalizeNode(node, stepCatalog),
@@ -419,12 +450,14 @@ export function useWorkflowBuilderPage() {
       setState((value) => ({
         ...value,
         nodes: [...value.nodes, nextNode],
-        selectedNodeId: nextNode.id,
+        // Keep the placement tool active so the next click can add another step.
+        selectedNodeId: null,
         selectedEdgeId: null,
         detailOpen: false,
         detailNodeId: null,
         assignmentOpen: false,
-        mode: null,
+        selectedPlacement: null,
+        mode: value.mode === "add-step" ? "add-step" : value.mode,
         error: "",
         notice: `Added workflow step "${selectedStep.name}".`,
       }));
@@ -463,7 +496,7 @@ export function useWorkflowBuilderPage() {
         ),
         selectedNodeId: null,
         selectedEdgeId: null,
-        mode: null,
+        mode: value.mode === "delete-step" ? "delete-step" : value.mode,
         error: "",
         notice: "Workflow step deleted.",
       }));
@@ -549,7 +582,8 @@ export function useWorkflowBuilderPage() {
         selectedEdgeId: null,
         dependencySourceNodeId: null,
         dependencyTargetNodeId: null,
-        mode: null,
+        mode:
+          value.mode === "add-dependency" ? "add-dependency" : value.mode,
         error: "",
         notice: `Linked "${sourceNode.label}" to "${targetNode.label}".`,
       }));
@@ -581,7 +615,10 @@ export function useWorkflowBuilderPage() {
         ...value,
         edges: value.edges.filter((edge) => edge.id !== normalizedEdgeId),
         selectedEdgeId: null,
-        mode: null,
+        mode:
+          value.mode === "delete-dependency"
+            ? "delete-dependency"
+            : value.mode,
         error: "",
         notice: "Dependency deleted.",
       }));
@@ -607,6 +644,11 @@ export function useWorkflowBuilderPage() {
       setState((value) => ({ ...value, error: "Workflow name is required." }));
       return;
     }
+    const graphError = validateWorkflowGraph(current.nodes, current.edges);
+    if (graphError) {
+      setState((value) => ({ ...value, error: graphError }));
+      return;
+    }
     if (current.selectedWorkflowId) {
       try {
         setState((value) => ({ ...value, saving: true, error: "" }));
@@ -617,6 +659,7 @@ export function useWorkflowBuilderPage() {
             description:
               current.workflowDraft.description.trim() || null,
             sample_set_id: sampleSetId,
+            execution_mode: current.workflowDraft.execution_mode || "continuous",
           },
         );
         if (!response.data)
@@ -650,6 +693,7 @@ export function useWorkflowBuilderPage() {
           current.workflowDraft.description.trim() || null,
         sample_set_id: sampleSetId,
         status: "draft",
+        execution_mode: current.workflowDraft.execution_mode || "continuous",
       });
       const workflow = createdResponse.data;
       if (!workflow)

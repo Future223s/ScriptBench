@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, LargeBinary, String, Table, Text, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, LargeBinary, String, Table, Text, func
 
 from ..schema import metadata
 
@@ -9,6 +9,14 @@ samples = Table(
     metadata,
     Column("id", String(255), primary_key=True),
     Column("name", String(255), nullable=False, unique=True, index=True),
+    Column(
+        "document_id",
+        String(255),
+        ForeignKey("documents.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    ),
+    Column("document_position", Integer, nullable=True),
     Column("blob", LargeBinary, nullable=True),
     Column("mime_type", String(255), nullable=True),
     Column("ground_truth_text", Text, nullable=True),

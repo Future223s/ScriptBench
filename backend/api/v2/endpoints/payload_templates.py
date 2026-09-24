@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.api.dependencies import get_engine
@@ -18,6 +21,18 @@ from backend.models.payload_templates import (
 
 
 router = APIRouter(tags=["payload-templates-v2"])
+
+def _payload_reference_names(value: Any) -> set[str]:
+    if isinstance(value, str):
+        return {
+            match.group(1)
+            for match in re.finditer(r"\{\{\s*([\w]+)\.[\w]+\s*\}\}", value)
+        }
+    if isinstance(value, list):
+        return set().union(*(_payload_reference_names(item) for item in value))
+    if isinstance(value, dict):
+        return set().union(*(_payload_reference_names(item) for item in value.values()))
+    return set()
 
 
 @router.get(
@@ -72,38 +87,36 @@ def create_payload_template(
         set(resource_names)
     ):
         raise HTTPException(status_code=400, detail="Prompt resource names must be unique")
-
-    allowed_fields = {
-        "derivatives": {
-            "id", "name", "sample_id", "derivative_group_id",
-            "category", "mime_type",
-        },
-        "samples": {
-            "id", "name", "mime_type", "ground_truth_text",
-        },
-        "step_outputs": {
-            "id", "execution_job_id", "workflow_id", "workflow_step_id",
-            "sample_id", "attempt_no", "parsed_output", "parse_status",
-            "parse_error", "cer", "wer", "hallucination_count", "time_elapsed",
-            "started_at", "completed_at", "created_at",
-        },
+    unknown_references = _payload_reference_names(payload.payload) - {
+        "sample",
+        *resource_names,
     }
-    for resource in payload.resources:
-        for condition in resource.conditions:
-            if condition.field_name not in allowed_fields[resource.source_table]:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unsupported prompt resource field: {resource.source_table}.{condition.field_name}",
-                )
+    if unknown_references:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payload references unknown prompt resource(s): "
+                + ", ".join(sorted(unknown_references))
+            ),
+        )
 
-            if condition.value_type == "sample-field" and condition.value not in allowed_fields["samples"]:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unsupported sample field: {condition.value}",
-                )
+    resources = PromptResourcesRepository(engine)
+    for resource in payload.resources:
+        if resource.type == "binding" and resource.source_table == "assets":
+            raise HTTPException(
+                status_code=400,
+                detail="Assets are fixed content and cannot be runtime bindings",
+            )
+        if resource.type == "content":
+            row_id = str(resource.row_id).strip()
+            try:
+                exists = resources.source_row_exists(resource.source_table, row_id)
+            except ValueError as error:
+                raise HTTPException(status_code=400, detail="Selected content row is invalid") from error
+            if not exists:
+                raise HTTPException(status_code=404, detail="Selected content row was not found")
 
     templates = PayloadTemplatesRepository(engine)
-    resources = PromptResourcesRepository(engine)
     with engine.begin() as connection:
         template_id = templates.insert(
             {
@@ -115,27 +128,21 @@ def create_payload_template(
             conn=connection,
         )
         for resource in payload.resources:
-            resource_id = resources.insert(
+            resources.insert(
                 {
                     "payload_template_id": template_id,
                     "name": resource.name.strip(),
+                    "type": resource.type,
                     "source_table": resource.source_table,
-                    "batch_limit": resource.batch_limit,
+                    "row_key": (
+                        str(resource.row_id).strip()
+                        if resource.type == "content"
+                        else None
+                    ),
+                    "batch_limit": 1,
                 },
                 conn=connection,
             )
-            for position, condition in enumerate(resource.conditions):
-                resources.insert_condition(
-                    {
-                        "prompt_resource_id": resource_id,
-                        "field_name": condition.field_name,
-                        "operator": condition.operator,
-                        "value_type": condition.value_type,
-                        "value": condition.value,
-                        "position": position,
-                    },
-                    conn=connection,
-                )
     record = templates.fetch(template_id)
     if record is None:
         raise HTTPException(status_code=500, detail="Failed to load payload template")

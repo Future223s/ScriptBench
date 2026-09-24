@@ -12,6 +12,8 @@ export function WorkspacePageView({ state, actions, rootRef }) {
         {hasSelectedWorkflow ? (
           <WorkspacePanel
             workflow={state.selectedWorkflowSummary}
+            graph={state.executionGraph}
+            selectedNodeId={state.selectedExecutionNodeId}
             rows={state.rows}
             selection={state.selectedRowIdsByColumn}
             loading={state.loadingWorkspace || state.applyingExecutionAction}

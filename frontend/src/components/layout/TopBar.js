@@ -3,41 +3,37 @@
 import { DevControls } from "./DevControls.js";
 import { NotificationBar } from "./NotificationBar.js";
 import { useNotificationOverlay } from "./NotificationOverlay.js";
+import { PrimaryNavigation } from "../../ui/primitives/index.js";
 
-const prototypeNavItems = [
+const primaryNavItems = [
   {
-    key: "dashboard",
-    title: "Dashboard",
+    id: "dashboard",
+    label: "Dashboard",
   },
   {
-    key: "file-management",
-    title: "File Management",
+    id: "file-management",
+    label: "File Management",
   },
   {
-    key: "workflow-steps",
-    title: "Workflow Steps",
+    id: "workflow-steps",
+    label: "Workflow Steps",
   },
   {
-    key: "workflow-builder",
-    title: "Workflow Builder",
+    id: "workflow-builder",
+    label: "Workflow Builder",
   },
   {
-    key: "workflow-workspace",
-    title: "Workspace",
+    id: "workflow-workspace",
+    label: "Workspace",
   },
   {
-    key: "analysis",
-    title: "Analysis",
-    disabled: true,
+    id: "analysis",
+    label: "Analysis",
   },
 ];
 
 export function TopBar({ prototypeNav, onNavigatePrototype }) {
   const notifications = useNotificationOverlay();
-
-  function handlePrototypeNavClick(navKey) {
-    onNavigatePrototype?.(navKey);
-  }
 
   return (
     <header className="topbar">
@@ -63,26 +59,11 @@ export function TopBar({ prototypeNav, onNavigatePrototype }) {
         </div>
         <DevControls />
       </div>
-      <nav className="prototype-nav" aria-label="Primary navigation">
-        {prototypeNavItems.map((item) => (
-          <button
-            key={item.key}
-            className={`prototype-nav-item ${prototypeNav === item.key ? "is-active" : ""}`}
-            type="button"
-            onClick={
-              item.disabled
-                ? undefined
-                : () => handlePrototypeNavClick(item.key)
-            }
-            aria-current={prototypeNav === item.key ? "page" : undefined}
-            aria-disabled={item.disabled ? "true" : undefined}
-            disabled={item.disabled}
-            title={item.disabled ? "Coming soon" : undefined}
-          >
-            <span className="prototype-nav-title">{item.title}</span>
-          </button>
-        ))}
-      </nav>
+      <PrimaryNavigation
+        items={primaryNavItems}
+        activeId={prototypeNav}
+        onChange={onNavigatePrototype}
+      />
     </header>
   );
 }

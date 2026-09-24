@@ -20,24 +20,30 @@ class PayloadBuilder:
         self,
         *,
         workflow_id: int,
-        sample_id: str,
+        sample_id: str | None,
         workflow_dag_node_id: int,
         execution_job_id: int | None = None,
     ) -> dict[str, Any]:
         node = self.repository.fetch_node(workflow_id, workflow_dag_node_id)
         step = self.repository.fetch_step(int(node["workflow_step_id"]))
         template = self.repository.fetch_template(int(step["payload_template_id"]))
-        sample = self.repository.fetch_sample(sample_id)
+        sample = (
+            self.repository.fetch_primary_sample(execution_job_id, sample_id)
+            if execution_job_id is not None
+            else self.repository.fetch_sample(str(sample_id))
+        )
         resources = {}
         for resource in self.repository.list_prompt_resources(
             int(step["payload_template_id"])
         ):
             rows = (
                 self.repository.list_prompt_resource_rows(
-                    resource, sample, execution_job_id
+                    resource, sample, execution_job_id, workflow_id
                 )
                 if execution_job_id is not None
-                else self.repository.list_prompt_resource_rows(resource, sample)
+                else self.repository.list_prompt_resource_rows(
+                    resource, sample, workflow_id=workflow_id
+                )
             )
             resources[str(resource["name"])] = rows
         return self._render(template["payload"], resources, sample, {})
@@ -66,7 +72,29 @@ class PayloadBuilder:
                 value,
             )
         if isinstance(value, list):
-            return [self._render(item, resources, sample, local) for item in value]
+            rendered_items = []
+            for item in value:
+                if (
+                    isinstance(item, dict)
+                    and set(item) == {"$each"}
+                    and isinstance(item["$each"], dict)
+                    and "into" not in item["$each"]
+                ):
+                    rule = item["$each"]
+                    resource_name = self._each_value(rule, "resource")
+                    template = self._each_value(rule, "template")
+                    for row in resources.get(resource_name, []):
+                        rendered_items.append(
+                            self._render(
+                                template,
+                                resources,
+                                sample,
+                                {**local, resource_name: row},
+                            )
+                        )
+                    continue
+                rendered_items.append(self._render(item, resources, sample, local))
+            return rendered_items
         if not isinstance(value, dict):
             return value
 
@@ -77,16 +105,29 @@ class PayloadBuilder:
         }
         rules = value.get("$each")
         for rule in rules if isinstance(rules, list) else [rules] if rules else []:
-            for row in resources.get(rule["resource"], []):
-                rendered[rule["into"]].append(
+            if "into" not in rule:
+                raise ValueError("Inline $each must be the only value in an array item")
+            resource_name = self._each_value(rule, "resource")
+            target_name = self._each_value(rule, "into")
+            template = self._each_value(rule, "template")
+            if target_name not in rendered or not isinstance(rendered[target_name], list):
+                raise ValueError(f"$each target must be an array: {target_name}")
+            for row in resources.get(resource_name, []):
+                rendered[target_name].append(
                     self._render(
-                        rule["template"],
+                        template,
                         resources,
                         sample,
-                        {**local, rule["resource"]: row},
+                        {**local, resource_name: row},
                     )
                 )
         return rendered
+
+    @staticmethod
+    def _each_value(rule: dict[str, Any], name: str) -> Any:
+        if name not in rule:
+            raise ValueError(f"$each requires '{name}'")
+        return rule[name]
 
     @staticmethod
     def _value(
@@ -96,10 +137,10 @@ class PayloadBuilder:
         local: dict[str, dict[str, Any]],
     ) -> Any:
         name, field_name = reference.split(".", 1)
-        row = local.get(name) or (
-            sample if name == "sample" else None
-        )
+        row = local.get(name) or (sample if name == "sample" else None)
         if row is None:
+            if name not in resources:
+                raise ValueError(f"Unknown prompt resource: {name}")
             rows = resources.get(name, [])
             row = rows[0] if len(rows) == 1 else {}
         return row.get(field_name)

@@ -19,15 +19,13 @@ from backend.models.workflows import (
     WorkflowUpdateResponse,
 )
 from backend.database.repositories.workflow_dag_repository import WorkflowDagRepository
-from backend.database.repositories.execution_jobs_repository import (
-    ExecutionJobsRepository,
-)
 from backend.database.repositories.sample_set_samples_repository import (
     SampleSetSamplesRepository,
 )
 from backend.database.repositories.prompt_resources_repository import (
     PromptResourcesRepository,
 )
+from backend.services.execution_graph_resolver import ExecutionGraphResolver
 
 router = APIRouter(tags=["workflows-v2"])
 logger = logging.getLogger(__name__)
@@ -40,6 +38,7 @@ def validate_workflow_dag(engine, workflow_id: int) -> None:
     edges = dag.list_edges(workflow_id)
     node_ids = {int(node["id"]) for node in nodes}
     adjacency: dict[int, set[int]] = {node_id: set() for node_id in node_ids}
+    parents: dict[int, set[int]] = {node_id: set() for node_id in node_ids}
 
     for edge in edges:
         source_id = int(edge["from_workflow_dag_node_id"])
@@ -50,6 +49,7 @@ def validate_workflow_dag(engine, workflow_id: int) -> None:
                 detail="Workflow DAG edge references a node outside this workflow",
             )
         adjacency[source_id].add(target_id)
+        parents[target_id].add(source_id)
 
     visiting: set[int] = set()
     visited: set[int] = set()
@@ -70,30 +70,6 @@ def validate_workflow_dag(engine, workflow_id: int) -> None:
     for node_id in node_ids:
         visit(node_id)
 
-    def is_upstream(source_id: int, target_id: int) -> bool:
-        pending = list(adjacency[source_id])
-        seen: set[int] = set()
-        while pending:
-            current_id = pending.pop()
-            if current_id == target_id:
-                return True
-            if current_id in seen:
-                continue
-            seen.add(current_id)
-            pending.extend(adjacency[current_id])
-        return False
-
-    nodes_by_step: dict[int, list[int]] = {}
-    for node in nodes:
-        nodes_by_step.setdefault(int(node["workflow_step_id"]), []).append(
-            int(node["id"])
-        )
-    if any(len(node_ids) != 1 for node_ids in nodes_by_step.values()):
-        raise HTTPException(
-            status_code=409,
-            detail="Each workflow step may appear only once in a workflow DAG",
-        )
-
     steps = WorkflowStepsRepository(engine)
     resources = PromptResourcesRepository(engine)
     for node in nodes:
@@ -102,45 +78,17 @@ def validate_workflow_dag(engine, workflow_id: int) -> None:
         if step is None or step.get("payload_template_id") is None:
             continue
         for resource in resources.list_for_template(int(step["payload_template_id"])):
-            if resource["source_table"] != "step_outputs":
+            if (
+                resource["type"] != "binding"
+                or resource["source_table"] != "step_outputs"
+            ):
                 continue
-            step_conditions = [
-                condition
-                for condition in resource["conditions"]
-                if condition["field_name"] == "workflow_step_id"
-                and condition["operator"] == "equals"
-                and condition["value_type"] == "manual"
-            ]
-            if len(step_conditions) != 1:
+            if not parents[node_id]:
                 raise HTTPException(
                     status_code=409,
                     detail=(
-                        "A step_outputs prompt resource must select exactly one "
-                        "workflow step"
-                    ),
-                )
-            try:
-                dependency_step_id = int(step_conditions[0]["value"])
-            except (TypeError, ValueError) as error:
-                raise HTTPException(
-                    status_code=409,
-                    detail="The selected step_outputs workflow step is invalid",
-                ) from error
-            dependency_nodes = nodes_by_step.get(dependency_step_id, [])
-            if len(dependency_nodes) != 1:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        "The selected step_outputs workflow step must appear exactly "
-                        "once in this workflow DAG"
-                    ),
-                )
-            if not is_upstream(dependency_nodes[0], node_id):
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        "A step_outputs prompt resource must depend on an upstream "
-                        "workflow step"
+                        "A step_outputs binding requires at least one incoming "
+                        "workflow edge"
                     ),
                 )
 
@@ -187,6 +135,7 @@ def create_workflow(
             ),
             "sample_set_id": payload.sample_set_id,
             "status": "draft",
+            "execution_mode": payload.execution_mode,
         }
     )
     row = repository.fetch(workflow_id)
@@ -270,7 +219,10 @@ def update_workflow(
         if SampleSetsRepository(engine).fetch(payload.sample_set_id) is None:
             raise HTTPException(status_code=404, detail="Sample set not found")
         changes["sample_set_id"] = payload.sample_set_id
+    if payload.execution_mode is not None:
+        changes["execution_mode"] = payload.execution_mode
 
+    validate_workflow_dag(engine, workflow_id)
     if changes:
         repository.update(workflow_id, changes)
     row = repository.fetch(workflow_id)
@@ -324,11 +276,11 @@ def finalize_workflow(
         )
 
     validate_workflow_dag(engine, workflow_id)
+    try:
+        ExecutionGraphResolver(engine).resolve(workflow_id)
+    except (LookupError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     repository.update(workflow_id, {"status": "finalized"})
-    ExecutionJobsRepository(engine).create_jobs(
-        workflow_id=workflow_id,
-        sample_ids=[str(membership["sample_id"]) for membership in memberships],
-    )
     row = repository.fetch(workflow_id)
     if row is None:
         raise HTTPException(

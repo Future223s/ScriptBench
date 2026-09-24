@@ -36,6 +36,7 @@ export interface WorkflowRecord {
   description?: string | null;
   sample_set_id?: number | null;
   status: string;
+  execution_mode: "continuous" | "stage_by_stage";
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +47,8 @@ export interface WorkflowDagNodeRecord {
   workflow_step_id: number;
   row: number;
   col: number;
+  execution_scope: ExecutionScope;
+  output_scope: ExecutionScope;
   created_at: string;
   updated_at: string;
 }
@@ -65,6 +68,8 @@ export interface WorkflowStepRecord {
   step_executor_id: string;
   method: string;
   executor_config: Record<string, any>;
+  execution_scope: ExecutionScope;
+  output_scope: ExecutionScope;
   payload_template_id?: number | null;
   output_spec_id?: number | null;
   created_at: string;
@@ -76,6 +81,14 @@ export interface WorkflowDagNodeCreatePayload {
   row: number;
   col: number;
 }
+
+export type ExecutionScope =
+  | "documents_batch"
+  | "documents"
+  | "samples_batch"
+  | "samples"
+  | "derivatives_batch"
+  | "derivatives";
 
 export interface WorkflowDagEdgeCreatePayload {
   from_workflow_dag_node_id: number;
@@ -93,6 +106,7 @@ export const workflowBuilderApi = {
     description?: string | null;
     sample_set_id: ApiId;
     status?: string;
+    execution_mode?: "continuous" | "stage_by_stage";
   }) =>
     apiFetch<ApiResponse<WorkflowRecord>>("/api/v2/workflows", {
       method: "POST",
@@ -105,6 +119,7 @@ export const workflowBuilderApi = {
       name?: string;
       description?: string | null;
       sample_set_id?: ApiId;
+      execution_mode?: "continuous" | "stage_by_stage";
     },
   ) =>
     apiFetch<ApiResponse<WorkflowRecord>>(

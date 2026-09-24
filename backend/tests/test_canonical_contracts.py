@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import base64
 import importlib
+from io import BytesIO
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import create_mock_engine, inspect, select
 
 from backend.api.dependencies import get_engine
 from backend.api.main import app
 from backend.database.schema import metadata
+from backend.database.migrations import upgrade_database
 from backend.database.repositories.derivative_groups_repository import DerivativeGroupsRepository
 from backend.database.repositories.prompt_resolution_repository import PromptResolutionRepository
 from backend.models.step_outputs import StepOutputRecord
@@ -29,6 +34,7 @@ class CanonicalContractsTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
         get_engine.cache_clear()
+        upgrade_database(os.environ["DATABASE_URL"])
         self.addCleanup(get_engine.cache_clear)
         self.client = TestClient(app)
         self.client.__enter__()
@@ -42,7 +48,8 @@ class CanonicalContractsTests(unittest.TestCase):
         return response.json()['data']
 
     def test_every_table_and_fk_uses_canonical_columns(self):
-        self.assertEqual(19, len(metadata.tables))
+        self.assertEqual(23, len(metadata.tables))
+        self.assertNotIn('sample_mapping', metadata.tables)
         self.assertIn('payload_templates', metadata.tables)
         self.assertNotIn('payload_template', metadata.tables)
         self.assertFalse(hasattr(importlib.import_module(
@@ -51,6 +58,8 @@ class CanonicalContractsTests(unittest.TestCase):
             with self.subTest(table=table.name):
                 if table.name == 'sample_set_samples':
                     self.assertEqual({'sample_set_id', 'sample_id'}, set(table.primary_key.columns.keys()))
+                elif table.name == 'execution_job_dependencies':
+                    self.assertEqual({'execution_job_id', 'depends_on_execution_job_id'}, set(table.primary_key.columns.keys()))
                 else:
                     self.assertEqual(['id'], list(table.primary_key.columns.keys()))
                 for column in table.c:
@@ -67,7 +76,7 @@ class CanonicalContractsTests(unittest.TestCase):
         self.assertTrue(any('UNIQUE (sample_id, name)' in statement for statement in ddl))
 
     def test_samples_assets_and_batches_share_local_field_names(self):
-        sample = self.post('samples', {'id': 'page', 'name': 'page'})
+        sample = self.post('samples', {'id': 'page', 'name': '_page'})
         self.assertEqual('page', sample['id'])
         self.assertFalse(sample['has_blob'])
         uploaded = self.client.put('/api/v2/samples/page/blob', files={'file': ('page.png', b'image', 'image/png')})
@@ -87,6 +96,52 @@ class CanonicalContractsTests(unittest.TestCase):
         response = self.client.request('DELETE', '/api/v2/samples', json={'ids': ['page']})
         self.assertEqual(200, response.status_code, response.text)
 
+    def test_file_names_automatically_create_document_hierarchy(self):
+        second = self.post('samples', {'id': 'legacy-2', 'name': 'EMMO-La115_2v'})
+        first = self.post('samples', {'id': 'legacy-1', 'name': 'EMMO-La115_1r'})
+        self.assertEqual('EMMO-La115', first['document_id'])
+        self.assertEqual('EMMO-La115', second['document_id'])
+
+        document = self.client.get('/api/v2/documents/EMMO-La115').json()['data']
+        self.assertEqual(['legacy-1', 'legacy-2'], document['sample_ids'])
+        self.assertEqual(['EMMO-La115_1r', 'EMMO-La115_2v'], document['sample_names'])
+        self.assertFalse(document['has_blob'])
+
+        uploaded = self.client.put(
+            '/api/v2/documents/EMMO-La115/blob',
+            files={'file': ('EMMO-La115.pdf', b'%PDF-1.4\n%%EOF', 'application/pdf')},
+        )
+        self.assertEqual(200, uploaded.status_code, uploaded.text)
+        document = self.client.get('/api/v2/documents/EMMO-La115').json()['data']
+        self.assertTrue(document['has_blob'])
+        self.assertEqual('application/pdf', document['mime_type'])
+
+        documentless = self.post('samples', {'id': 'solo', 'name': '_1r'})
+        self.assertIsNone(documentless['document_id'])
+        invalid = self.client.post('/api/v2/samples', json={'id': 'bad', 'name': 'page'})
+        self.assertEqual(400, invalid.status_code, invalid.text)
+
+    def test_document_pdf_can_be_assembled_from_ordered_sample_images(self):
+        for sample_id, name, color in [
+            ('page-2', 'book_2', 'blue'),
+            ('page-1', 'book_1', 'red'),
+        ]:
+            self.post('samples', {'id': sample_id, 'name': name})
+            image_bytes = BytesIO()
+            Image.new('RGB', (8, 8), color=color).save(image_bytes, format='PNG')
+            response = self.client.put(
+                f'/api/v2/samples/{sample_id}/blob',
+                files={'file': (f'{name}.png', image_bytes.getvalue(), 'image/png')},
+            )
+            self.assertEqual(200, response.status_code, response.text)
+
+        response = self.client.post('/api/v2/documents/book/assemble')
+        self.assertEqual(200, response.status_code, response.text)
+        document = self.client.get('/api/v2/documents/book').json()['data']
+        self.assertEqual(['page-1', 'page-2'], document['sample_ids'])
+        self.assertEqual('assembled', document['metadata']['pdf_source'])
+        self.assertTrue(base64.b64decode(document['blob_base64']).startswith(b'%PDF-'))
+
     def test_legacy_fields_are_rejected(self):
         for path, payload in [
             ('samples', {'id': 'a', 'name': 'a', 'sample_id': 'old'}),
@@ -101,69 +156,88 @@ class CanonicalContractsTests(unittest.TestCase):
                 self.assertEqual(422, response.status_code, response.text)
 
     def test_derivative_group_relation_drives_mapping_and_search(self):
-        self.post('samples', {'id': 'page', 'name': 'page'})
-        derivative = self.post('derivatives', {'derivatives': [{'name': 'page_line_1.png', 'mime_type': 'image/png'}]})[0]
+        self.post('samples', {'id': 'page', 'name': '_page'})
         group = self.post('derivative-groups', {'name': 'Line crops', 'position_rule': {
             'membership_derivative_field': 'name', 'membership_operator': 'contains',
-            'membership_pattern': '_line_', 'sample_mapping_derivative_field': 'name',
-            'sample_mapping_sample_field': 'name', 'sample_mapping_operator': 'contains',
+            'membership_pattern': '_line_',
         }})
-        mapped = self.post('derivatives/map', {'derivatives': [{'id': derivative['id'], 'name': derivative['name']}]})
-        self.assertEqual(1, mapped['mapped_count'])
-        record = mapped['mapped_derivatives'][0]
+        record = self.post('derivatives', {'derivatives': [{'name': '_page_line_1.png', 'mime_type': 'image/png'}]})[0]
         self.assertEqual('page', record['sample_id'])
         self.assertEqual(group['id'], record['derivative_group_id'])
-        patched = self.client.patch('/api/v2/derivatives', json={'derivatives': [{
-            'id': derivative['id'], 'sample_id': 'page', 'derivative_group_id': group['id'],
-        }]})
-        self.assertEqual(200, patched.status_code, patched.text)
         DerivativeGroupsRepository(self.engine).update(group['id'], {'name': 'Renamed group'})
         records = self.client.get('/api/v2/derivatives', params={'query': 'Renamed group'}).json()['items']
-        self.assertEqual([derivative['id']], [row['id'] for row in records])
+        self.assertEqual([record['id']], [row['id'] for row in records])
         self.assertNotIn('derivative_group_name', records[0])
         self.assertNotIn('derivative_group_name', metadata.tables['derivatives'].c)
         response = self.client.delete(f"/api/v2/derivative-groups/{group['id']}")
         self.assertEqual(200, response.status_code, response.text)
-        detail = self.client.get(f"/api/v2/derivatives/{derivative['id']}").json()['data']
+        detail = self.client.get(f"/api/v2/derivatives/{record['id']}").json()['data']
         self.assertIsNone(detail['derivative_group_id'])
         self.assertEqual('page', detail['sample_id'])
 
-    def test_group_can_be_created_from_related_derivative_ids(self):
-        derivative = self.post('derivatives', {'derivatives': [{'name': 'crop', 'mime_type': 'image/png'}]})[0]
-        group = self.post('derivative-groups', {'name': 'Selected crops', 'derivative_ids': [derivative['id']]})
-        detail = self.client.get(f"/api/v2/derivatives/{derivative['id']}").json()['data']
-        self.assertEqual(group['id'], detail['derivative_group_id'])
-
     def test_prompt_resource_shape_and_resolution_match_storage(self):
-        self.post('samples', {'id': 'page', 'name': 'page'})
+        self.post('samples', {'id': 'page', 'name': '_page'})
         template = self.post('payload-templates', {
             'name': 'Named template', 'model_family': 'gemini', 'payload': {'text': '{{pages.name}}'},
-            'resources': [{'name': 'pages', 'source_table': 'samples', 'batch_limit': 1,
-                           'conditions': [{'field_name': 'id', 'operator': 'equals',
-                                           'value_type': 'sample-field', 'value': 'id'}]}],
+            'resources': [{'name': 'pages', 'type': 'content',
+                           'source_table': 'samples', 'row_id': 'page'}],
         })
         resource = template['resources'][0]
         self.assertEqual(template['id'], resource['payload_template_id'])
         self.assertEqual('pages', resource['name'])
-        self.assertEqual(resource['id'], resource['conditions'][0]['prompt_resource_id'])
-        self.assertEqual('id', resource['conditions'][0]['field_name'])
+        self.assertEqual('content', resource['type'])
+        self.assertEqual('page', resource['row_id'])
         listed = self.client.get('/api/v2/payload-templates').json()['items'][0]
         self.assertEqual(template, listed)
         repository = PromptResolutionRepository(self.engine)
         runtime_resource = repository.list_prompt_resources(template['id'])[0]
-        rows = repository.list_prompt_resource_rows(runtime_resource, {'id': 'page'})
+        rows = repository.list_prompt_resource_rows(runtime_resource, {})
         self.assertEqual('page', rows[0]['id'])
+        self.assertEqual('_page', rows[0]['name'])
         response = self.client.request('DELETE', '/api/v2/payload-templates', json={'ids': [template['id']]})
         self.assertEqual(200, response.status_code, response.text)
         with self.engine.connect() as connection:
             self.assertEqual([], connection.execute(select(metadata.tables['prompt_resources'])).all())
             self.assertEqual([], connection.execute(select(metadata.tables['prompt_resource_conditions'])).all())
 
+    def test_payload_resources_distinguish_content_and_bindings(self):
+        asset = self.post('assets', {'name': 'Instructions', 'type': 'text/plain'})
+        template = self.post('payload-templates', {
+            'name': 'Bound template', 'model_family': 'gemini', 'payload': {},
+            'resources': [{
+                'name': 'crops', 'type': 'binding',
+                'source_table': 'derivatives',
+            }, {
+                'name': 'prior', 'type': 'binding',
+                'source_table': 'step_outputs',
+            }, {
+                'name': 'instructions', 'type': 'content',
+                'source_table': 'assets', 'row_id': str(asset['id']),
+            }],
+        })
+        resources = {item['name']: item for item in template['resources']}
+        self.assertEqual('binding', resources['crops']['type'])
+        self.assertIsNone(resources['prior']['row_id'])
+        self.assertEqual('content', resources['instructions']['type'])
+        self.assertEqual(str(asset['id']), resources['instructions']['row_id'])
+        resource = next(item for item in PromptResolutionRepository(self.engine).list_prompt_resources(template['id'])
+                        if item['name'] == 'instructions')
+        self.assertEqual([asset['id']], [row['id'] for row in PromptResolutionRepository(self.engine).list_prompt_resource_rows(resource, {})])
+
+    def test_payload_template_rejects_unknown_prompt_resource_reference(self):
+        response = self.client.post('/api/v2/payload-templates', json={
+            'name': 'Invalid reference', 'model_family': 'gemini',
+            'payload': {'contents': [{'parts': [{'text': '{{missing.text}}'}]}]},
+            'resources': [],
+        })
+        self.assertEqual(400, response.status_code, response.text)
+        self.assertIn('unknown prompt resource', response.json()['detail'])
+
     def test_dag_and_workflow_crud_preserve_local_ids_and_related_ids(self):
-        self.post('samples', {'id': 'page', 'name': 'Page'})
+        self.post('samples', {'id': 'page', 'name': '_page'})
         sample_set = self.post('sample-sets', {'name': 'Pages', 'sample_ids': ['page']})
         template = self.post('payload-templates', {'name': 'Prompt', 'model_family': 'gemini', 'payload': {}})
-        spec = self.post('output-specs', {'name': 'Text', 'type': 'plain-text'})
+        spec = self.post('output-specs', {'name': 'Text', 'item_schema': {'type': 'string'}})
         step = self.post('workflow-steps', {'name': 'Read', 'step_executor_id': 'gemini',
                          'method': 'transcribe', 'executor_config': {'model': 'test'},
                          'payload_template_id': template['id'], 'output_spec_id': spec['id']})
@@ -194,9 +268,9 @@ class CanonicalContractsTests(unittest.TestCase):
         self.assertEqual(200, response.status_code, response.text)
 
     def test_workflow_finalization_validates_dag_and_step_output_dependencies(self):
-        self.post('samples', {'id': 'page', 'name': 'Page'})
+        self.post('samples', {'id': 'page', 'name': '_page'})
         sample_set = self.post('sample-sets', {'name': 'Pages', 'sample_ids': ['page']})
-        specification = self.post('output-specs', {'name': 'Text', 'type': 'plain-text'})
+        specification = self.post('output-specs', {'name': 'Text', 'item_schema': {'type': 'string'}})
         source_template = self.post('payload-templates', {
             'name': 'Source prompt', 'model_family': 'gemini', 'payload': {},
         })
@@ -208,11 +282,8 @@ class CanonicalContractsTests(unittest.TestCase):
         dependent_template = self.post('payload-templates', {
             'name': 'Review prompt', 'model_family': 'gemini', 'payload': {},
             'resources': [{
-                'name': 'step_output', 'source_table': 'step_outputs', 'batch_limit': 1,
-                'conditions': [{
-                    'field_name': 'workflow_step_id', 'operator': 'equals',
-                    'value_type': 'manual', 'value': str(source_step['id']),
-                }],
+                'name': 'step_output', 'type': 'binding',
+                'source_table': 'step_outputs',
             }],
         })
         dependent_step = self.post('workflow-steps', {
@@ -235,6 +306,24 @@ class CanonicalContractsTests(unittest.TestCase):
         })
         response = self.client.patch('/api/v2/' + valid_base + '/finalize')
         self.assertEqual(200, response.status_code, response.text)
+        runtime_resource = PromptResolutionRepository(self.engine).list_prompt_resources(
+            dependent_template['id']
+        )[0]
+        self.assertEqual(
+            [],
+            PromptResolutionRepository(self.engine).list_prompt_resource_rows(
+                runtime_resource,
+                {'id': 'page'},
+                execution_job_id=next(
+                    row['id']
+                    for row in self.client.get(
+                        f'/api/v2/workflows/{valid["id"]}/execution-jobs'
+                    ).json()['items']
+                    if row['workflow_dag_node_id'] == dependent_node['id']
+                ),
+                workflow_id=valid['id'],
+            ),
+        )
 
         invalid = self.post('workflows', {'name': 'Invalid chain', 'sample_set_id': sample_set['id']})
         invalid_base = f"workflows/{invalid['id']}"
@@ -250,7 +339,7 @@ class CanonicalContractsTests(unittest.TestCase):
         })
         response = self.client.patch('/api/v2/' + invalid_base + '/finalize')
         self.assertEqual(409, response.status_code, response.text)
-        self.assertIn('upstream workflow step', response.json()['detail'])
+        self.assertIn('incoming workflow edge', response.json()['detail'])
 
         cyclic = self.post('workflows', {'name': 'Cycle', 'sample_set_id': sample_set['id']})
         cyclic_base = f"workflows/{cyclic['id']}"
@@ -271,9 +360,101 @@ class CanonicalContractsTests(unittest.TestCase):
                 to_workflow_dag_node_id=first_node['id'],
                 condition={'type': 'depends_on'},
             ))
+        response = self.client.patch('/api/v2/' + cyclic_base, json={'name': 'Cycle renamed'})
+        self.assertEqual(409, response.status_code, response.text)
+        self.assertEqual('Cycle', self.client.get('/api/v2/' + cyclic_base).json()['data']['name'])
         response = self.client.patch('/api/v2/' + cyclic_base + '/finalize')
         self.assertEqual(409, response.status_code, response.text)
         self.assertIn('contains a cycle', response.json()['detail'])
+
+    def test_sample_set_analytics_uses_only_terminal_dag_step_outputs(self):
+        self.post('samples', {'id': 'page-1', 'name': '_page-1'})
+        self.post('samples', {'id': 'page-2', 'name': '_page-2'})
+        self.post('samples', {'id': 'page-3', 'name': '_page-3'})
+        sample_set = self.post('sample-sets', {
+            'name': 'Analytics pages',
+            'sample_ids': ['page-1', 'page-2', 'page-3'],
+        })
+        template = self.post('payload-templates', {
+            'name': 'Analytics prompt', 'model_family': 'gemini', 'payload': {},
+        })
+        output_spec = self.post('output-specs', {
+            'name': 'Analytics text', 'item_schema': {'type': 'string'},
+        })
+        source_step = self.post('workflow-steps', {
+            'name': 'Analytics source', 'step_executor_id': 'gemini',
+            'method': 'transcribe', 'executor_config': {'model': 'test'},
+            'payload_template_id': template['id'], 'output_spec_id': output_spec['id'],
+        })
+        final_step = self.post('workflow-steps', {
+            'name': 'Analytics final', 'step_executor_id': 'gemini',
+            'method': 'transcribe', 'executor_config': {'model': 'test'},
+            'payload_template_id': template['id'], 'output_spec_id': output_spec['id'],
+        })
+        workflow = self.post('workflows', {
+            'name': 'Analytics workflow', 'sample_set_id': sample_set['id'],
+        })
+        base = f"workflows/{workflow['id']}"
+        source_node = self.post(base + '/workflow-dag-nodes', {
+            'workflow_step_id': source_step['id'], 'row': 1, 'col': 1,
+        })
+        final_node = self.post(base + '/workflow-dag-nodes', {
+            'workflow_step_id': final_step['id'], 'row': 1, 'col': 2,
+        })
+        self.post(base + '/workflow-dag-edges', {
+            'from_workflow_dag_node_id': source_node['id'],
+            'to_workflow_dag_node_id': final_node['id'],
+        })
+
+        now = datetime.now(timezone.utc)
+        with self.engine.begin() as connection:
+            job_ids = []
+            for sample_id in ('page-1', 'page-2', 'page-3'):
+                result = connection.execute(
+                    metadata.tables['execution_jobs'].insert().values(
+                        workflow_id=workflow['id'], sample_id=sample_id,
+                        current_workflow_dag_node_id=final_node['id'],
+                        status='completed',
+                    )
+                )
+                job_ids.append(result.inserted_primary_key[0])
+            output_rows = []
+            raw_table = metadata.tables['raw_outputs']
+            for job_id, sample_id, source_cer, final_cer in (
+                (job_ids[0], 'page-1', 0.90, 0.10),
+                (job_ids[1], 'page-2', 0.80, 0.20),
+            ):
+                for attempt_no, (step, text, metric) in enumerate((
+                    (source_step, 'source', source_cer),
+                    (final_step, 'final', final_cer),
+                ), start=1):
+                    raw_id = connection.execute(raw_table.insert().values(
+                        execution_job_id=job_id, workflow_id=workflow['id'],
+                        workflow_step_id=step['id'], attempt_no=attempt_no,
+                        assembled_model_payload={}, raw_model_response=text,
+                        parsed_output=text, complete_output=text,
+                        parse_status='success', time_elapsed=0.0,
+                        started_at=now, completed_at=now,
+                    )).inserted_primary_key[0]
+                    output_rows.append({
+                        'raw_output_id': raw_id, 'execution_job_id': job_id,
+                        'workflow_id': workflow['id'], 'workflow_step_id': step['id'],
+                        'sample_id': sample_id, 'output_scope': 'samples',
+                        'entity_type': 'sample', 'entity_key': sample_id,
+                        'output': text, 'cer': metric, 'wer': metric,
+                    })
+            connection.execute(metadata.tables['step_outputs'].insert(), output_rows)
+
+        response = self.client.get(
+            f"/api/v2/sample-sets/{sample_set['id']}/analytics"
+        )
+        self.assertEqual(200, response.status_code, response.text)
+        analytics = response.json()['data']['analytics_by_workflow'][str(workflow['id'])]
+        self.assertEqual(2, analytics['completed_sample_count'])
+        self.assertEqual(0.10, analytics['metrics']['cer']['min'])
+        self.assertEqual(0.20, analytics['metrics']['cer']['max'])
+        self.assertEqual(0.10, analytics['metrics']['wer']['min'])
+        self.assertEqual(0.20, analytics['metrics']['wer']['max'])
 
     def test_job_event_subscription_matches_canonical_job_id(self):
         import asyncio

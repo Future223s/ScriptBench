@@ -6,6 +6,55 @@ function filesFromEvent(event) {
   return Array.from(event.target.files || []);
 }
 
+function DocumentUploadFields({ isFolderUpload, draft, actions, resetKey }) {
+  return (
+    <>
+      <div className={["field", "wide", isFolderUpload ? "is-hidden" : ""].filter(Boolean).join(" ")}>
+        <label htmlFor="document-name">Document name</label>
+        <input
+          id="document-name"
+          name="name"
+          placeholder="EMMO-La115"
+          value={draft.documentName}
+          onChange={(event) =>
+            actions.setUploadField("documentName", event.target.value)
+          }
+        />
+        <Instruction>
+          Document names cannot contain underscores. Pages use document_page.
+        </Instruction>
+      </div>
+      <div className={["field", "wide", isFolderUpload ? "is-hidden" : ""].filter(Boolean).join(" ")}>
+        <label htmlFor="document-file">PDF</label>
+        <input
+          key={`document-file-${resetKey}`}
+          id="document-file"
+          name="file"
+          type="file"
+          accept="application/pdf,.pdf"
+          onChange={(event) =>
+            actions.setUploadFiles("documentFile", filesFromEvent(event))
+          }
+        />
+      </div>
+      <div className={["field", "wide", isFolderUpload ? "" : "is-hidden"].filter(Boolean).join(" ")}>
+        <label htmlFor="document-folder">Folder of PDFs</label>
+        <input
+          key={`document-folder-${resetKey}`}
+          id="document-folder"
+          name="document_folder_files"
+          type="file"
+          webkitdirectory=""
+          multiple
+          onChange={(event) =>
+            actions.setUploadFiles("documentFolderFiles", filesFromEvent(event))
+          }
+        />
+      </div>
+    </>
+  );
+}
+
 function SampleUploadFields({ isFolderUpload, draft, actions, resetKey }) {
   return (
     <>
@@ -102,6 +151,10 @@ function SampleUploadFields({ isFolderUpload, draft, actions, resetKey }) {
           Ground-truth files should use the same relative name as the sample
           file.
         </Instruction>
+        <Instruction>
+          Page names must use document_page, or _page when no document exists.
+          Document membership and page order are assigned automatically.
+        </Instruction>
       </div>
     </>
   );
@@ -112,15 +165,7 @@ function DerivativeUploadFields({
   draft,
   actions,
   resetKey,
-  samples,
 }) {
-  const sampleOptions = samples.length
-    ? samples.map((sample) => ({
-        value: sample.id,
-        label: sample.name || sample.id,
-      }))
-    : [];
-
   return (
     <>
       <div
@@ -138,29 +183,6 @@ function DerivativeUploadFields({
             actions.setUploadField("derivativeName", event.target.value)
           }
         />
-      </div>
-      <div className="field wide">
-        <label htmlFor="derivative-originating-sample">Originating sample</label>
-        <select
-          id="derivative-originating-sample"
-          name="sample_id"
-          value={draft.originatingSampleId}
-          onChange={(event) =>
-            actions.setUploadField("originatingSampleId", event.target.value)
-          }
-          disabled={!sampleOptions.length}
-        >
-          <option value="">
-            {sampleOptions.length
-              ? "Let derivative mapping resolve this"
-              : "No samples available"}
-          </option>
-          {sampleOptions.map((sample) => (
-            <option key={sample.value} value={sample.value}>
-              {sample.label}
-            </option>
-          ))}
-        </select>
       </div>
       <div
         className={["field", "wide", isFolderUpload ? "is-hidden" : ""]
@@ -196,8 +218,8 @@ function DerivativeUploadFields({
           }
         />
         <Instruction>
-          Folder uploads will derive derivative names from the folder structure
-          when possible.
+          Names must use document_page_derivative or _page_derivative. The
+          source sample and derivative group are assigned automatically.
         </Instruction>
       </div>
     </>
@@ -287,7 +309,14 @@ export function FileUploadPanel({ state, actions, formId }) {
       onSubmit={handleSubmit}
     >
       <div className="form-grid">
-        {state.uploadType === "sample" ? (
+        {state.uploadType === "document" ? (
+          <DocumentUploadFields
+            isFolderUpload={isFolderUpload}
+            draft={uploadDraft}
+            actions={actions}
+            resetKey={resetKey}
+          />
+        ) : state.uploadType === "sample" ? (
           <SampleUploadFields
             isFolderUpload={isFolderUpload}
             draft={uploadDraft}
@@ -300,7 +329,6 @@ export function FileUploadPanel({ state, actions, formId }) {
             draft={uploadDraft}
             actions={actions}
             resetKey={resetKey}
-            samples={state.samples}
           />
         ) : (
           <AssetUploadFields

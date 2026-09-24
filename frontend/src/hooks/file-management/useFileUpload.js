@@ -27,13 +27,6 @@ function fileStem(fileName) {
   );
 }
 
-function derivativeMapPayload(derivatives) {
-  return derivatives.map((derivative) => ({
-    id: derivative.id,
-    name: derivative.name,
-  }));
-}
-
 function derivativeCreatePayload(derivatives) {
   return derivatives.map((derivative) => ({
     name: derivative.name,
@@ -41,18 +34,13 @@ function derivativeCreatePayload(derivatives) {
   }));
 }
 
-function derivativePatchPayload(derivatives) {
-  return derivatives.map((derivative) => ({
-    id: derivative.id,
-    derivative_group_id: derivative.derivative_group_id,
-    sample_id: derivative.sample_id,
-    category: derivative.category,
-    mime_type: derivative.mime_type,
-  }));
-}
-
 function createUploadDrafts() {
   return {
+    document: {
+      documentName: "",
+      documentFile: null,
+      documentFolderFiles: [],
+    },
     sample: {
       sampleName: "",
       sampleFile: null,
@@ -64,7 +52,6 @@ function createUploadDrafts() {
       derivativeName: "",
       derivativeFile: null,
       derivativeFolderFiles: [],
-      originatingSampleId: "",
     },
     asset: {
       assetName: "",
@@ -87,7 +74,9 @@ export function useFileUpload() {
 
   function setUploadType(type) {
     setUploadTypeState(
-      type === "derivative" || type === "asset" ? type : "sample",
+      type === "document" || type === "derivative" || type === "asset"
+        ? type
+        : "sample",
     );
   }
 
@@ -161,7 +150,47 @@ export function useFileUpload() {
       let uploadHadFailures = false;
       let failureMessage = "";
 
-      if (uploadType === "sample") {
+      if (uploadType === "document") {
+        if (uploadMode === "folder") {
+          const folderFiles = collectFolderFiles(
+            activeDraft.documentFolderFiles || [],
+          ).filter(
+            (item) =>
+              String(item.file.type || "").toLowerCase() === "application/pdf" ||
+              String(item.file.name || "").toLowerCase().endsWith(".pdf"),
+          );
+          if (!folderFiles.length) {
+            throw new Error("The selected folder does not contain any PDF files.");
+          }
+          startFolderUpload(folderFiles.length);
+          for (let index = 0; index < folderFiles.length; index += 1) {
+            const item = folderFiles[index];
+            const documentName = fileStem(item.file.name);
+            const created = await fileManagementApi.createDocument(documentName);
+            const formData = new FormData();
+            formData.append("file", item.file);
+            await fileManagementApi.uploadDocumentBlob(created.id, formData);
+            markFolderUploadProgress({
+              fileName: item.file.name || null,
+              completedFiles: index + 1,
+              failedFiles: 0,
+              totalFiles: folderFiles.length,
+            });
+          }
+        } else {
+          const file = activeDraft.documentFile?.[0] || null;
+          if (!file) throw new Error("Select a PDF first.");
+          const documentName =
+            activeDraft.documentName.trim() || fileStem(file.name);
+          const created = await fileManagementApi.createDocument(documentName);
+          const formData = new FormData();
+          formData.append("file", file);
+          await fileManagementApi.uploadDocumentBlob(created.id, formData);
+        }
+        effects.setNotice(
+          uploadMode === "folder" ? "Documents uploaded." : "Document uploaded.",
+        );
+      } else if (uploadType === "sample") {
         if (uploadMode === "folder") {
           const imageFiles = collectImageFolderFiles(
             activeDraft.sampleFolderFiles || [],
@@ -229,8 +258,8 @@ export function useFileUpload() {
           }
           startFolderUpload(folderFiles.length);
           const derivatives = folderFiles.map((item) => ({
-            name: item.recordId || fileStem(item.file.name),
-            mime_type: item.file.type || null,
+            name: fileStem(item.file.name),
+            mime_type: item.file.type || "application/octet-stream",
           }));
           const created = await fileManagementApi.createDerivatives(
             derivativeCreatePayload(derivatives),
@@ -241,10 +270,7 @@ export function useFileUpload() {
             const folderFile = folderFiles[index];
             await fileManagementApi.uploadDerivativeBlob(
               derivative.id,
-              createDerivativeBlobFormData(
-                folderFile.file,
-                derivatives[index].mime_type,
-              ),
+              createDerivativeBlobFormData(folderFile.file),
             );
             markFolderUploadProgress({
               fileName: folderFile.file.name || null,
@@ -253,21 +279,6 @@ export function useFileUpload() {
               totalFiles: folderFiles.length,
             });
           }
-          const mappedResponse = await fileManagementApi.mapDerivatives(
-            derivativeMapPayload(createdDerivatives),
-          );
-          const mapped = mappedResponse.data?.mapped_derivatives || [];
-          const failedMappings = mappedResponse.data?.rejected_derivatives || [];
-          if (failedMappings.length) {
-            const firstFailure = failedMappings[0];
-            throw new Error(
-              String(
-                firstFailure?.reason ||
-                  `Derivative mapping failed for ${firstFailure?.name || "derivative"}.`,
-              ),
-            );
-          }
-          await fileManagementApi.patchDerivatives(derivativePatchPayload(mapped));
         } else {
           const file = activeDraft.derivativeFile?.[0] || null;
           if (!file) throw new Error("Select an derivative file first.");
@@ -277,7 +288,7 @@ export function useFileUpload() {
           const derivatives = [
             {
               name: derivedName,
-              mime_type: file.type || null,
+              mime_type: file.type || "application/octet-stream",
             },
           ];
           const created = await fileManagementApi.createDerivatives(
@@ -291,23 +302,8 @@ export function useFileUpload() {
           }
           await fileManagementApi.uploadDerivativeBlob(
             createdDerivative.id,
-            createDerivativeBlobFormData(file, derivatives[0].mime_type),
+            createDerivativeBlobFormData(file),
           );
-          const mappedResponse = await fileManagementApi.mapDerivatives(
-            derivativeMapPayload([createdDerivative]),
-          );
-          const mapped = mappedResponse.data?.mapped_derivatives || [];
-          const failedMappings = mappedResponse.data?.rejected_derivatives || [];
-          if (failedMappings.length) {
-            const firstFailure = failedMappings[0];
-            throw new Error(
-              String(
-                firstFailure?.reason ||
-                  `Derivative mapping failed for ${derivedName}.`,
-              ),
-            );
-          }
-          await fileManagementApi.patchDerivatives(derivativePatchPayload(mapped));
         }
 
         effects.setNotice(

@@ -7,6 +7,16 @@ import {
   buildWorkflowSteps, cloneWorkflowStepFilters, visibleWorkflowStepRows,
 } from '../src/hooks/workflow-steps/workflowStepsShared.js';
 import { buildWorkflowPayload } from '../src/utils/workflow.js';
+import { buildCharacterDiff } from '../src/utils/textDiff.js';
+
+test('step output diff refines substitutions at character level', () => {
+  assert.deepEqual(buildCharacterDiff('riwer', 'river'), [
+    { type: 'equal', text: 'ri' },
+    { type: 'delete', text: 'w' },
+    { type: 'insert', text: 'v' },
+    { type: 'equal', text: 'er' },
+  ]);
+});
 
 test('file selectors use local IDs and resolve group display names through foreign keys', () => {
   const groups = [{ id: 90, name: 'Line crops', description: 'Segments' }];
@@ -46,11 +56,16 @@ test('sample membership filters retain qualified related IDs', () => {
 
 test('workflow step details join templates and specs by their foreign keys', () => {
   const template = { id: 20, name: 'Prompt', payload: { contents: [] }, resources: [], status: 'active' };
-  const spec = { id: 30, name: 'Text', type: 'plain-text', status: 'active' };
+  const spec = { id: 30, name: 'Text', item_schema: { type: 'string' }, status: 'active' };
   const step = { id: 10, name: 'Read', payload_template_id: 20, output_spec_id: 30, step_executor_id: 'gemini', method: 'transcribe', status: 'active' };
   const rows = buildWorkflowSteps({ payloadTemplates: [template], outputSpecs: [spec], workflowSteps: [step] });
   const result = rows['workflow-step'][0];
   assert.equal(result.id, '10');
+  assert.equal(result.executor, 'gemini');
+  assert.equal(result.payloadTemplate, 'Prompt');
+  assert.equal(result.outputSpecification, 'Text');
+  assert.equal(result.method, 'transcribe');
+  assert.equal(result.status, 'active');
   assert.equal(result.previewText, 'Payload: Prompt • Output: Text');
   assert.equal(JSON.parse(result.detail.sections[0].content).id, 20);
   assert.equal(JSON.parse(result.detail.sections[1].content).id, 30);
@@ -65,6 +80,6 @@ test('workflow step details join templates and specs by their foreign keys', () 
 
 test('workflow form emits canonical local fields and qualified sample-set relation', () => {
   assert.deepEqual(buildWorkflowPayload({ name: ' Read ', description: ' Demo ', sample_set_id: '8' }), {
-    name: 'Read', description: 'Demo', sample_set_id: 8, status: 'draft',
+    name: 'Read', description: 'Demo', sample_set_id: 8, status: 'draft', execution_mode: 'continuous',
   });
 });

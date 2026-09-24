@@ -15,6 +15,7 @@ export function WorkflowBuilderPageHeader({
   workflows = [],
   selectedWorkflowId = "",
   onSelectWorkflow,
+  onNewWorkflow,
   onSave,
   onFinalize,
 }) {
@@ -28,7 +29,7 @@ export function WorkflowBuilderPageHeader({
           onChange={(event) => onSelectWorkflow?.(event.target.value)}
           aria-label="Select workflow"
         >
-          <option value="">New workflow</option>
+          <option value="">Select a workflow</option>
           {workflows.map((workflow) => (
             <option key={workflow.id} value={workflow.id}>
               {workflow.name}
@@ -40,10 +41,10 @@ export function WorkflowBuilderPageHeader({
         <Button
           size="compact"
           variant="primary"
-          onClick={onFinalize}
-          disabled={finalizeDisabled}
+          onClick={onNewWorkflow}
+          disabled={saving || finalizing}
         >
-          {finalizing ? "Finalizing..." : "Finalize workflow"}
+          New workflow
         </Button>
         <Button
           size="compact"
@@ -52,6 +53,14 @@ export function WorkflowBuilderPageHeader({
           disabled={disabled}
         >
           {saving ? "Saving..." : "Save workflow"}
+        </Button>
+        <Button
+          size="compact"
+          variant="primary"
+          onClick={onFinalize}
+          disabled={finalizeDisabled}
+        >
+          {finalizing ? "Finalizing..." : "Finalize workflow"}
         </Button>
       </Inline>
     </header>

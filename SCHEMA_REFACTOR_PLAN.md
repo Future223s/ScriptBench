@@ -1,6 +1,6 @@
 # Canonical schema implementation outline
 
-Status: validated by the user and implemented in this worktree. See `docs/canonical-schema.md` for the final table/API inventory and recreation commands.
+Status: validated by the user and implemented in this worktree. See `docs/canonical-schema.md` for the final table/API inventory and migration commands.
 
 ## Baseline
 
@@ -19,12 +19,12 @@ with foreign keys targeting `payload_templates.id`.
 
 | Domain | Evidence and established pattern | Planned change / likely files | Assumptions |
 | --- | --- | --- | --- |
-| Tables and relationships | All 19 SQLAlchemy definitions in `backend/database/tables`, checks in `backend/database/schema.py`; existing `step_executors.id/name` pattern | Apply the inventory below to every table and FK together; name the physical table and Python symbol `payload_templates`; remove its singular alias; use `step_executor_id`, resource `name`, and edge `condition`; preserve column types, nullability, defaults, indexes, uniqueness and delete behavior | No migrations or compatibility columns; preserve composite membership primary key |
+| Tables and relationships | SQLAlchemy definitions in `backend/database/tables`, checks in `backend/database/schema.py`; existing `step_executors.id/name` pattern | Apply the inventory below to every table and FK together; name the physical table and Python symbol `payload_templates`; remove its singular alias; use `step_executor_id`, resource `name`, and edge `condition`; preserve column types, nullability, defaults, indexes, uniqueness and delete behavior | Alembic migrations preserve existing data; preserve composite membership primary keys |
 | Repositories | `backend/database/repositories`, SQLAlchemy Core selects and `.mappings()` dictionaries | Update column references, joins, writes and entity dictionaries; explicitly distinguish entity `id` from related IDs; remove derivative group name storage; join group relation for backend display/filter needs | Qualified foreign keys remain qualified; derived relationship information must not masquerade as local entity fields |
 | API contracts | `backend/models`, `backend/api/v2/endpoints`, shared response envelopes and Pydantic models | Use canonical local field names in requests/responses; retain relational IDs; align nested prompt-resource fields with table columns; canonical blob metadata (`has_blob`, `blob_size`, `blob_base64`); reject legacy request fields instead of aliases | Preserve routes and response envelopes unless required by the existing derivative rename; transport encodes binary data as before |
 | Runtime and bootstrap | `backend/services`, `backend/scripts/bootstrapping`, current execution and bootstrap tests | Update runtime dictionary access, template placeholders, mapping field selectors, catalog references and bootstrap upserts; extend tests for schema/FK integrity and API contracts | Preserve ongoing executor functionality and seed behavior; no provider calls needed to validate |
 | Frontend | `frontend/src/api/client.ts`, endpoint modules, existing hooks/components/selectors | Update TypeScript entities and payloads, API calls, state, filters, forms, details and selectors together; derive derivative group display names from `derivative_group_id` and loaded groups | Preserve current UI structure and unrelated layout changes |
-| Validation and development setup | Backend tests/imports; frontend `tsconfig.json`; source `docker-compose-dev.yml` and bootstrap CLIs | Run backend imports/tests and `tsc --noEmit`; add targeted contract coverage where needed; document exact volume recreation, schema initialization and both bootstrap commands in README/seeding docs | Document destructive database reset commands; do not execute them against existing user data |
+| Validation and development setup | Backend tests/imports; frontend `tsconfig.json`; source `docker-compose-dev.yml` and bootstrap CLIs | Run backend imports/tests and `tsc --noEmit`; add targeted contract coverage where needed; document migration and bootstrap commands in README/seeding docs | Never require a destructive database reset for a schema upgrade |
 
 ## Target table inventory
 
@@ -182,21 +182,11 @@ CheckConstraint(PROMPT_RESOURCE_TABLE_CHECK_SQL, name='ck_prompt_resources_sourc
 CheckConstraint('batch_limit > 0', name='ck_prompt_resources_batch_limit')
 ```
 
-### `sample_mapping`
+### Retired `sample_mapping`
 
-Source: `backend/database/tables/sample_mapping_table.py`.
-
-```python
-Column('id', Integer, primary_key=True, autoincrement=True)
-Column('derivative_group_id', Integer, ForeignKey('derivative_groups.id', ondelete='CASCADE'), nullable=False, unique=True, index=True)
-Column('derivative_field', String(64), nullable=False, server_default='name', index=True)
-Column('sample_field', String(64), nullable=False, server_default='sample_name', index=True)
-Column('operator', String(32), nullable=False, index=True)
-Column('case_sensitive', Boolean, nullable=False, server_default='0')
-Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.current_timestamp())
-UniqueConstraint('derivative_group_id', name='uq_sample_mapping_derivative_group_id')
-CheckConstraint(MAPPING_OPERATOR_CHECK_SQL, name='ck_sample_mapping_operator')
-```
+Migration `20260921_03` removes this table. Canonical
+`document_page_derivative` names resolve directly to `document_page`; only
+derivative-group membership remains configurable through `membership_mapping`.
 
 ### `sample_set_samples`
 

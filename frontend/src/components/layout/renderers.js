@@ -20,7 +20,6 @@ const prototypeNavItems = [
   {
     key: "analysis",
     title: "Analysis",
-    disabled: true,
   },
 ];
 

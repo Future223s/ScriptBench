@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Table, func
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Table, func
 
-from ..schema import metadata
+from ..schema import EXECUTION_SCOPE_CHECK_SQL, metadata
 
 workflow_dag_nodes = Table(
     "workflow_dag_nodes",
@@ -24,6 +24,7 @@ workflow_dag_nodes = Table(
     ),
     Column("row", Integer, nullable=False, server_default="1"),
     Column("col", Integer, nullable=False, server_default="1"),
+    Column("execution_scope", String(32), nullable=False, server_default="samples"),
     Column(
         "created_at",
         DateTime(timezone=True),
@@ -36,4 +37,5 @@ workflow_dag_nodes = Table(
         nullable=False,
         server_default=func.current_timestamp(),
     ),
+    CheckConstraint(EXECUTION_SCOPE_CHECK_SQL, name="ck_workflow_dag_nodes_scope"),
 )

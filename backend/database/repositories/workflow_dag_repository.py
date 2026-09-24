@@ -1,21 +1,40 @@
 from __future__ import annotations
 
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.engine import Connection, Engine
 
 from ..tables.workflow_dag_edges_table import workflow_dag_edges
 from ..tables.workflow_dag_nodes_table import workflow_dag_nodes
+from ..tables.workflow_steps_table import workflow_steps
 
 
 class WorkflowDagRepository:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
 
+    @staticmethod
+    def _node_columns():
+        return (
+            workflow_dag_nodes.c.id,
+            workflow_dag_nodes.c.workflow_id,
+            workflow_dag_nodes.c.workflow_step_id,
+            workflow_dag_nodes.c.row,
+            workflow_dag_nodes.c.col,
+            workflow_steps.c.execution_scope,
+            workflow_steps.c.output_scope,
+            workflow_dag_nodes.c.created_at,
+            workflow_dag_nodes.c.updated_at,
+        )
+
     def list_nodes(self, workflow_id: int) -> list[dict[str, object]]:
         with self.engine.connect() as connection:
             rows = (
                 connection.execute(
-                    select(workflow_dag_nodes)
+                    select(*self._node_columns())
+                    .join(
+                        workflow_steps,
+                        workflow_steps.c.id == workflow_dag_nodes.c.workflow_step_id,
+                    )
                     .where(workflow_dag_nodes.c.workflow_id == workflow_id)
                     .order_by(
                         workflow_dag_nodes.c.row.asc(),
@@ -32,7 +51,11 @@ class WorkflowDagRepository:
         with self.engine.connect() as connection:
             row = (
                 connection.execute(
-                    select(workflow_dag_nodes)
+                    select(*self._node_columns())
+                    .join(
+                        workflow_steps,
+                        workflow_steps.c.id == workflow_dag_nodes.c.workflow_step_id,
+                    )
                     .where(workflow_dag_nodes.c.workflow_id == workflow_id)
                     .order_by(
                         workflow_dag_nodes.c.row.asc(),
@@ -50,7 +73,12 @@ class WorkflowDagRepository:
         with self.engine.connect() as connection:
             row = (
                 connection.execute(
-                    select(workflow_dag_nodes).where(
+                    select(*self._node_columns())
+                    .join(
+                        workflow_steps,
+                        workflow_steps.c.id == workflow_dag_nodes.c.workflow_step_id,
+                    )
+                    .where(
                         workflow_dag_nodes.c.id
                         == workflow_dag_node_id
                     )
@@ -93,6 +121,20 @@ class WorkflowDagRepository:
             return run(conn)
         with self.engine.begin() as connection:
             return run(connection)
+
+    def update_node(
+        self, workflow_id: int, node_id: int, row: dict[str, object]
+    ) -> int:
+        with self.engine.begin() as connection:
+            result = connection.execute(
+                update(workflow_dag_nodes)
+                .where(
+                    workflow_dag_nodes.c.workflow_id == workflow_id,
+                    workflow_dag_nodes.c.id == node_id,
+                )
+                .values(**row, updated_at=func.current_timestamp())
+            )
+        return int(result.rowcount or 0)
 
     def list_edges(self, workflow_id: int) -> list[dict[str, object]]:
         with self.engine.connect() as connection:

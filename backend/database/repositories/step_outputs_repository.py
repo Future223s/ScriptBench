@@ -1,78 +1,97 @@
 from __future__ import annotations
+
 from typing import Any
-from sqlalchemy import func, insert, select, update
+
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.engine import Engine
+
 from ..tables.step_outputs_table import step_outputs
 
 
 class StepOutputsRepository:
+    """Publish the canonical outputs that downstream workflow steps may consume."""
+
     def __init__(self, engine: Engine):
         self.engine = engine
 
-    def insert_attempt(
+    @staticmethod
+    def _individual_value(item: dict[str, Any]) -> Any:
+        if "output" in item:
+            return item["output"]
+        return {key: value for key, value in item.items() if key != "entity_id"}
+
+    def publish(
         self,
         *,
-        execution_job_id: int,
-        workflow_id: int,
+        raw_output_id: int,
+        execution_job: dict[str, Any],
         workflow_step_id: int,
-        sample_id: str,
-        assembled_model_payload: Any,
-        raw_model_response: str,
-        parsed_output: Any,
-        parse_status: str,
-        parse_error: str | None,
-        time_elapsed: float,
-        started_at,
-        completed_at,
-        **metrics: Any,
-    ) -> int:
-        with self.engine.begin() as c:
-            existing_id = c.execute(
-                select(step_outputs.c.id).where(
-                    step_outputs.c.execution_job_id == execution_job_id,
-                    step_outputs.c.workflow_step_id == workflow_step_id,
-                )
-            ).scalar_one_or_none()
-            attempt_no = (
-                int(
-                    c.execute(
-                        select(
-                            func.coalesce(func.max(step_outputs.c.attempt_no), 0)
-                        ).where(step_outputs.c.execution_job_id == execution_job_id)
+        individual_outputs: list[dict[str, Any]] | None,
+        complete_output: Any,
+    ) -> list[int]:
+        refs = list(execution_job.get("output_refs") or [])
+        by_entity_id = {
+            str(item["entity_id"]): self._individual_value(item)
+            for item in (individual_outputs or [])
+            if isinstance(item, dict) and item.get("entity_id") is not None
+        }
+        if not refs:
+            return []
+
+        published_ids: list[int] = []
+        with self.engine.begin() as connection:
+            for ref in refs:
+                entity_type = str(ref["entity_type"])
+                entity_id = str(ref["entity_id"])
+                output = by_entity_id.get(entity_id, complete_output)
+                values = {
+                    "raw_output_id": raw_output_id,
+                    "execution_job_id": int(execution_job["id"]),
+                    "workflow_id": int(execution_job["workflow_id"]),
+                    "workflow_step_id": workflow_step_id,
+                    "sample_id": (
+                        entity_id
+                        if entity_type == "sample"
+                        else execution_job.get("sample_id")
+                    ),
+                    "output_scope": str(execution_job["output_scope"]),
+                    "entity_type": entity_type,
+                    "entity_key": entity_id,
+                    "output": output,
+                    "cer": None,
+                    "wer": None,
+                    "hallucination_count": None,
+                }
+                existing_id = connection.execute(
+                    select(step_outputs.c.id).where(
+                        step_outputs.c.execution_job_id == int(execution_job["id"]),
+                        step_outputs.c.workflow_step_id == workflow_step_id,
+                        step_outputs.c.entity_type == entity_type,
+                        step_outputs.c.entity_key == entity_id,
+                    )
+                ).scalar_one_or_none()
+                if existing_id is None:
+                    existing_id = connection.execute(
+                        insert(step_outputs)
+                        .values(**values)
+                        .returning(step_outputs.c.id)
                     ).scalar_one()
+                else:
+                    connection.execute(
+                        update(step_outputs)
+                        .where(step_outputs.c.id == existing_id)
+                        .values(**values)
+                    )
+                published_ids.append(int(existing_id))
+
+            connection.execute(
+                delete(step_outputs).where(
+                    step_outputs.c.execution_job_id == int(execution_job["id"]),
+                    step_outputs.c.workflow_step_id == workflow_step_id,
+                    step_outputs.c.id.not_in(published_ids),
                 )
-                + 1
             )
-            values = {
-                "execution_job_id": execution_job_id,
-                "workflow_id": workflow_id,
-                "workflow_step_id": workflow_step_id,
-                "sample_id": sample_id,
-                "attempt_no": attempt_no,
-                "assembled_model_payload": assembled_model_payload,
-                "raw_model_response": raw_model_response,
-                "parsed_output": parsed_output,
-                "parse_status": parse_status,
-                "parse_error": parse_error,
-                "time_elapsed": time_elapsed,
-                "started_at": started_at,
-                "completed_at": completed_at,
-                **metrics,
-            }
-            if existing_id is not None:
-                c.execute(
-                    update(step_outputs)
-                    .where(step_outputs.c.id == existing_id)
-                    .values(**values)
-                )
-                return int(existing_id)
-            return int(
-                c.execute(
-                    insert(step_outputs)
-                    .values(**values)
-                    .returning(step_outputs.c.id)
-                ).scalar_one()
-            )
+        return published_ids
 
     def update_metrics(
         self,
@@ -83,11 +102,7 @@ class StepOutputsRepository:
     ) -> None:
         with self.engine.begin() as connection:
             connection.execute(
-                step_outputs.update()
+                update(step_outputs)
                 .where(step_outputs.c.id == step_output_id)
-                .values(
-                    cer=cer,
-                    wer=wer,
-                    hallucination_count=None,
-                )
+                .values(cer=cer, wer=wer, hallucination_count=None)
             )

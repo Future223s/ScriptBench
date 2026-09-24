@@ -11,7 +11,6 @@ from sqlalchemy.engine import Connection, Engine
 
 from ..tables.derivatives_table import derivatives
 from ..tables.membership_mapping_table import membership_mapping
-from ..tables.sample_mapping_table import sample_mapping
 from ..tables.samples_table import samples
 
 logger = logging.getLogger(__name__)
@@ -98,6 +97,21 @@ class DerivativesRepository:
         if inserted_id is None:
             raise ValueError("Failed to insert derivative")
         return int(inserted_id)
+
+    def insert_derivatives(self, rows: list[dict[str, object]]) -> list[int]:
+        inserted_ids: list[int] = []
+        with self.engine.begin() as conn:
+            for row in rows:
+                result = conn.execute(insert(derivatives).values(**row))
+                inserted_id = (
+                    result.inserted_primary_key[0]
+                    if result.inserted_primary_key
+                    else None
+                )
+                if inserted_id is None:
+                    raise ValueError("Failed to insert derivative")
+                inserted_ids.append(int(inserted_id))
+        return inserted_ids
 
     def update_derivative(
         self,
@@ -191,25 +205,6 @@ class DerivativesRepository:
     def fetch_membership_mappings(self) -> list[dict[str, Any]]:
         with self.engine.begin() as conn:
             rows = conn.execute(select(membership_mapping)).fetchall()
-        return [dict(row._mapping) for row in rows]
-
-    def fetch_sample_mapping_by_group_ids(
-        self, derivative_group_ids: Sequence[int]
-    ) -> list[dict[str, Any]]:
-        ids = [int(derivative_group_id) for derivative_group_id in derivative_group_ids]
-        if not ids:
-            return []
-        with self.engine.begin() as conn:
-            rows = conn.execute(
-                select(sample_mapping).where(
-                    sample_mapping.c.derivative_group_id.in_(ids)
-                )
-            ).fetchall()
-        return [dict(row._mapping) for row in rows]
-
-    def fetch_sample_mappings(self) -> list[dict[str, Any]]:
-        with self.engine.begin() as conn:
-            rows = conn.execute(select(sample_mapping)).fetchall()
         return [dict(row._mapping) for row in rows]
 
     def fetch_samples_for_names(

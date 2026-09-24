@@ -17,29 +17,54 @@
 .workflow-builder-grid {
   display: grid;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   align-items: stretch;
   gap: var(--space-3);
   min-width: 0;
-  height: auto;
+  flex: 1;
+  min-height: clamp(520px, calc(100dvh - 260px), 760px);
+  height: 100%;
+  width: 100%;
 }
 
 .workflow-builder-sidebar,
 .workflow-builder-workbench {
   min-width: 0;
+  align-self: start;
+  margin-block-start: 0;
+  height: 100%;
+}
+
+.workflow-builder-details-panel {
+  margin-block-start: var(--space-1);
 }
 
 .workflow-builder-workbench {
   display: flex;
+  flex-direction: column;
+  min-height: 0;
+  align-self: stretch;
+}
+
+.workflow-builder-canvas-mode-hint {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+  opacity: 0.92;
 }
 
 .workflow-builder-workbench .ui-canvas {
-  min-height: 320px;
+  min-height: 640px;
 }
 
 @media (max-width: 900px) {
   .workflow-builder-grid {
     flex: none;
     grid-template-rows: auto auto;
+    min-height: 0;
   }
 
   .workflow-builder-header,

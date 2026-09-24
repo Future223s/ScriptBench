@@ -4,6 +4,9 @@
 }
 
 .topbar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   z-index: var(--layer-sticky);
   gap: var(--space-2);
   padding: var(--space-3) var(--page-gutter) var(--space-2);
@@ -13,39 +16,34 @@
 }
 
 .topbar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-3);
+}
+
+.topbar-notification-slot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.topbar-notification-stack {
+  width: min(100%, 560px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.topbar-notification-stack .ui-notification {
+  width: 100%;
+  box-shadow: var(--shadow-soft);
 }
 
 .brand-title {
   color: var(--accent-strong);
   letter-spacing: 0.12em;
-}
-
-.prototype-nav {
-  gap: var(--space-1);
-  border-bottom-color: var(--border-subtle);
-}
-
-.prototype-nav-item {
-  min-height: 40px;
-  padding: 8px var(--space-3) 9px;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  color: var(--text-secondary);
-}
-
-.prototype-nav-item:hover {
-  border-color: rgba(184, 87, 50, 0.24);
-  background: var(--surface-solid);
-}
-
-.prototype-nav-item.is-active {
-  border-color: rgba(184, 87, 50, 0.36);
-  background: var(--surface-solid);
-  box-shadow: inset 0 -3px 0 var(--accent);
-}
-
-.prototype-nav-title {
-  color: inherit;
 }
 
 .page-surface {
@@ -54,6 +52,7 @@
 
 .dev-controls {
   position: relative;
+  z-index: var(--layer-modal);
   margin-left: auto;
   align-self: flex-end;
 }
@@ -85,6 +84,7 @@
   border-radius: var(--radius-md);
   background: var(--surface-solid);
   box-shadow: var(--shadow-soft);
+  z-index: 1;
 }
 
 .dev-controls-panel label { display: flex; align-items: center; gap: var(--space-2); }

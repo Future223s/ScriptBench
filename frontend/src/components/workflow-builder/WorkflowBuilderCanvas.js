@@ -25,11 +25,12 @@ export function WorkflowBuilderCanvas({ state, actions }) {
   }
 
   const modeHint = {
+    "add-step": "Choose an empty canvas position.",
     "add-dependency": state.dependencySourceNodeId
       ? "Choose the destination step."
       : "Choose the source step.",
     "delete-step": "Choose a step to remove.",
-    "delete-dependency": "Choose a connection to remove.",
+    "delete-dependency": "Choose a dependency to remove.",
   }[state.mode];
 
   function getPlacementFromPointer(event) {
@@ -53,8 +54,8 @@ export function WorkflowBuilderCanvas({ state, actions }) {
         <Inline gap="compact" justify="end">
           <Button
             size="compact"
-            variant="primary"
             onClick={actions.enterAddWorkflowStepMode}
+            aria-pressed={state.mode === "add-step"}
           >
             Add step
           </Button>
@@ -77,7 +78,7 @@ export function WorkflowBuilderCanvas({ state, actions }) {
             onClick={actions.enterDeleteDependencyMode}
             aria-pressed={state.mode === "delete-dependency"}
           >
-            Delete connection
+            Delete dependency
           </Button>
           <Button size="compact" onClick={actions.cancelCanvasAction}>
             Cancel
@@ -85,8 +86,10 @@ export function WorkflowBuilderCanvas({ state, actions }) {
         </Inline>
       }
     >
-      <Stack gap="compact" fill>
-        {modeHint && state.mode !== "add-step" ? <StatusBadge size="compact">{modeHint}</StatusBadge> : null}
+      <div
+        className="ui-stack ui-stack--compact ui-stack--fill"
+        style={{ gridTemplateRows: "auto minmax(0, 1fr)" }}
+      >
         <CanvasSurface
           label="Workflow canvas"
           size="compact"
@@ -94,6 +97,11 @@ export function WorkflowBuilderCanvas({ state, actions }) {
           onPointerMove={(event) => setHoveredPlacement(getPlacementFromPointer(event))}
           onPointerLeave={() => setHoveredPlacement(null)}
         >
+          {modeHint ? (
+            <div className="workflow-builder-canvas-mode-hint" role="status">
+              <StatusBadge size="compact">{modeHint}</StatusBadge>
+            </div>
+          ) : null}
           {state.edges.map((edge) => {
             const fromNode = findNode(state.nodes, edge.from);
             const toNode = findNode(state.nodes, edge.to);
@@ -121,7 +129,7 @@ export function WorkflowBuilderCanvas({ state, actions }) {
                 y={point.y}
                 title={node.label}
                 detail={
-                  node.executor_config?.model || node.step_executor_id || "Model not specified"
+                  `${node.execution_scope || "samples"} → ${node.output_scope || "samples"} · ${node.executor_config?.model || node.step_executor_id || "Model not specified"}`
                 }
                 selected={Number(state.selectedNodeId) === Number(node.id)}
                 onClick={() => actions.selectNode(node.id)}
@@ -144,7 +152,7 @@ export function WorkflowBuilderCanvas({ state, actions }) {
             />
           ) : null}
         </CanvasSurface>
-      </Stack>
+      </div>
     </Panel>
   );
 }

@@ -42,7 +42,11 @@ class GeminiClient(StepExecutor):
             self.client.models.generate_content,
             model=self.model,
             contents=contents,
-            config=types.GenerateContentConfig(temperature=self.temperature, max_output_tokens=self.max_tokens),
+            config=types.GenerateContentConfig(
+                temperature=self.temperature,
+                max_output_tokens=self.max_tokens,
+                response_mime_type="application/json",
+            ),
         )
         return response.text or ""
 

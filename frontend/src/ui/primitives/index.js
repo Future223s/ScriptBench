@@ -404,10 +404,243 @@ export function Tabs({ items, activeId, onChange }) {
           aria-selected={activeId === item.id}
           onClick={() => onChange?.(item.id)}
         >
-          {item.label}
+          <span>{item.label}</span>
+          {item.count != null ? (
+            <span className="ui-tabs__count">{item.count}</span>
+          ) : null}
         </button>
       ))}
     </div>
+  );
+}
+
+function FilterControl({ filter, id }) {
+  const sharedProps = {
+    id,
+    value: filter.value ?? "",
+    disabled: filter.disabled || false,
+    required: filter.required || false,
+    "aria-describedby": filter.describedBy,
+    onChange: (event) => filter.onChange?.(event.target.value),
+  };
+  return (
+    <label className="ui-filter-bar__control" htmlFor={id}>
+      <span className="u-sr-only">{filter.label}</span>
+      {filter.kind === "select" ? (
+        <Select {...sharedProps}>
+          {(filter.options || []).map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      ) : (
+        <TextInput
+          {...sharedProps}
+          type={filter.inputType || "search"}
+          placeholder={filter.placeholder || filter.label}
+        />
+      )}
+    </label>
+  );
+}
+
+export function CompactFilterBar({
+  filters = [],
+  activeFilters = [],
+  onClearAll,
+  actions,
+  ariaLabel = "Filters",
+}) {
+  const idPrefix = useId().replaceAll(":", "");
+  const primaryFilters = filters.filter((filter) => !filter.overflow);
+  const overflowFilters = filters.filter((filter) => filter.overflow);
+  return (
+    <section className="ui-filter-bar" aria-label={ariaLabel}>
+      <div className="ui-filter-bar__controls">
+        {primaryFilters.map((filter) => (
+          <FilterControl
+            key={filter.id}
+            filter={filter}
+            id={`${idPrefix}-${filter.id}`}
+          />
+        ))}
+        {overflowFilters.length ? (
+          <details className="ui-filter-bar__overflow">
+            <summary>More filters</summary>
+            <div className="ui-filter-bar__overflow-controls">
+              {overflowFilters.map((filter) => (
+                <FilterControl
+                  key={filter.id}
+                  filter={filter}
+                  id={`${idPrefix}-${filter.id}`}
+                />
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {actions ? <div className="ui-filter-bar__actions">{actions}</div> : null}
+      </div>
+      {activeFilters.length ? (
+        <div className="ui-filter-bar__active" aria-label="Active filters">
+          {activeFilters.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              className="ui-filter-token"
+              onClick={filter.onRemove}
+              aria-label={`Remove filter: ${filter.label}`}
+            >
+              <span>{filter.label}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          ))}
+          {onClearAll ? (
+            <button
+              type="button"
+              className="ui-filter-bar__clear"
+              onClick={onClearAll}
+            >
+              Clear all
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+const interactiveElementSelector =
+  "button, a, input, select, textarea, label, [role='button']";
+
+export function DataTable({
+  ariaLabel = "Records",
+  columns = [],
+  rows = [],
+  getRowId = (row) => row.id,
+  getRowLabel = (row) => row.name || row.title || `Record ${getRowId(row)}`,
+  selectedRowId,
+  onRowActivate,
+  onRowDoubleClick,
+  selectedRowIds = [],
+  onRowSelectedChange,
+  emptyState = "No records are available.",
+}) {
+  const selectedIds = new Set(selectedRowIds.map(String));
+  const activate = (row) => onRowActivate?.(row);
+  return (
+    <div className="ui-data-table">
+      <table aria-label={ariaLabel}>
+        <colgroup>
+          {onRowSelectedChange ? <col className="ui-data-table__selection-col" /> : null}
+          {columns.map((column) => (
+            <col key={column.id} style={column.width ? { width: column.width } : undefined} />
+          ))}
+        </colgroup>
+        <thead>
+          <tr>
+            {onRowSelectedChange ? <th scope="col"><span className="u-sr-only">Select</span></th> : null}
+            {columns.map((column) => (
+              <th key={column.id} scope="col" className={column.headerClassName}>
+                {column.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length ? rows.map((row) => {
+            const rowId = String(getRowId(row));
+            const isActive =
+              String(selectedRowId ?? "") === rowId || selectedIds.has(rowId);
+            return (
+              <tr
+                key={rowId}
+                className={joinClasses(isActive && "is-selected", onRowActivate && "is-interactive")}
+                aria-selected={isActive || undefined}
+                tabIndex={onRowActivate ? 0 : undefined}
+                onClick={(event) => {
+                  if (event.target.closest(interactiveElementSelector)) return;
+                  activate(row);
+                }}
+                onDoubleClick={(event) => {
+                  if (event.target.closest(interactiveElementSelector)) return;
+                  onRowDoubleClick?.(row);
+                }}
+                onKeyDown={(event) => {
+                  if (!onRowActivate || (event.key !== "Enter" && event.key !== " ")) return;
+                  event.preventDefault();
+                  activate(row);
+                }}
+              >
+                {onRowSelectedChange ? (
+                  <td className="ui-data-table__selection">
+                    <input
+                      type="checkbox"
+                      className="ui-choice__control"
+                      checked={selectedIds.has(rowId)}
+                      onChange={(event) => onRowSelectedChange(row, event.target.checked)}
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={`Select ${getRowLabel(row)}`}
+                    />
+                  </td>
+                ) : null}
+                {columns.map((column) => (
+                  <td key={column.id} className={column.className} data-column={column.label}>
+                    {column.render ? column.render(row) : row[column.id]}
+                  </td>
+                ))}
+              </tr>
+            );
+          }) : (
+            <tr>
+              <td className="ui-data-table__empty" colSpan={columns.length + (onRowSelectedChange ? 1 : 0)}>
+                {emptyState}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function ListPreview({ list, preview, previewLabel = "Selected record preview" }) {
+  return (
+    <div className="ui-list-preview">
+      <div className="ui-list-preview__list">{list}</div>
+      <aside className="ui-list-preview__preview" aria-label={previewLabel}>
+        {preview}
+      </aside>
+    </div>
+  );
+}
+
+export function PrimaryNavigation({
+  items,
+  activeId,
+  onChange,
+  ariaLabel = "Primary navigation",
+}) {
+  return (
+    <nav className="ui-primary-navigation" aria-label={ariaLabel}>
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className={joinClasses(
+            "ui-primary-navigation__item",
+            activeId === item.id && "is-active",
+          )}
+          onClick={item.disabled ? undefined : () => onChange?.(item.id)}
+          aria-current={activeId === item.id ? "page" : undefined}
+          aria-disabled={item.disabled ? "true" : undefined}
+          disabled={item.disabled}
+          title={item.disabled ? "Coming soon" : undefined}
+        >
+          {item.label}
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -822,6 +1055,7 @@ export function CanvasEdge({
   selected = false,
   onClick,
 }) {
+  const markerId = `canvas-edge-arrow-${useId().replaceAll(":", "")}`;
   return (
     <svg
       className={joinClasses("ui-canvas-edge", selected && "is-selected")}
@@ -829,7 +1063,26 @@ export function CanvasEdge({
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
     >
-      <line x1={fromX} y1={fromY} x2={toX} y2={toY} />
+      <defs>
+        <marker
+          id={markerId}
+          markerWidth="3"
+          markerHeight="3"
+          refX="2.7"
+          refY="1.5"
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <path d="M 0 0 L 3 1.5 L 0 3 z" fill="context-stroke" />
+        </marker>
+      </defs>
+      <line
+        x1={fromX}
+        y1={fromY}
+        x2={toX}
+        y2={toY}
+        markerEnd={`url(#${markerId})`}
+      />
       {onClick ? (
         <line
           className="ui-canvas-edge__hit-target"

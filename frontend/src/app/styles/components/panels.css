@@ -65,6 +65,14 @@
   letter-spacing: var(--tracking-label);
 }
 
+.metadata-row span {
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-label);
+}
+
 .workflow-builder-canvas-header .panel__heading,
 .workflow-builder-canvas-header .panel-title {
   gap: 2px;

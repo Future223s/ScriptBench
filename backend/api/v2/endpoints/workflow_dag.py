@@ -100,7 +100,8 @@ def create_workflow_dag_node(
     workflow = _workflow_or_404(engine, workflow_id)
     _editable(workflow)
     steps = WorkflowStepsRepository(engine)
-    if steps.fetch(payload.workflow_step_id) is None:
+    step = steps.fetch(payload.workflow_step_id)
+    if step is None:
         raise HTTPException(status_code=404, detail="Workflow step not found")
 
     repository = WorkflowDagRepository(engine)
@@ -119,6 +120,9 @@ def create_workflow_dag_node(
             "workflow_step_id": payload.workflow_step_id,
             "row": payload.row,
             "col": payload.col,
+            # Kept as a resolved compatibility snapshot for existing databases;
+            # workflow-step metadata is the authoring source of truth.
+            "execution_scope": step["execution_scope"],
         }
     )
     row = repository.fetch_node(node_id)

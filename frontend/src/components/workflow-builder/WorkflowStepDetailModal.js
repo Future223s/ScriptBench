@@ -18,6 +18,8 @@ export function WorkflowStepDetailModal({ state, actions }) {
             title="Canvas position"
             detail={`Row ${selectedNode.row}, column ${selectedNode.col}`}
           />
+          <ListRow title="Execution scope" detail={selectedNode.execution_scope} />
+          <ListRow title="Output scope" detail={selectedNode.output_scope} />
           <ListRow
             title="Description"
             detail={selectedNode.description || "No description provided."}

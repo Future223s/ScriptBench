@@ -9,4 +9,4 @@ COPY . /app/backend
 
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic -c backend/alembic.ini upgrade head && exec uvicorn backend.api.main:app --host 0.0.0.0 --port 8000"]

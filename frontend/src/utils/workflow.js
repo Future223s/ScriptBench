@@ -3,6 +3,7 @@ export function defaultWorkflowDraft() {
     name: "",
     sample_set_id: null,
     description: "",
+    execution_mode: "continuous",
   };
 }
 
@@ -128,5 +129,6 @@ export function buildWorkflowPayload(draft) {
     description: draft.description.trim() || null,
     sample_set_id: Number(draft.sample_set_id) || null,
     status: "draft",
+    execution_mode: draft.execution_mode || "continuous",
   };
 }

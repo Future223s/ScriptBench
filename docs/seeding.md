@@ -91,17 +91,17 @@ from Compose startup. Its input is an `EMMO` directory containing `images`,
 
 | Table | Records and values written |
 | --- | --- |
-| `samples` | One row per source image, keyed by sample ID derived from the filename; updates sample name, image bytes, MIME type, and UTF-8 ground-truth text. |
-| `derivatives` | One row per crop, matched by sample ID and crop filename; updates image bytes, MIME type, and membership in `Line Crops`. |
+| `documents` | One virtual document for each canonical EMMO shelfmark represented by the source pages. |
+| `samples` | One row per source image; legacy `La115_1r_EMMO` names become canonical `EMMO-La115_1r` names while stable sample IDs are retained. |
+| `derivatives` | One row per crop; its canonical name determines the exact source sample and its membership rule assigns `Line Crops`. |
 | `derivative_groups` | `Line Crops`, description `Economic Upheaval eScriptorium segmentation line crops.`, mapping type `one-to-many`, status `active`, and the mapping rules below. |
 | `membership_mapping` | For `Line Crops`: `derivative_field=name`, `operator=contains`, `pattern=_line_`, `case_sensitive=false`. |
-| `sample_mapping` | For `Line Crops`: derivative name contains sample name, case-insensitive. |
 | `sample_sets` | `test`, description `Economic Upheaval source pages for the transcription demo.`, status `active`. |
 | `sample_set_samples` | Replaces this sample set's memberships with the discovered samples, in discovery order, with zero-based positions. |
 
-The derivative group's `position_rule` stores the same membership and sample-matching
-settings under `membership_*` and `sample_mapping_*` keys; the exact keys and values
-are in `_upsert_derivative_group()` in `manuscripts.py`.
+The derivative group's `position_rule` stores its `membership_*` settings. Sample
+mapping is not configurable: the canonical `document_page_derivative` filename is
+matched directly to `document_page`.
 
 [`workflow.py`](../backend/scripts/bootstrapping/workflow.py) creates one finalized,
 single-node transcription workflow for the required `--executor` argument. It first

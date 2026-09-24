@@ -21,6 +21,10 @@ function createInitialDrafts() {
 
 async function performDeleteRecord(type, recordId) {
   const normalizedId = recordIdToString(recordId);
+  if (type === "document") {
+    await fileManagementApi.deleteDocument(normalizedId);
+    return;
+  }
   if (type === "derivative") {
     await fileManagementApi.deleteDerivative(normalizedId);
     return;
@@ -34,6 +38,13 @@ async function performDeleteRecord(type, recordId) {
 
 async function performDeleteRecords(type, recordIds) {
   if (!recordIds.length) return;
+
+  if (type === "document") {
+    await fileManagementApi.deleteDocuments(
+      recordIds.map((recordId) => recordIdToString(recordId)),
+    );
+    return;
+  }
 
   if (type === "derivative") {
     await fileManagementApi.deleteDerivatives(
@@ -173,48 +184,6 @@ export function useFileSelectionActions() {
         clearSelection("sample");
         setManagementModalOpen(false);
         effects.setNotice(`Sample set ${sampleSetName} saved.`);
-        effects.setError("");
-        await effects.refresh();
-        window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
-        return;
-      }
-
-      if (
-        normalizedType === "derivative" &&
-        normalizedAction === "create-derivative-group"
-      ) {
-        const derivativeGroupName = drafts.derivativeGroupName.trim();
-        if (!derivativeGroupName) {
-          effects.setError("Derivative group name is required.");
-          return;
-        }
-        const selectedIds = explicitSelection.length
-          ? explicitSelection
-          : visibleIds;
-        if (!selectedIds.length) {
-          effects.setError(
-            "Select at least one derivative or make sure the filter returns results.",
-          );
-          return;
-        }
-
-        await fileManagementApi.createDerivativeGroup({
-          name: derivativeGroupName,
-          description:
-            drafts.derivativeGroupDescription.trim() || null,
-          derivative_ids: selectedIds
-            .map((derivativeId) => Number(derivativeId))
-            .filter((derivativeId) => Number.isFinite(derivativeId)),
-          mapping_type: "one-to-one",
-        });
-        setDrafts((current) => ({
-          ...current,
-          derivativeGroupName: "",
-          derivativeGroupDescription: "",
-        }));
-        clearSelection("derivative");
-        setManagementModalOpen(false);
-        effects.setNotice(`Derivative group ${derivativeGroupName} saved.`);
         effects.setError("");
         await effects.refresh();
         window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));

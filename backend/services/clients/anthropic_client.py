@@ -42,9 +42,9 @@ class AnthropicClient(StepExecutor):
         elif isinstance(exc, NotFoundError):
             code, retryable = "not_found", False
         elif isinstance(exc, RateLimitError):
-            code, retryable = "rate_limited", False
+            code, retryable = "rate_limited", True
         elif isinstance(exc, InternalServerError):
-            code, retryable = "provider_error", False
+            code, retryable = "provider_error", True
         else:
             return None
         return StepExecutionError(

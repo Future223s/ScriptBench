@@ -7,6 +7,8 @@ export interface SampleRecord {
   name: string;
   mime_type?: string | null;
   ground_truth_text?: string | null;
+  document_id?: string | null;
+  document_position?: number | null;
   created_at?: string;
   updated_at?: string;
   has_blob?: boolean;
@@ -60,6 +62,21 @@ export interface AssetRecord {
   blob_base64?: string | null;
 }
 
+export interface DocumentRecord {
+  id: string;
+  name: string;
+  metadata?: Record<string, unknown> | null;
+  mime_type?: string | null;
+  has_blob?: boolean;
+  blob_size?: number;
+  blob_base64?: string | null;
+  sample_count?: number;
+  sample_ids?: string[];
+  sample_names?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface CreateAssetPayload {
   name: string;
   type: string;
@@ -80,7 +97,6 @@ export interface CreateSamplePayload {
 export interface CreateDerivativeGroupPayload {
   name: string;
   description?: string | null;
-  derivative_ids: number[];
   mapping_type?: string;
   position_rule?: Record<string, unknown> | null;
 }
@@ -110,61 +126,12 @@ export interface AssetsResponse {
   asset_count: number;
 }
 
-export interface DerivativeMapItem {
-  id: number;
-  name: string;
-}
-
-export interface DerivativeMapResult extends DerivativeMapItem {
-  sample_id?: string | null;
-  derivative_group_id?: number | null;
-  category?: string | null;
-  mime_type?: string | null;
-  blob_base64?: string | null;
-  blob_size?: number | null;
-  mapping_type?: string | null;
-  errors?: string[];
-}
-
-export interface DerivativeMapResponse {
-  mapped_derivatives: DerivativeMapResult[];
-  rejected_derivatives: Array<Record<string, unknown>>;
-  mapped_count: number;
-  rejected_count: number;
-}
-
-export interface DerivativeCreateResult extends DerivativeMapItem {
-  derivative_group_id?: number | null;
-  category?: string | null;
-  blob_base64?: string | null;
-}
-
 export interface DerivativeCreateRequestItem {
   name: string;
   mime_type: string;
 }
 
-export interface DerivativePatchRequestItem {
-  id: number;
-  derivative_group_id?: number | null;
-  sample_id?: string | null;
-  category?: string | null;
-  mime_type?: string | null;
-}
-
-export interface DerivativeMapApiResponse {
-  success: boolean;
-  message: string;
-  data?: DerivativeMapResponse | null;
-}
-
 export interface DerivativeCreateResponse {
-  success: boolean;
-  message: string;
-  data?: DerivativeCreateResult[] | null;
-}
-
-export interface DerivativePatchResponse {
   success: boolean;
   message: string;
   data?: DerivativeRecord[] | null;
@@ -259,15 +226,9 @@ export function createAssetsFormData(
   return formData;
 }
 
-export function createDerivativeBlobFormData(
-  file: File,
-  derivativeMimeType?: string | null,
-) {
+export function createDerivativeBlobFormData(file: File) {
   const formData = new FormData();
   formData.append("file", file);
-  if (derivativeMimeType) {
-    formData.append("mime_type", derivativeMimeType);
-  }
   return formData;
 }
 
@@ -304,7 +265,7 @@ export const fileManagementApi = {
     return response.data;
   },
   uploadSampleBlob: async (sampleId: ApiId, formData: FormData) => {
-    const response = await apiFetch<ApiResponse<{ sample_id: ApiId }>>(
+    const response = await apiFetch<ApiResponse<{ id: ApiId }>>(
       `/api/v2/samples/${encodeId(sampleId)}/blob`,
       {
         method: "PUT",
@@ -326,6 +287,56 @@ export const fileManagementApi = {
     }),
   deleteSample: (sampleId: ApiId) =>
     apiFetch<void>(`/api/v2/samples/${encodeId(sampleId)}`, {
+      method: "DELETE",
+    }),
+
+  getDocuments: async () => {
+    const response = await apiFetch<ApiListResponse<DocumentRecord>>(
+      "/api/v2/documents",
+    );
+    return response.items || [];
+  },
+  getDocument: async (documentId: ApiId) => {
+    const response = await apiFetch<ApiResponse<DocumentRecord>>(
+      `/api/v2/documents/${encodeId(documentId)}`,
+    );
+    if (!response.data) {
+      throw new Error("Document response did not include document data.");
+    }
+    return response.data;
+  },
+  createDocument: async (name: string) => {
+    const response = await apiFetch<ApiResponse<DocumentRecord>>(
+      "/api/v2/documents",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: name, name }),
+      },
+    );
+    if (!response.data) {
+      throw new Error("Document create response did not include document data.");
+    }
+    return response.data;
+  },
+  uploadDocumentBlob: (documentId: ApiId, formData: FormData) =>
+    apiFetch<ApiResponse<{ id: string }>>(
+      `/api/v2/documents/${encodeId(documentId)}/blob`,
+      { method: "PUT", body: formData },
+    ),
+  assembleDocument: (documentId: ApiId) =>
+    apiFetch<ApiResponse<{ id: string }>>(
+      `/api/v2/documents/${encodeId(documentId)}/assemble`,
+      { method: "POST" },
+    ),
+  deleteDocuments: (documentIds: string[]) =>
+    apiFetch<void>("/api/v2/documents", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: documentIds }),
+    }),
+  deleteDocument: (documentId: ApiId) =>
+    apiFetch<void>(`/api/v2/documents/${encodeId(documentId)}`, {
       method: "DELETE",
     }),
 
@@ -397,41 +408,11 @@ export const fileManagementApi = {
     }
     return response.data;
   },
-  mapDerivatives: async (derivatives: DerivativeMapItem[]) => {
-    const response = await apiFetch<DerivativeMapApiResponse>(
-      directBackendUrl("/api/v2/derivatives/map"),
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ derivatives }),
-      },
-    );
-    return {
-      data: response.data || null,
-      message: response.message,
-      success: response.success,
-    };
-  },
   createDerivatives: async (derivatives: DerivativeCreateRequestItem[]) => {
     const response = await apiFetch<DerivativeCreateResponse>(
       directBackendUrl("/api/v2/derivatives"),
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ derivatives }),
-      },
-    );
-    return {
-      data: response.data || [],
-      message: response.message,
-      success: response.success,
-    };
-  },
-  patchDerivatives: async (derivatives: DerivativePatchRequestItem[]) => {
-    const response = await apiFetch<DerivativePatchResponse>(
-      directBackendUrl("/api/v2/derivatives"),
-      {
-        method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ derivatives }),
       },

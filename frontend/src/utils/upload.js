@@ -165,20 +165,9 @@ export function isSupportedImageFile(file) {
 
 export function collectImageFolderFiles(files) {
   const imageFiles = files.filter((file) => isSupportedImageFile(file));
-  const commonRoot = commonDirectoryPrefix(
-    imageFiles.map((file) => file.webkitRelativePath || file.name),
-  );
-  const preserveFullPathWhenNoCommonRoot = !commonRoot && imageFiles.length > 1;
-
   return imageFiles.map((file) => ({
     file,
-    sampleId: normalizeFolderSampleIdWithRoot(
-      file.webkitRelativePath || file.name,
-      commonRoot,
-      {
-        preserveFullPathWhenNoCommonRoot,
-      },
-    ),
+    sampleId: stripExtension(file.name),
   }));
 }
 
@@ -187,20 +176,8 @@ export async function collectGroundTruthFolderFiles(files) {
   const textFiles = files.filter(
     (file) => getFileExtension(file.name) === "txt",
   );
-  const commonRoot = commonDirectoryPrefix(
-    textFiles.map((file) => file.webkitRelativePath || file.name),
-  );
-  const preserveFullPathWhenNoCommonRoot = !commonRoot && textFiles.length > 1;
-
   for (const file of textFiles) {
-    const relativePath = file.webkitRelativePath || file.name;
-    const sampleId = normalizeGroundTruthFolderSampleIdWithRoot(
-      relativePath,
-      commonRoot,
-      {
-        preserveFullPathWhenNoCommonRoot,
-      },
-    );
+    const sampleId = stripGroundTruthSuffix(stripExtension(file.name));
     texts.set(sampleId, await file.text());
   }
 

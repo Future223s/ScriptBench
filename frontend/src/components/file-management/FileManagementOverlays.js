@@ -12,16 +12,32 @@ import {
   visibleRecordsForType,
 } from "../../hooks/file-management/fileManagementShared.js";
 
+function decodeBase64Text(value) {
+  try {
+    const binary = atob(value);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return "Unable to decode text preview.";
+  }
+}
+
 function RecordDetailModal({ open, type, record, actions }) {
   const mimeType = record?.mimeType || "";
   const blobBase64 = record?.blobBase64 || "";
+  const normalizedMimeType = String(mimeType).toLowerCase();
+  const normalizedAssetType = String(record?.assetType || "").toLowerCase();
+  const isImage = normalizedMimeType.startsWith("image/") || normalizedAssetType === "image";
+  const isText = normalizedMimeType.startsWith("text/") || normalizedAssetType === "text";
   const src =
-    blobBase64 && mimeType && String(mimeType).startsWith("image/")
+    blobBase64 && mimeType && isImage
       ? `data:${mimeType};base64,${blobBase64}`
       : "";
+  const textPreview = blobBase64 && isText ? decodeBase64Text(blobBase64) : "";
   const metaRows = record?.metadata || [];
   const isSample = type === "sample";
   const isAsset = type === "asset";
+  const isDocument = type === "document";
   const additionalMetadata = record?.additionalMetadata || [];
   const detailSections = record?.detailSections || [];
 
@@ -39,6 +55,16 @@ function RecordDetailModal({ open, type, record, actions }) {
             <span>{mimeType || record?.typeLabel || type}</span>
           </div>
           <div className="inline-actions">
+            <button
+              className={["btn-secondary", isDocument ? "" : "is-hidden"]
+                .filter(Boolean)
+                .join(" ")}
+              type="button"
+              onClick={() => actions.assembleDocument(record?.id)}
+              disabled={!record?.id || !record?.raw?.sample_count}
+            >
+              Assemble PDF
+            </button>
             <button
               className="btn-danger"
               type="button"
@@ -61,13 +87,22 @@ function RecordDetailModal({ open, type, record, actions }) {
             <div className="sample-preview">
               {actions.detailLoading ? (
                 <EmptyState>Loading record details...</EmptyState>
+              ) : isDocument && blobBase64 ? (
+                <iframe
+                  title={record?.name || "Document preview"}
+                  src={`data:application/pdf;base64,${blobBase64}`}
+                />
               ) : src ? (
                 <img src={src} alt={record?.name || "Record preview"} />
+              ) : textPreview ? (
+                <pre className="text-preview">{textPreview}</pre>
               ) : (
-                <EmptyState>No image preview available.</EmptyState>
+                <EmptyState>
+                  {isText ? "No text preview available." : "No image preview available."}
+                </EmptyState>
               )}
             </div>
-            {isAsset ? (
+            {isAsset || isDocument ? (
               <div className="ground-truth-box">
                 <h3>Details</h3>
                 <div className="metadata-grid">
@@ -275,7 +310,9 @@ function ManagementModal({ open, state, actions }) {
 
 function UploadModal({ open, state, actions }) {
   const modeLabel =
-    state.uploadType === "derivative"
+    state.uploadType === "document"
+      ? "Documents"
+      : state.uploadType === "derivative"
       ? "Derivatives"
       : state.uploadType === "asset"
         ? "Assets"

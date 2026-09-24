@@ -5,17 +5,15 @@ from collections import defaultdict
 from math import ceil, floor
 
 from fastapi import APIRouter, Depends, HTTPException, Path as FastAPIPath, Query
-from sqlalchemy import func, select
-
 from backend.api.dependencies import get_engine
+from backend.database.repositories.sample_set_analytics_repository import (
+    SampleSetAnalyticsRepository,
+)
 from backend.database.repositories.sample_set_samples_repository import (
     SampleSetSamplesRepository,
 )
 from backend.database.repositories.sample_sets_repository import SampleSetsRepository
 from backend.database.repositories.samples_repository import SamplesRepository
-from backend.database.tables.workflows_table import workflows
-from backend.database.tables.execution_jobs_table import execution_jobs
-from backend.database.tables.step_outputs_table import step_outputs
 from backend.models.api import ApiResponse
 from backend.models.sample_sets import (
     SampleSetCreateRequest,
@@ -115,17 +113,8 @@ def get_sample_set_analytics(
     if sample_set is None:
         raise HTTPException(status_code=404, detail="Sample set not found")
     memberships = SampleSetSamplesRepository(engine).list_for_sample_set(sample_set_id)
-    with engine.connect() as connection:
-        workflow_rows = (
-            connection.execute(
-                select(workflows)
-                .where(workflows.c.sample_set_id == sample_set_id)
-                .order_by(workflows.c.id)
-            )
-            .mappings()
-            .all()
-        )
-    workflows_payload = [dict(row) for row in workflow_rows]
+    analytics_repository = SampleSetAnalyticsRepository(engine)
+    workflows_payload = analytics_repository.list_workflows(sample_set_id)
     analytics_by_workflow = {
         str(row["id"]): {
             "metrics": {"cer": None, "wer": None, "hallucinations": None},
@@ -135,66 +124,27 @@ def get_sample_set_analytics(
     }
     if workflows_payload:
         workflow_ids = [row["id"] for row in workflows_payload]
-        with engine.connect() as connection:
-            completed_counts = {
-                row["workflow_id"]: int(row["completed_sample_count"])
-                for row in connection.execute(
-                    select(
-                        execution_jobs.c.workflow_id,
-                        func.count(func.distinct(execution_jobs.c.id)).label(
-                            "completed_sample_count"
-                        ),
-                    )
-                    .select_from(
-                        execution_jobs.outerjoin(
-                            step_outputs,
-                            step_outputs.c.execution_job_id
-                            == execution_jobs.c.id,
-                        )
-                    )
-                    .where(
-                        execution_jobs.c.workflow_id.in_(workflow_ids),
-                        execution_jobs.c.status == "completed",
-                    )
-                    .group_by(execution_jobs.c.workflow_id)
-                ).mappings()
+        completed_counts = analytics_repository.completed_counts(workflow_ids)
+        metric_values: dict[int, dict[str, list[float]]] = defaultdict(
+            lambda: {"cer": [], "wer": []}
+        )
+        for row in analytics_repository.list_terminal_metrics(workflow_ids):
+            values = metric_values[int(row["workflow_id"])]
+            for metric in ("cer", "wer"):
+                value = row[metric]
+                if value is not None:
+                    values[metric].append(float(value))
+        for workflow_id, values in metric_values.items():
+            analytics_by_workflow[str(workflow_id)] = {
+                "metrics": {
+                    "cer": _metric_summary(values["cer"]),
+                    "wer": _metric_summary(values["wer"]),
+                    "hallucinations": None,
+                },
+                "completed_sample_count": completed_counts.get(workflow_id, 0),
             }
-            metric_values: dict[int, dict[str, list[float]]] = defaultdict(
-                lambda: {"cer": [], "wer": []}
-            )
-            metric_rows = connection.execute(
-                select(
-                    execution_jobs.c.workflow_id,
-                    step_outputs.c.cer,
-                    step_outputs.c.wer,
-                )
-                .select_from(
-                    execution_jobs.outerjoin(
-                        step_outputs,
-                        step_outputs.c.execution_job_id
-                        == execution_jobs.c.id,
-                    )
-                )
-                .where(
-                    execution_jobs.c.workflow_id.in_(workflow_ids),
-                    execution_jobs.c.status == "completed",
-                )
-            ).mappings()
-            for row in metric_rows:
-                values = metric_values[int(row["workflow_id"])]
-                for metric in ("cer", "wer"):
-                    value = row[metric]
-                    if value is not None:
-                        values[metric].append(float(value))
-            for workflow_id, values in metric_values.items():
-                analytics_by_workflow[str(workflow_id)] = {
-                    "metrics": {
-                        "cer": _metric_summary(values["cer"]),
-                        "wer": _metric_summary(values["wer"]),
-                        "hallucinations": None,
-                    },
-                    "completed_sample_count": completed_counts.get(workflow_id, 0),
-                }
+        for workflow_id, count in completed_counts.items():
+            analytics_by_workflow[str(workflow_id)]["completed_sample_count"] = count
     return ApiResponse(
         message="Sample-set analytics retrieved.",
         data={

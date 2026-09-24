@@ -1,12 +1,23 @@
 "use client";
 
 import {
+  CompactFilterBar,
   EmptyState,
-  Panel,
-  Stack,
+  Inline,
   StatusBadge,
 } from "../../ui/primitives/index.js";
-import { SampleFilterPanel } from "./SampleFilterPanel.js";
+
+function filterDefaultValue(filter) {
+  return filter.defaultValue ?? "";
+}
+
+function activeFilterLabel(filter) {
+  const option = (filter.options || []).find(
+    (item) => String(item.value) === String(filter.value),
+  );
+  const value = option?.label || String(filter.value || "").trim();
+  return `${filter.label}: ${value}`;
+}
 
 export function FileManagementListPanel({
   title,
@@ -16,26 +27,43 @@ export function FileManagementListPanel({
   summary,
   rows,
   emptyState,
-  listClass = "sample-picker file-sample-picker",
 }) {
+  const activeFilters = filters
+    .filter(
+      (filter) =>
+        String(filter.value ?? "") !== String(filterDefaultValue(filter)),
+    )
+    .map((filter) => ({
+      id: filter.id,
+      label: activeFilterLabel(filter),
+      onRemove: () => filter.onChange?.(filterDefaultValue(filter)),
+    }));
+
   return (
-    <Panel
-      title={title}
-      eyebrow={description}
-      meta={summary ? <StatusBadge>{summary}</StatusBadge> : null}
-      actions={actions}
-    >
-      <Stack gap="compact">
-        <SampleFilterPanel
+    <section className="file-management-list-panel">
+      <header className="file-management-list-panel__header">
+        <div>
+          <h2>{title}</h2>
+          {description ? <p>{description}</p> : null}
+        </div>
+        <Inline gap="compact">
+          {summary ? <StatusBadge>{summary}</StatusBadge> : null}
+          {actions}
+        </Inline>
+      </header>
+      {filters.length ? (
+        <CompactFilterBar
           filters={filters}
-          actions={null}
-          actionsClassName="u-compact-actions"
-          summary=""
-          rows={rows || <EmptyState title={emptyState} />}
-          emptyState={emptyState}
-          listClass={listClass}
+          activeFilters={activeFilters}
+          onClearAll={() =>
+            filters.forEach((filter) =>
+              filter.onChange?.(filterDefaultValue(filter)),
+            )
+          }
+          ariaLabel={`${title} filters`}
         />
-      </Stack>
-    </Panel>
+      ) : null}
+      {rows || <EmptyState title={emptyState} />}
+    </section>
   );
 }

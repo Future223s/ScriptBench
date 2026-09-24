@@ -1,10 +1,9 @@
 "use client";
 
-import { Button, EmptyState, Inline } from "../../ui/primitives/index.js";
+import { Button, DataTable, Inline } from "../../ui/primitives/index.js";
 import { formatDate } from "../../utils/date.js";
 import { truncate } from "../../utils/html.js";
 import { FileManagementListPanel } from "./FileManagementListPanel.js";
-import { FileManagementRow } from "./FileManagementRow.js";
 import {
   createSampleFilterConfig,
   managementModes,
@@ -24,43 +23,174 @@ function recordDisplayName(type, record) {
   return record.name || record.id;
 }
 
-function recordSummary(type, record, sampleSets = [], derivativeGroups = []) {
-  if (type === "derivative") {
-    const groupName =
-      derivativeGroupLookup(derivativeGroups).get(
-        String(record.derivative_group_id || ""),
-      )?.name;
-    return [
-      `Origin: ${record.sample_id || "Unmapped"}`,
-      groupName ? `Group: ${groupName}` : "Ungrouped",
-      `Category: ${record.category}`,
-      record.updated_at ? formatDate(record.updated_at) : "",
-    ].filter(Boolean);
-  }
-
-  if (type === "asset") {
-    return [
-      `Type: ${record.type}`,
-      record.mime_type ? `Mime: ${record.mime_type}` : "",
-      record.updated_at ? formatDate(record.updated_at) : "",
-      record.blob_size ? `${record.blob_size} bytes` : "",
-    ].filter(Boolean);
-  }
-
-  const memberships = sampleSetMemberships(record.id, sampleSets);
-  return [
-    record.mime_type ? `Mime: ${record.mime_type}` : "",
-    record.updated_at ? String(record.updated_at) : "",
-    `${memberships.length} sample set${memberships.length === 1 ? "" : "s"}`,
-  ].filter(Boolean);
-}
-
 function sampleSetMemberships(sampleId, sampleSets = []) {
   return sampleSets.filter(
     (sampleSet) =>
       Array.isArray(sampleSet.sample_ids) &&
       sampleSet.sample_ids.includes(sampleId),
   );
+}
+
+function membershipLabel(sampleId, sampleSets) {
+  const memberships = sampleSetMemberships(sampleId, sampleSets);
+  if (!memberships.length) return "—";
+  const names = memberships.map((sampleSet) => sampleSet.name);
+  return names.length > 2
+    ? `${names.slice(0, 2).join(", ")} +${names.length - 2}`
+    : names.join(", ");
+}
+
+function formatBytes(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function recordColumns(type, sampleSets, derivativeGroups) {
+  if (type === "document") {
+    return [
+      {
+        id: "name",
+        label: "Name",
+        width: "36%",
+        className: "ui-data-table__primary",
+      },
+      {
+        id: "pages",
+        label: "Pages",
+        width: "16%",
+        render: (record) => record.sample_count || 0,
+      },
+      {
+        id: "pdf",
+        label: "PDF",
+        width: "18%",
+        render: (record) => (record.has_blob ? "Available" : "Virtual"),
+      },
+      {
+        id: "size",
+        label: "Size",
+        width: "14%",
+        render: (record) => formatBytes(record.blob_size),
+      },
+      {
+        id: "updated",
+        label: "Updated",
+        width: "16%",
+        render: (record) => formatDate(record.updated_at) || "—",
+      },
+    ];
+  }
+
+  if (type === "derivative") {
+    const groups = derivativeGroupLookup(derivativeGroups);
+    return [
+      {
+        id: "name",
+        label: "Name",
+        width: "24%",
+        className: "ui-data-table__primary",
+        render: (record) => recordDisplayName(type, record) || record.id,
+      },
+      {
+        id: "sample",
+        label: "Source sample",
+        width: "18%",
+        render: (record) => record.sample_id || "Unmapped",
+      },
+      {
+        id: "group",
+        label: "Group",
+        width: "18%",
+        render: (record) =>
+          groups.get(String(record.derivative_group_id || ""))?.name ||
+          "Ungrouped",
+      },
+      { id: "category", label: "Category", width: "12%" },
+      {
+        id: "mime",
+        label: "MIME type",
+        width: "14%",
+        render: (record) => record.mime_type || "—",
+      },
+      {
+        id: "updated",
+        label: "Updated",
+        width: "14%",
+        render: (record) => formatDate(record.updated_at) || "—",
+      },
+    ];
+  }
+
+  if (type === "asset") {
+    return [
+      {
+        id: "name",
+        label: "Name",
+        width: "28%",
+        className: "ui-data-table__primary",
+        render: (record) => recordDisplayName(type, record) || record.id,
+      },
+      { id: "type", label: "Type", width: "18%" },
+      {
+        id: "mime",
+        label: "MIME type",
+        width: "20%",
+        render: (record) => record.mime_type || "—",
+      },
+      {
+        id: "size",
+        label: "Size",
+        width: "14%",
+        render: (record) => formatBytes(record.blob_size),
+      },
+      {
+        id: "updated",
+        label: "Updated",
+        width: "20%",
+        render: (record) => formatDate(record.updated_at) || "—",
+      },
+    ];
+  }
+
+  return [
+    {
+      id: "name",
+      label: "Name",
+      width: "20%",
+      className: "ui-data-table__primary",
+      render: (record) => recordDisplayName(type, record) || record.id,
+    },
+    {
+      id: "document",
+      label: "Document / position",
+      width: "20%",
+      render: (record) =>
+        record.document_id
+          ? `${record.document_id} / ${Number(record.document_position || 0) + 1}`
+          : "Documentless",
+    },
+    {
+      id: "sampleSets",
+      label: "Sample sets",
+      width: "18%",
+      render: (record) => membershipLabel(record.id, sampleSets),
+    },
+    {
+      id: "groundTruth",
+      label: "Ground truth",
+      width: "28%",
+      render: (record) => truncate(record.ground_truth_text, 72) || "—",
+    },
+    {
+      id: "updated",
+      label: "Updated",
+      width: "14%",
+      render: (record) => formatDate(record.updated_at) || "—",
+    },
+  ];
 }
 
 export function ManagementFields({ type, draft, actions }) {
@@ -99,81 +229,7 @@ export function ManagementFields({ type, draft, actions }) {
     );
   }
 
-  if (type === "derivative") {
-    return (
-      <div className="form-grid">
-        <div className="field wide">
-          <label htmlFor="derivative-group-name">Derivative group name</label>
-          <input
-            id="derivative-group-name"
-            name="derivativeGroupName"
-            value={draft.derivativeGroupName}
-            onChange={(event) =>
-              actions.setDraftField("derivativeGroupName", event.target.value)
-            }
-            placeholder="Document pages"
-            required
-          />
-        </div>
-        <div className="field wide">
-          <label htmlFor="derivative-group-description">Description</label>
-          <input
-            id="derivative-group-description"
-            name="derivativeGroupDescription"
-            value={draft.derivativeGroupDescription}
-            onChange={(event) =>
-              actions.setDraftField(
-                "derivativeGroupDescription",
-                event.target.value,
-              )
-            }
-            placeholder="Optional notes"
-          />
-        </div>
-      </div>
-    );
-  }
-
   return null;
-}
-
-function RecordRow({
-  type,
-  record,
-  selected,
-  deletable,
-  actions,
-  sampleSets,
-  derivativeGroups,
-}) {
-  const recordId = recordIdForType(type, record);
-  const displayName = recordDisplayName(type, record);
-  const summary = recordSummary(type, record, sampleSets, derivativeGroups);
-
-  function handleContextMenu(event) {
-    event.preventDefault();
-    actions.toggleSelection(type, recordId, !selected);
-  }
-
-  const detail =
-    type === "sample"
-      ? truncate(record.ground_truth_text)
-      : type === "derivative"
-        ? truncate(record.mime_type || "")
-        : truncate(record.mime_type || "");
-  const conciseDescriptors = [summary[0], summary[summary.length - 1], detail]
-    .filter(Boolean)
-    .filter((value, index, values) => values.indexOf(value) === index);
-
-  return (
-    <FileManagementRow
-      title={displayName || recordId}
-      descriptors={conciseDescriptors}
-      selected={selected}
-      onClick={() => actions.openRecord(type, recordId)}
-      onContextMenu={handleContextMenu}
-    />
-  );
 }
 
 function filterSummary(type, visibleCount) {
@@ -197,29 +253,64 @@ export function SampleManagementPanel({ state, actions }) {
   const allVisibleSelected =
     visibleRecordIds.length > 0 &&
     visibleRecordIds.every((recordId) => selectedIds.includes(recordId));
-  const rows = state.loading ? (
-    <EmptyState>Loading {mode.title.toLowerCase()}...</EmptyState>
-  ) : visibleRecords.length ? (
-    visibleRecords.map((record) => (
-      <RecordRow
-        key={recordIdForType(type, record)}
-        type={type}
-        record={record}
-        deletable={false}
-        selected={selectedIds.includes(recordIdForType(type, record))}
-        actions={actions}
-        sampleSets={sampleSets}
-        derivativeGroups={derivativeGroups}
-      />
-    ))
-  ) : (
-    <EmptyState>
-      No {mode.title.toLowerCase()} match the current filters.
-    </EmptyState>
+  const rows = (
+    <DataTable
+      ariaLabel={mode.title}
+      columns={recordColumns(type, sampleSets, derivativeGroups)}
+      rows={state.loading ? [] : visibleRecords}
+      getRowId={(record) => recordIdForType(type, record)}
+      getRowLabel={(record) => recordDisplayName(type, record)}
+      selectedRowId={
+        state.detailType === type ? state.selectedRecord?.id : undefined
+      }
+      selectedRowIds={selectedIds}
+      onRowActivate={(record) =>
+        actions.openRecord(type, recordIdForType(type, record))
+      }
+      onRowSelectedChange={(record, selected) =>
+        actions.toggleSelection(
+          type,
+          recordIdForType(type, record),
+          selected,
+        )
+      }
+      emptyState={
+        state.loading
+          ? `Loading ${mode.title.toLowerCase()}...`
+          : `No ${mode.title.toLowerCase()} match the current filters.`
+      }
+    />
   );
 
   const filters =
-    type === "sample"
+    type === "document"
+      ? [
+          {
+            id: "document-search",
+            label: "Search",
+            kind: "text",
+            value: state.filters.document.query,
+            defaultValue: "",
+            placeholder: "Document name",
+            onChange: (value) =>
+              actions.setFilterField("document", "query", value),
+          },
+          {
+            id: "document-pdf-filter",
+            label: "PDF",
+            kind: "select",
+            value: state.filters.document.pdfStatus,
+            defaultValue: "",
+            onChange: (value) =>
+              actions.setFilterField("document", "pdfStatus", value),
+            options: [
+              { value: "", label: "All documents" },
+              { value: "available", label: "PDF available" },
+              { value: "virtual", label: "Virtual only" },
+            ],
+          },
+        ]
+      : type === "sample"
       ? createSampleFilterConfig({
           filters: state.filters.sample,
           sampleSets,
@@ -233,28 +324,17 @@ export function SampleManagementPanel({ state, actions }) {
               label: "Search",
               kind: "text",
               value: state.filters.derivative.query,
+              defaultValue: "",
               placeholder: "Derivative name, source sample, or group",
               onChange: (value) =>
                 actions.setFilterField("derivative", "query", value),
-            },
-            {
-              id: "derivative-match-mode",
-              label: "Match",
-              kind: "select",
-              value: state.filters.derivative.queryMode,
-              onChange: (value) =>
-                actions.setFilterField("derivative", "queryMode", value),
-              options: [
-                { value: "contains", label: "Contains" },
-                { value: "starts-with", label: "Begins with" },
-                { value: "exact", label: "Exact" },
-              ],
             },
             {
               id: "derivative-group-filter",
               label: "Derivative group",
               kind: "select",
               value: state.filters.derivative.derivativeGroupId,
+              defaultValue: "",
               onChange: (value) =>
                 actions.setFilterField("derivative", "derivativeGroupId", value),
               options: [
@@ -270,6 +350,7 @@ export function SampleManagementPanel({ state, actions }) {
               label: "Category",
               kind: "select",
               value: state.filters.derivative.derivativeCategory,
+              defaultValue: "",
               onChange: (value) =>
                 actions.setFilterField("derivative", "derivativeCategory", value),
               options: [
@@ -285,28 +366,17 @@ export function SampleManagementPanel({ state, actions }) {
               label: "Search",
               kind: "text",
               value: state.filters.asset.query,
+              defaultValue: "",
               placeholder: "Asset name or type",
               onChange: (value) =>
                 actions.setFilterField("asset", "query", value),
-            },
-            {
-              id: "asset-match-mode",
-              label: "Match",
-              kind: "select",
-              value: state.filters.asset.queryMode,
-              onChange: (value) =>
-                actions.setFilterField("asset", "queryMode", value),
-              options: [
-                { value: "contains", label: "Contains" },
-                { value: "starts-with", label: "Begins with" },
-                { value: "exact", label: "Exact" },
-              ],
             },
             {
               id: "asset-type-filter",
               label: "Asset type",
               kind: "select",
               value: state.filters.asset.assetType,
+              defaultValue: "",
               onChange: (value) =>
                 actions.setFilterField("asset", "assetType", value),
               options: [

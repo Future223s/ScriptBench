@@ -10,10 +10,7 @@
 
 .workflow-steps-page__header {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(360px, 2fr) minmax(
-      180px,
-      1fr
-    );
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
 }
@@ -27,10 +24,6 @@
   justify-self: end;
 }
 
-.workflow-steps-page__header > .ui-step-strip {
-  min-width: 0;
-}
-
 .workflow-resource-nav {
   display: flex;
   flex-wrap: wrap;
@@ -42,42 +35,28 @@
   gap: 3px;
 }
 
-.workflow-steps-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+.workflow-steps-catalog {
   min-width: 0;
-  flex: 1;
-  width: 100%;
-  max-width: none;
-  margin: 0 auto;
-}
-
-.workflow-steps-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  overflow: visible;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
 }
 
-.workflow-steps-stack {
-  gap: 10px;
+.workflow-steps-catalog .ui-data-table table {
+  min-width: 900px;
 }
 
-.resource-row {
-  width: 100%;
-  text-align: left;
-  align-items: flex-start;
-  justify-content: space-between;
+.workflow-step-executor {
+  display: grid;
+  gap: 2px;
+  color: var(--text-primary);
 }
 
-.resource-row .badge {
-  margin-left: auto;
+.workflow-step-executor small {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
 }
 
 .resource-detail-modal {
@@ -161,7 +140,7 @@
 }
 
 .output-spec-create-modal {
-  width: min(760px, calc(100vw - 36px));
+  width: min(900px, calc(100vw - 36px));
   max-height: calc(100vh - 36px);
 }
 
@@ -203,14 +182,52 @@
 
 .output-spec-fields-editor {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .output-spec-field-row {
   display: grid;
-  grid-template-columns: minmax(130px, 0.7fr) minmax(180px, 1.3fr) 25px;
-  gap: 7px;
+  grid-template-columns:
+    minmax(130px, 0.9fr)
+    minmax(180px, 1.35fr)
+    110px
+    92px
+    32px;
+  gap: 8px;
   align-items: center;
+}
+
+.output-spec-field-row > input,
+.output-spec-field-row > select {
+  min-width: 0;
+}
+
+.output-spec-field-row .ui-choice {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.output-spec-field-row .ui-choice__control {
+  width: 17px;
+  min-height: 17px;
+  padding: 0;
+}
+
+.output-spec-field-row .payload-remove-button {
+  width: 32px;
+  height: 32px;
+  justify-self: end;
+}
+
+@media (max-width: 760px) {
+  .output-spec-field-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .output-spec-field-row .payload-remove-button {
+    justify-self: start;
+  }
 }
 
 .workflow-step-create-modal {
@@ -830,4 +847,16 @@
 
 .workflow-step-create-modal .payload-stepper {
   flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .workflow-steps-page__header {
+    align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workflow-steps-page__header > .ui-button {
+    justify-self: start;
+  }
+
 }

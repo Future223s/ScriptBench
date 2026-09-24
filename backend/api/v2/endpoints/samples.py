@@ -24,6 +24,7 @@ from backend.models.samples import (
     SampleResponse,
     SampleSummaryResponse,
 )
+from backend.services.file_naming import parse_sample_name
 
 router = APIRouter(tags=["samples-v2"])
 logger = logging.getLogger(__name__)
@@ -91,6 +92,10 @@ def create_sample(
         raise HTTPException(status_code=400, detail="sample_id is required")
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
+    try:
+        parsed_name = parse_sample_name(name)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
     if samples_repository.fetch_sample(sample_id) is not None:
         raise HTTPException(
@@ -106,6 +111,7 @@ def create_sample(
         sample_id=sample_id,
         name=name,
         ground_truth_text=ground_truth_text or None,
+        document_id=parsed_name.document_id,
     )
     created_row = samples_repository.fetch_sample(sample_id)
     if created_row is None:

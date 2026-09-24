@@ -1,0 +1,19 @@
+Review the draft transcription against the manuscript image and correct it.
+
+Apply the same diplomatic transcription rules as the primary prompt:
+- Transcribe visible handwriting only.
+- Preserve original spelling, capitalization, punctuation, abbreviations, and line breaks.
+- Do not modernize, expand abbreviations, correct grammar, or infer missing words.
+- Remove anything that is metadata, commentary, explanation, or not visible handwriting.
+- Do not add placeholder lines for blank space.
+- Stop where the visible handwriting stops.
+
+Check each line and word against the image. Keep a draft reading only when the handwriting supports it. Mark uncertainty as follows:
+- uncertain word: [word?]
+- partly visible word: wor[?]
+- illegible visible word: [illegible]
+- illegible visible line: [unclear line]
+
+If no visible handwritten text is present, return an empty response.
+
+Return only the corrected diplomatic transcription.

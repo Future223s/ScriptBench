@@ -223,16 +223,25 @@ function buildWorkflowStepRows(records, payloadTemplates, outputSpecs) {
       String(record.payload_template_id),
     );
     const outputSpec = outputSpecsById.get(String(record.output_spec_id));
+    const executor = record.step_executor_id || "";
+    const model = record.executor_config?.model || "";
 
     return {
       id: String(record.id),
       name: record.name || `Workflow step ${record.id}`,
       type: "workflow-step",
-      badgeLabel: record.step_executor_id || "Step",
+      badgeLabel: executor || "Step",
+      executor,
+      model,
+      payloadTemplate:
+        payloadTemplate?.name || String(record.payload_template_id || ""),
+      outputSpecification:
+        outputSpec?.name || String(record.output_spec_id || ""),
+      method: record.method || "",
+      status: record.status || "",
+      createdAt: record.created_at ? formatDate(record.created_at) : "",
       summaryFields: [
-        record.executor_config?.model
-          ? `Model: ${record.executor_config?.model}`
-          : "",
+        model ? `Model: ${model}` : "",
         record.status ? `Status: ${record.status}` : "",
         record.created_at ? formatDate(record.created_at) : "",
       ].filter(Boolean),
@@ -253,6 +262,8 @@ function buildWorkflowStepRows(records, payloadTemplates, outputSpecs) {
           ["ID", record.id],
           ["Step executor", record.step_executor_id || ""],
           ["Method", record.method || ""],
+          ["Execution scope", record.execution_scope || ""],
+          ["Output scope", record.output_scope || ""],
           ["Model", record.executor_config?.model || ""],
           ["Status", record.status || ""],
           ["Payload template", record.payload_template_id || ""],
@@ -288,7 +299,7 @@ function buildOutputSpecRows(records) {
       record.name ||
       `Output specification ${record.id}`,
     type: "output-spec",
-    badgeLabel: record.type || "Spec",
+    badgeLabel: record.item_schema?.type || "Spec",
     summaryFields: [
       record.status ? `Status: ${record.status}` : "",
       record.created_at ? formatDate(record.created_at) : "",
@@ -301,7 +312,7 @@ function buildOutputSpecRows(records) {
       typeLabel: workflowStepModes["output-spec"].detailLabel,
       metadata: [
         ["ID", record.id],
-        ["Type", record.type || ""],
+        ["Item type", record.item_schema?.type || ""],
         ["Status", record.status || ""],
         ["Created", record.created_at ? formatDate(record.created_at) : ""],
       ].filter(([, value]) => value !== ""),
@@ -398,9 +409,9 @@ export function visibleWorkflowStepRows(workflowSteps, appliedFilters, type) {
   return rows.filter((row) => {
     const raw = row.detail.raw;
     return (
-      containsText([row.name, raw.type, raw.instructions], filters.query) &&
+      containsText([row.name, raw.item_schema?.type, raw.instructions], filters.query) &&
       (!filters.outputType ||
-        String(raw.type || "") === String(filters.outputType))
+        String(raw.item_schema?.type || "") === String(filters.outputType))
     );
   });
 }
@@ -592,14 +603,14 @@ export function workflowStepsFilterConfig(type, state, actions) {
     },
     {
       id: "resource-output-spec-type",
-      label: "Type",
+      label: "Item shape",
       kind: "select",
       value: state.filters["output-spec"].outputType,
       onChange: (value) =>
         actions.setFilterField("output-spec", "outputType", value),
       options: [
-        { value: "", label: "All types" },
-        ...sortedUnique(state.outputSpecs.map((record) => record.type)).map(
+        { value: "", label: "All shapes" },
+        ...sortedUnique(state.outputSpecs.map((record) => record.item_schema?.type)).map(
           (value) => ({
             value,
             label: value,

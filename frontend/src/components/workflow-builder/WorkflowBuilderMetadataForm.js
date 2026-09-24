@@ -12,7 +12,7 @@ import {
 
 export function WorkflowBuilderMetadataForm({ state, actions }) {
   return (
-    <Panel title="Workflow details" density="compact">
+    <Panel title="Workflow details" className="workflow-builder-details-panel">
       <Stack gap="compact">
         <Field label="Workflow name" density="compact">
           <TextInput
@@ -64,6 +64,17 @@ export function WorkflowBuilderMetadataForm({ state, actions }) {
             ) : (
               <option value="">No sample sets available</option>
             )}
+          </Select>
+        </Field>
+        <Field label="Automatic execution" density="compact">
+          <Select
+            value={state.workflowDraft.execution_mode || "continuous"}
+            onChange={(event) =>
+              actions.setWorkflowDraftField("execution_mode", event.target.value)
+            }
+          >
+            <option value="continuous">End-to-end</option>
+            <option value="stage_by_stage">Stage-by-stage</option>
           </Select>
         </Field>
         <StatusBadge>

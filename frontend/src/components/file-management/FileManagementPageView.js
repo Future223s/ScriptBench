@@ -26,10 +26,10 @@ export function FileManagementPageView({ state, actions }) {
         </Button>
       </header>
       <section
-        className={`file-management-grid${state.managementType === "asset" ? " file-management-grid--single" : ""}`}
+        className={`file-management-grid${state.managementType === "asset" || state.managementType === "document" ? " file-management-grid--single" : ""}`}
       >
         <SampleManagementPanel state={state} actions={actions} />
-        {state.managementType !== "asset" ? (
+        {state.managementType !== "asset" && state.managementType !== "document" ? (
           <ResourceCollectionsPanel state={state} actions={actions} />
         ) : null}
       </section>

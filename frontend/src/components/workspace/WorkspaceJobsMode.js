@@ -2,14 +2,51 @@
 
 import {
   Button,
-  EmptyState,
+  DataTable,
   Inline,
   Panel,
   Stack,
   StatusBadge,
 } from "../../ui/primitives/index.js";
 import { selectedJobIds } from "../../domains/workspace/selectors.js";
-import { WorkspaceJobCard } from "./WorkspaceJobCard.js";
+import { formatDate } from "../../utils/date.js";
+
+const jobColumns = [
+  {
+    id: "job",
+    label: "Job",
+    width: "14%",
+    className: "ui-data-table__primary",
+    render: (job) => `Job ${job.job_id}`,
+  },
+  {
+    id: "samples",
+    label: "Samples",
+    width: "28%",
+    render: (job) =>
+      Array.isArray(job.sample_ids) && job.sample_ids.length
+        ? job.sample_ids.join(", ")
+        : "—",
+  },
+  {
+    id: "status",
+    label: "Status",
+    width: "16%",
+    render: (job) => <StatusBadge>{job.status || "pending"}</StatusBadge>,
+  },
+  {
+    id: "issue",
+    label: "Next step / issue",
+    width: "24%",
+    render: (job) => job.failure_reason || job.next_step_name || "—",
+  },
+  {
+    id: "created",
+    label: "Created",
+    width: "18%",
+    render: (job) => formatDate(job.created_at) || "—",
+  },
+];
 
 function JobPanel({ kind, title, jobs, selection, label, onAction, actions }) {
   const ids = selectedJobIds(selection, kind);
@@ -35,23 +72,21 @@ function JobPanel({ kind, title, jobs, selection, label, onAction, actions }) {
           </Button>
         </Inline>
       }
+      className="workspace-job-panel"
     >
-      <Stack gap="compact">
-        {jobs.length ? (
-          jobs.map((job) => (
-            <WorkspaceJobCard
-              key={job.job_id}
-              job={job}
-              kind={kind}
-              selected={ids.includes(Number(job.job_id))}
-              onToggle={actions?.toggleWorkspaceJobSelection}
-              onOpen={actions?.openJobDetail}
-            />
-          ))
-        ) : (
-          <EmptyState title={`No ${title.toLowerCase()}`} />
-        )}
-      </Stack>
+      <DataTable
+        ariaLabel={title}
+        columns={jobColumns}
+        rows={jobs}
+        getRowId={(job) => job.job_id}
+        getRowLabel={(job) => `Job ${job.job_id}`}
+        selectedRowIds={ids}
+        onRowActivate={(job) => actions?.openJobDetail?.(job.job_id)}
+        onRowSelectedChange={(job, selected) =>
+          actions?.toggleWorkspaceJobSelection?.(kind, job.job_id, selected)
+        }
+        emptyState={`No ${title.toLowerCase()} are available.`}
+      />
     </Panel>
   );
 }

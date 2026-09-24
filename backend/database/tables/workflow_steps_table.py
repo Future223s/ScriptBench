@@ -13,7 +13,12 @@ from sqlalchemy import (
     func,
 )
 
-from ..schema import STATUS_CHECK_SQL, metadata
+from ..schema import (
+    EXECUTION_SCOPE_CHECK_SQL,
+    OUTPUT_SCOPE_CHECK_SQL,
+    STATUS_CHECK_SQL,
+    metadata,
+)
 from .step_executors_table import step_executors  # noqa: F401
 
 workflow_steps = Table(
@@ -24,6 +29,8 @@ workflow_steps = Table(
     Column("step_executor_id", String(64), ForeignKey("step_executors.id", ondelete="RESTRICT"), nullable=False, index=True),
     Column("method", String(64), nullable=False),
     Column("executor_config", JSON, nullable=False),
+    Column("execution_scope", String(32), nullable=False, server_default="samples"),
+    Column("output_scope", String(32), nullable=False, server_default="samples"),
     Column(
         "payload_template_id",
         Integer,
@@ -47,4 +54,6 @@ workflow_steps = Table(
     ),
     UniqueConstraint("name", name="uq_workflow_steps_name"),
     CheckConstraint(STATUS_CHECK_SQL, name="ck_workflow_steps_status"),
+    CheckConstraint(EXECUTION_SCOPE_CHECK_SQL, name="ck_workflow_steps_execution_scope"),
+    CheckConstraint(OUTPUT_SCOPE_CHECK_SQL, name="ck_workflow_steps_output_scope"),
 )

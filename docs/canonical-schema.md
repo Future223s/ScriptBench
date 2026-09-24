@@ -21,6 +21,21 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 - Unique index `ix_assets_name`: `name`.
 - Index `ix_assets_type`: `type`.
 
+### `documents`
+
+| Column | Type | Nullable | Default | Key / relationship |
+| --- | --- | --- | --- | --- |
+| `id` | `VARCHAR(255)` | no | `` | PK |
+| `name` | `VARCHAR(255)` | no | `` |  |
+| `metadata` | `JSON` | yes | `` |  |
+| `blob` | `BLOB` | yes | `` | uploaded or assembled PDF |
+| `mime_type` | `VARCHAR(255)` | yes | `` |  |
+| `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
+| `updated_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
+
+- Unique index `ix_documents_name`: `name`.
+- Documents may be virtual (`blob IS NULL`) when inferred from page filenames.
+
 ### `derivative_groups`
 
 | Column | Type | Nullable | Default | Key / relationship |
@@ -60,21 +75,41 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 - Index `ix_derivatives_name`: `name`.
 - Index `ix_derivatives_sample_id`: `sample_id`.
 
+### `execution_job_dependencies`
+
+| Column | Type | Nullable | Default | Key / relationship |
+| --- | --- | --- | --- | --- |
+| `execution_job_id` | `INTEGER` | no | `` | PK; execution_jobs.id (ON DELETE CASCADE) |
+| `depends_on_execution_job_id` | `INTEGER` | no | `` | PK; execution_jobs.id (ON DELETE CASCADE) |
+
+Each join job records every parent job it must wait for.
+
 ### `execution_jobs`
 
 | Column | Type | Nullable | Default | Key / relationship |
 | --- | --- | --- | --- | --- |
 | `id` | `INTEGER` | no | `autoincrement` | PK |
 | `workflow_id` | `INTEGER` | no | `` | workflows.id (ON DELETE CASCADE) |
-| `sample_id` | `VARCHAR(255)` | no | `` | samples.id (ON DELETE CASCADE) |
+| `sample_id` | `VARCHAR(255)` | yes | `` | samples.id (ON DELETE CASCADE) |
+| `workflow_run_id` | `INTEGER` | yes | `` | workflow_runs.id (ON DELETE CASCADE) |
+| `workflow_run_node_id` | `INTEGER` | yes | `` | workflow_run_nodes.id (ON DELETE CASCADE) |
+| `workflow_step_id` | `INTEGER` | yes | `` | workflow_steps.id (ON DELETE CASCADE) |
 | `current_workflow_dag_node_id` | `INTEGER` | no | `` | workflow_dag_nodes.id (ON DELETE CASCADE) |
+| `execution_scope` | `VARCHAR(32)` | no | `samples` |  |
+| `output_scope` | `VARCHAR(32)` | no | `samples` |  |
+| `input_key` | `VARCHAR(1024)` | yes | `` | stable job key within the resolved node |
+| `input_refs` | `JSON` | no | `[]` | stable entity IDs and types |
+| `output_refs` | `JSON` | no | `[]` | stable published entity IDs and types |
 | `status` | `VARCHAR(32)` | no | `pending` |  |
 | `error_message` | `TEXT` | yes | `` |  |
+| `skip_reason` | `TEXT` | yes | `` |  |
 | `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 | `updated_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 
-- Check `ck_execution_jobs_status`: `status IN ('pending', 'queued', 'running', 'completed', 'failed')`.
-- Unique `uq_execution_jobs_workflow_sample`: `workflow_id, sample_id`.
+- Check `ck_execution_jobs_status`: `status IN ('blocked', 'pending', 'queued', 'running', 'completed')`.
+- Check `ck_execution_jobs_scope`: the six document/sample/derivative scopes.
+- Check `ck_execution_jobs_output_scope`: the six document/sample/derivative scopes.
+- Unique `uq_execution_jobs_run_node_input`: `workflow_run_node_id, input_key`.
 - Index `ix_execution_jobs_current_workflow_dag_node_id`: `current_workflow_dag_node_id`.
 - Index `ix_execution_jobs_sample_id`: `sample_id`.
 - Index `ix_execution_jobs_status`: `status`.
@@ -105,18 +140,15 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 | --- | --- | --- | --- | --- |
 | `id` | `INTEGER` | no | `autoincrement` | PK |
 | `name` | `VARCHAR(255)` | no | `` |  |
-| `type` | `VARCHAR(32)` | no | `` |  |
-| `item_schema` | `JSON` | yes | `` |  |
+| `item_schema` | `JSON` | no | `{"type":"string"}` | per-entity output item shape |
 | `instructions` | `TEXT` | yes | `` |  |
 | `status` | `VARCHAR(32)` | no | `draft` |  |
 | `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 
 - Check `ck_output_specs_status`: `status IN ('draft', 'active')`.
-- Check `ck_output_specs_type`: `type IN ('plain-text', 'json')`.
 - Unique `uq_output_specs_name`: `name`.
 - Unique index `ix_output_specs_name`: `name`.
 - Index `ix_output_specs_status`: `status`.
-- Index `ix_output_specs_type`: `type`.
 
 ### `payload_templates`
 
@@ -136,6 +168,9 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 - Index `ix_payload_templates_status`: `status`.
 
 ### `prompt_resource_conditions`
+
+This table is retained only to preserve pre-`20260921_05` configuration. New
+prompt templates do not create or resolve condition rows.
 
 | Column | Type | Nullable | Default | Key / relationship |
 | --- | --- | --- | --- | --- |
@@ -160,33 +195,18 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 | `id` | `INTEGER` | no | `autoincrement` | PK |
 | `payload_template_id` | `INTEGER` | no | `` | payload_templates.id (ON DELETE CASCADE) |
 | `name` | `VARCHAR(128)` | no | `` |  |
+| `type` | `VARCHAR(32)` | no | `binding` | `content` or `binding` |
 | `source_table` | `VARCHAR(64)` | no | `` |  |
-| `batch_limit` | `INTEGER` | no | `1` |  |
+| `row_key` | `VARCHAR(255)` | yes | `` | polymorphic stable key exposed as API `row_id` |
+| `batch_limit` | `INTEGER` | no | `1` | retained legacy column; runtime ignores it |
 | `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 
 - Check `ck_prompt_resources_batch_limit`: `batch_limit > 0`.
-- Check `ck_prompt_resources_source_table`: `source_table IN ('derivatives', 'samples', 'step_outputs')`.
+- Check `ck_prompt_resources_source_table`: `source_table IN ('assets', 'documents', 'derivatives', 'samples', 'step_outputs')`.
+- Check `ck_prompt_resources_type`: `type IN ('content', 'binding')`.
+- Check `ck_prompt_resources_target`: content has a `row_key`; bindings do not.
 - Unique `uq_prompt_resources_template_name`: `payload_template_id, name`.
 - Index `ix_prompt_resources_payload_template_id`: `payload_template_id`.
-
-### `sample_mapping`
-
-| Column | Type | Nullable | Default | Key / relationship |
-| --- | --- | --- | --- | --- |
-| `id` | `INTEGER` | no | `autoincrement` | PK |
-| `derivative_group_id` | `INTEGER` | no | `` | derivative_groups.id (ON DELETE CASCADE) |
-| `derivative_field` | `VARCHAR(64)` | no | `name` |  |
-| `sample_field` | `VARCHAR(64)` | no | `name` |  |
-| `operator` | `VARCHAR(32)` | no | `` |  |
-| `case_sensitive` | `BOOLEAN` | no | `0` |  |
-| `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
-
-- Check `ck_sample_mapping_operator`: `operator IN ('equals', 'contains', 'starts_with', 'ends_with')`.
-- Unique `uq_sample_mapping_derivative_group_id`: `derivative_group_id`.
-- Index `ix_sample_mapping_derivative_field`: `derivative_field`.
-- Unique index `ix_sample_mapping_derivative_group_id`: `derivative_group_id`.
-- Index `ix_sample_mapping_operator`: `operator`.
-- Index `ix_sample_mapping_sample_field`: `sample_field`.
 
 ### `sample_set_samples`
 
@@ -220,6 +240,8 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 | --- | --- | --- | --- | --- |
 | `id` | `VARCHAR(255)` | no | `` | PK |
 | `name` | `VARCHAR(255)` | no | `` |  |
+| `document_id` | `VARCHAR(255)` | yes | `` | documents.id (ON DELETE SET NULL) |
+| `document_position` | `INTEGER` | yes | `` | zero-based page order |
 | `blob` | `BLOB` | yes | `` |  |
 | `mime_type` | `VARCHAR(255)` | yes | `` |  |
 | `ground_truth_text` | `TEXT` | yes | `` |  |
@@ -227,6 +249,20 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 | `updated_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 
 - Unique index `ix_samples_name`: `name`.
+- Index `ix_samples_document_id`: `document_id`.
+
+## Automatic filename hierarchy
+
+- Document PDF: `document.pdf`
+- Page: `document_page.ext`
+- Derivative: `document_page_derivative.ext`
+- Documentless page: `_page.ext`
+- Documentless derivative: `_page_derivative.ext`
+
+Document and page identifiers cannot contain underscores. Page upload creates the
+document when needed, page ordering is natural by page identifier, and derivative
+upload resolves its source sample directly from the canonical prefix. Only
+derivative-group membership remains rule-driven through `membership_mapping`.
 
 ### `step_executors`
 
@@ -249,31 +285,60 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 | Column | Type | Nullable | Default | Key / relationship |
 | --- | --- | --- | --- | --- |
 | `id` | `INTEGER` | no | `autoincrement` | PK |
+| `raw_output_id` | `INTEGER` | no | `` | raw_outputs.id (ON DELETE RESTRICT) |
 | `execution_job_id` | `INTEGER` | no | `` | execution_jobs.id (ON DELETE CASCADE) |
 | `workflow_id` | `INTEGER` | no | `` | workflows.id (ON DELETE CASCADE) |
 | `workflow_step_id` | `INTEGER` | no | `` | workflow_steps.id (ON DELETE CASCADE) |
-| `sample_id` | `VARCHAR(255)` | no | `` | samples.id (ON DELETE CASCADE) |
-| `attempt_no` | `INTEGER` | no | `` |  |
-| `assembled_model_payload` | `JSON` | no | `` |  |
-| `raw_model_response` | `TEXT` | no | `` |  |
-| `parsed_output` | `JSON` | yes | `` |  |
-| `parse_status` | `VARCHAR(32)` | yes | `` |  |
-| `parse_error` | `TEXT` | yes | `` |  |
+| `sample_id` | `VARCHAR(255)` | yes | `` | samples.id (ON DELETE CASCADE) |
+| `output_scope` | `VARCHAR(32)` | no | `` |  |
+| `entity_type` | `VARCHAR(32)` | no | `` | document, sample, or derivative |
+| `entity_key` | `VARCHAR(255)` | no | `` | stable entity ID |
+| `output` | `JSON` | yes | `` | canonical published output |
 | `cer` | `FLOAT` | yes | `` |  |
 | `wer` | `FLOAT` | yes | `` |  |
 | `hallucination_count` | `INTEGER` | yes | `` |  |
+| `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
+
+- Check `ck_step_outputs_output_scope`: the six document/sample/derivative scopes.
+- Check `ck_step_outputs_entity_type`: `document`, `sample`, or `derivative`.
+- Unique `uq_step_outputs_job_entity`: `execution_job_id, workflow_step_id, entity_type, entity_key`.
+- Index `ix_step_outputs_entity_key`: `entity_key`.
+- Index `ix_step_outputs_execution_job_id`: `execution_job_id`.
+- Index `ix_step_outputs_raw_output_id`: `raw_output_id`.
+- Index `ix_step_outputs_sample_id`: `sample_id`.
+- Index `ix_step_outputs_workflow_id`: `workflow_id`.
+- Index `ix_step_outputs_workflow_step_id`: `workflow_step_id`.
+
+`step_outputs` contains only successful, canonical outputs available to downstream
+steps. A retry updates the canonical entity row to point at its successful raw
+attempt; unsuccessful attempts never appear here.
+
+### `raw_outputs`
+
+| Column | Type | Nullable | Default | Key / relationship |
+| --- | --- | --- | --- | --- |
+| `id` | `INTEGER` | no | `autoincrement` | PK |
+| `execution_job_id` | `INTEGER` | no | `` | execution_jobs.id (ON DELETE CASCADE) |
+| `workflow_id` | `INTEGER` | no | `` | workflows.id (ON DELETE CASCADE) |
+| `workflow_step_id` | `INTEGER` | no | `` | workflow_steps.id (ON DELETE CASCADE) |
+| `attempt_no` | `INTEGER` | no | `` | append-only sequence within a job |
+| `assembled_model_payload` | `JSON` | no | `` |  |
+| `raw_model_response` | `TEXT` | no | `` |  |
+| `parsed_output` | `JSON` | yes | `` |  |
+| `raw_individual_outputs` | `JSON` | yes | `` | parsed per-entity results |
+| `complete_output` | `JSON` | yes | `` | parsed complete response |
+| `parse_status` | `VARCHAR(32)` | no | `` |  |
+| `parse_error` | `TEXT` | yes | `` |  |
 | `time_elapsed` | `FLOAT` | no | `` |  |
 | `started_at` | `DATETIME` | no | `` |  |
 | `completed_at` | `DATETIME` | no | `` |  |
 | `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 
-- Check `ck_step_outputs_parse_status`: `(parse_status IS NULL) OR (parse_status IN ('success', 'failed'))`.
-- Unique `uq_step_outputs_job_step`: `execution_job_id, workflow_step_id`.
-- Index `ix_step_outputs_execution_job_id`: `execution_job_id`.
-- Index `ix_step_outputs_parse_status`: `parse_status`.
-- Index `ix_step_outputs_sample_id`: `sample_id`.
-- Index `ix_step_outputs_workflow_id`: `workflow_id`.
-- Index `ix_step_outputs_workflow_step_id`: `workflow_step_id`.
+- Check `ck_raw_outputs_parse_status`: `parse_status IN ('success', 'failed')`.
+- Unique `uq_raw_outputs_job_attempt`: `execution_job_id, attempt_no`.
+- Indexes cover job, workflow, workflow step, and parse status.
+
+Every provider attempt is retained here, including validation failures and retries.
 
 ### `workflow_dag_edges`
 
@@ -299,11 +364,17 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 | `workflow_step_id` | `INTEGER` | no | `` | workflow_steps.id (ON DELETE CASCADE) |
 | `row` | `INTEGER` | no | `1` |  |
 | `col` | `INTEGER` | no | `1` |  |
+| `execution_scope` | `VARCHAR(32)` | no | `samples` |  |
 | `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 | `updated_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 
 - Index `ix_workflow_dag_nodes_workflow_id`: `workflow_id`.
 - Index `ix_workflow_dag_nodes_workflow_step_id`: `workflow_step_id`.
+- Check `ck_workflow_dag_nodes_scope`: `documents_batch`, `documents`,
+  `samples_batch`, `samples`, `derivatives_batch`, or `derivatives`.
+
+`workflow_dag_nodes.execution_scope` is a compatibility snapshot. New authoring
+and graph resolution use the scopes owned by the referenced `workflow_steps` row.
 
 ### `workflow_steps`
 
@@ -314,12 +385,16 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 | `step_executor_id` | `VARCHAR(64)` | no | `` | step_executors.id (ON DELETE RESTRICT) |
 | `method` | `VARCHAR(64)` | no | `` |  |
 | `executor_config` | `JSON` | no | `` |  |
+| `execution_scope` | `VARCHAR(32)` | no | `samples` | job creation granularity |
+| `output_scope` | `VARCHAR(32)` | no | `samples` | published output granularity |
 | `payload_template_id` | `INTEGER` | yes | `` | payload_templates.id (ON DELETE SET NULL) |
 | `output_spec_id` | `INTEGER` | yes | `` | output_specs.id (ON DELETE SET NULL) |
 | `status` | `VARCHAR(32)` | no | `draft` |  |
 | `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 
 - Check `ck_workflow_steps_status`: `status IN ('draft', 'active')`.
+- Checks `ck_workflow_steps_execution_scope` and `ck_workflow_steps_output_scope`:
+  the six document/sample/derivative scopes.
 - Unique `uq_workflow_steps_name`: `name`.
 - Unique index `ix_workflow_steps_name`: `name`.
 - Index `ix_workflow_steps_output_spec_id`: `output_spec_id`.
@@ -335,13 +410,43 @@ Generated from the SQLAlchemy definitions after the refactor. Column types, null
 | `name` | `VARCHAR(255)` | no | `` |  |
 | `sample_set_id` | `INTEGER` | no | `` | sample_sets.id (ON DELETE CASCADE) |
 | `description` | `TEXT` | yes | `` |  |
+| `execution_mode` | `VARCHAR(32)` | no | `continuous` | end-to-end or stage-by-stage scheduling |
 | `status` | `VARCHAR(32)` | no | `draft` |  |
 | `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 | `updated_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
 
 - Check `ck_workflows_status`: `status IN ('draft', 'finalized')`.
+- Check `ck_workflows_execution_mode`: `execution_mode IN ('continuous', 'stage_by_stage')`.
 - Index `ix_workflows_name`: `name`.
 - Index `ix_workflows_status`: `status`.
+
+### `workflow_runs`
+
+| Column | Type | Nullable | Default | Key / relationship |
+| --- | --- | --- | --- | --- |
+| `id` | `INTEGER` | no | `autoincrement` | PK |
+| `workflow_id` | `INTEGER` | no | `` | workflows.id (ON DELETE CASCADE); unique |
+| `execution_mode` | `VARCHAR(32)` | no | `continuous` |  |
+| `status` | `VARCHAR(32)` | no | `stopped` |  |
+| `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
+| `updated_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
+
+- Execution mode is `continuous` (shown as **End-to-end**) or `stage_by_stage`.
+- Run status is `stopped`, `running`, or `completed`.
+
+### `workflow_run_nodes`
+
+| Column | Type | Nullable | Default | Key / relationship |
+| --- | --- | --- | --- | --- |
+| `id` | `INTEGER` | no | `autoincrement` | PK |
+| `workflow_run_id` | `INTEGER` | no | `` | workflow_runs.id (ON DELETE CASCADE) |
+| `workflow_dag_node_id` | `INTEGER` | no | `` | workflow_dag_nodes.id (ON DELETE CASCADE) |
+| `topological_depth` | `INTEGER` | no | `` | resolved stage |
+| `released` | `BOOLEAN` | no | `true` | user-controlled execution barrier |
+| `created_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
+| `updated_at` | `DATETIME` | no | `CURRENT_TIMESTAMP` |  |
+
+- Unique `uq_workflow_run_nodes_run_node`: `workflow_run_id, workflow_dag_node_id`.
 
 ## API shape
 
@@ -357,44 +462,68 @@ Unknown request keys, including retired field names, are rejected.
   lists, filters, and details look up the loaded group by `derivative_group_id`.
 - Derivative groups: `id`, `name`, `description`, `position_rule`, `mapping_type`,
   `status`, `created_at`. Mapping records own their `id` and point back through
-  `derivative_group_id`. Creating a group from selected derivatives accepts
-  `derivative_ids`.
-- Workflow steps use `id`, `name`, `step_executor_id`, `method`, `executor_config`,
-  `payload_template_id`, `output_spec_id`, `status`, `created_at`.
+  `derivative_group_id`. `membership_mapping` determines derivative-group
+  membership; the canonical filename determines the source sample.
+- Workflow steps use `execution_scope` to determine job granularity and
+  `output_scope` to determine canonical publication granularity. Any batch scope
+  requires a JSON output specification keyed by stable entity IDs.
 - Payload templates use `id`, `name`, `model_family`, `payload`, `status`,
   `created_at`, and nested `resources`. Resource records include their `id`,
-  `payload_template_id`, `name`, `source_table`, `batch_limit`, `created_at`, and
-  `conditions`; conditions include `id`, `prompt_resource_id`, `field_name`,
-  `operator`, `value_type`, `value`, and `position`. Creates omit generated IDs,
-  timestamps, and condition positions. Template expressions use `{{sample.id}}`,
-  `{{sample.name}}`, `{{sample.blob}}`, and `{{sample.mime_type}}`.
+  `payload_template_id`, `name`, `type`, `source_table`, `row_id`, and
+  `created_at`. Content resolves exactly one persisted `row_id`; bindings traverse
+  the current execution job's document/sample/derivative lineage and return all
+  associated rows. Step-output bindings read canonical outputs from incoming jobs.
+  Template expressions use `{{resource.field}}` and `$each` for collections.
 - Sample sets retain `sample_ids` as related membership IDs. Workflows retain
   `sample_set_id`; their `name` is the workflow's own name.
-- Execution jobs use `id` and retain `workflow_id`, `sample_id`, and
-  `current_workflow_dag_node_id`. List responses add `next_step_name`; details add
-  canonical `workflow_steps` and `step_outputs`. Job event rows identify the job
-  with `id`, including filtered WebSocket subscriptions.
+- Execution jobs snapshot both scopes plus resolved input/output references. Job
+  details return canonical `step_outputs` separately from append-only
+  `raw_outputs`. Prompt resolution and downstream jobs consume only
+  `step_outputs`.
+- Every model response uses a runtime-injected JSON object envelope keyed by the
+  job's exact stable output entity IDs. Each output specification defines one
+  entity's item shape; string items are the default, while object properties carry
+  their own `type` and `required` metadata. Validation and canonical publication
+  enforce the same envelope and item shape.
 - Batch deletes and execution queue/dequeue/retry requests use `{"ids": [...]}`.
   DAG edge deletion uses `{"id": ...}`. Relationship selections retain qualified
-  names, such as `sample_ids` and `derivative_ids`.
+  names, such as `sample_ids`.
 
-## Development database recreation
+## Database migrations
 
-There are no migrations. `metadata.create_all()` initializes a fresh schema and
-startup seeds the executor catalog. Existing databases must be recreated before
-running this version; bootstrapping does not convert old columns.
+Alembic migrations are the only schema-upgrade path. The backend applies them on
+startup, or they can be applied explicitly without recreating the database:
 
-The following commands **delete this Compose project's development database and
-frontend cache volumes**. Run them from the repository root. The explicit project
-name `scriptbench` matches the default project for this repository; if you started
-Compose under a different project name, use that same name on every command.
-
-```bash
-docker compose -p scriptbench -f docker-compose-dev.yml down --volumes
-docker compose -p scriptbench -f docker-compose-dev.yml build backend frontend
-docker compose -p scriptbench -f docker-compose-dev.yml up -d --wait postgres
-docker compose -p scriptbench -f docker-compose-dev.yml run --rm --no-deps backend python -c 'from backend.api.dependencies import get_engine; get_engine()'
+```sh
+alembic -c backend/alembic.ini upgrade head
 ```
+
+Migration `20260921_03` preserves sample and derivative primary keys, blobs, and
+execution data while renaming legacy EMMO display names, creating virtual
+documents, assigning page order, and retiring `sample_mapping`. Its downgrade is
+intentionally disabled because reversing the automatic hierarchy would be
+ambiguous. Take a database backup before applying migrations in production.
+
+Migration `20260921_04` backfills step scopes from existing DAG nodes, snapshots
+job output references, preserves every legacy output row as a raw attempt, and
+publishes only successful legacy results as canonical per-entity step outputs. It
+stops rather than guessing if one reused step has conflicting historical node
+scopes. Its downgrade is intentionally disabled because recombining canonical
+entities and raw attempts would be lossy.
+
+Migration `20260921_05` backfills fixed legacy selections as `content`, dynamic
+resources as `binding`, and derives selected fields from existing JSON-template
+references. Legacy condition rows remain stored for auditability but are no longer
+used by new templates or runtime resolution.
+
+Migration `20260921_06` removes prompt-resource field allowlists. Prompt resources
+now resolve complete database rows, and templates may reference any column on the
+selected source table.
+
+Migration `20260921_07` converts legacy plain-text specs to string item shapes,
+normalizes legacy structured fields into object properties, and removes the
+obsolete output transport type. Existing specifications and workflow-step foreign
+keys are preserved.
 
 Set `EMMO_SOURCE` to the absolute path of the complete EMMO dataset, including
 `images`, `ground_truth_txt`, and `segementation_line_crops` (or
@@ -417,11 +546,10 @@ The bootstrap expects 19 source samples by default; a deliberate smaller fixture
 can use `--expected-sample-count N`. Both workflow bootstraps are idempotent and do
 not call providers. `DEV=true` enables stub execution in development.
 
-For the default local SQLite setup, stop the backend, remove
-`backend/database/economic_upheaval.db` (and any matching `-wal`/`-shm` files), then
-run schema initialization and the same bootstrap modules with your Python virtual
-environment. If `DATABASE_URL` is set, recreate that selected development database
-instead. These commands were documented, not run against existing user data.
+For the default local SQLite setup, stop the backend and run the same
+`alembic -c backend/alembic.ini upgrade head` command before restarting it. The
+migrations update the existing selected database; neither schema upgrades nor
+bootstrapping require deleting it.
 
 ## Validation results
 

@@ -3,8 +3,12 @@ from __future__ import annotations
 from sqlalchemy import insert, select
 from sqlalchemy.engine import Connection, Engine
 
-from ..tables.prompt_resource_conditions_table import prompt_resource_conditions
 from ..tables.prompt_resources_table import prompt_resources
+from ..tables.assets_table import assets
+from ..tables.documents_table import documents
+from ..tables.derivatives_table import derivatives
+from ..tables.samples_table import samples
+from ..tables.step_outputs_table import step_outputs
 
 
 class PromptResourcesRepository:
@@ -20,14 +24,24 @@ class PromptResourcesRepository:
             ).scalar_one()
         )
 
-    def insert_condition(self, row: dict[str, object], conn: Connection) -> int:
-        return int(
-            conn.execute(
-                insert(prompt_resource_conditions)
-                .values(**row)
-                .returning(prompt_resource_conditions.c.id)
-            ).scalar_one()
-        )
+    def source_row_exists(self, source_table: str, row_id: str) -> bool:
+        tables = {
+            "assets": assets,
+            "documents": documents,
+            "derivatives": derivatives,
+            "samples": samples,
+            "step_outputs": step_outputs,
+        }
+        table = tables[source_table]
+        try:
+            typed_row_id = table.c.id.type.python_type(str(row_id).strip())
+        except (TypeError, ValueError) as error:
+            raise ValueError("Selected content row is invalid") from error
+        with self.engine.connect() as connection:
+            value = connection.execute(
+                select(table.c.id).where(table.c.id == typed_row_id)
+            ).scalar_one_or_none()
+        return value is not None
 
     def list_for_template(
         self, payload_template_id: int, conn: Connection | None = None
@@ -44,32 +58,15 @@ class PromptResourcesRepository:
                 .mappings()
                 .all()
             )
-            conditions = (
-                connection.execute(
-                    select(prompt_resource_conditions)
-                    .join(prompt_resources)
-                    .where(
-                        prompt_resources.c.payload_template_id == payload_template_id
-                    )
-                    .order_by(
-                        prompt_resource_conditions.c.prompt_resource_id.asc(),
-                        prompt_resource_conditions.c.position.asc(),
-                    )
-                )
-                .mappings()
-                .all()
-            )
-            by_resource: dict[int, list[dict[str, object]]] = {}
-            for condition in conditions:
-                by_resource.setdefault(int(condition["prompt_resource_id"]), []).append(
-                    dict(condition)
-                )
             return [
                 {
-                    **dict(resource),
-                    "conditions": by_resource.get(
-                        int(resource["id"]), []
-                    ),
+                    "id": resource["id"],
+                    "payload_template_id": resource["payload_template_id"],
+                    "name": resource["name"],
+                    "type": resource["type"],
+                    "source_table": resource["source_table"],
+                    "row_id": resource["row_key"],
+                    "created_at": resource["created_at"],
                 }
                 for resource in resources
             ]

@@ -10,17 +10,23 @@ from sqlalchemy import (
     JSON,
     String,
     Table,
-    Text,
     UniqueConstraint,
     func,
 )
 
-from ..schema import PARSE_STATUS_CHECK_SQL, metadata
+from ..schema import OUTPUT_ENTITY_TYPE_CHECK_SQL, OUTPUT_SCOPE_CHECK_SQL, metadata
 
 step_outputs = Table(
     "step_outputs",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "raw_output_id",
+        Integer,
+        ForeignKey("raw_outputs.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    ),
     Column(
         "execution_job_id",
         Integer,
@@ -46,21 +52,16 @@ step_outputs = Table(
         "sample_id",
         String(255),
         ForeignKey("samples.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     ),
-    Column("attempt_no", Integer, nullable=False),
-    Column("assembled_model_payload", JSON, nullable=False),
-    Column("raw_model_response", Text, nullable=False),
-    Column("parsed_output", JSON, nullable=True),
-    Column("parse_status", String(32), nullable=True, index=True),
-    Column("parse_error", Text, nullable=True),
+    Column("output_scope", String(32), nullable=False),
+    Column("entity_type", String(32), nullable=False),
+    Column("entity_key", String(255), nullable=False, index=True),
+    Column("output", JSON, nullable=True),
     Column("cer", Float, nullable=True),
     Column("wer", Float, nullable=True),
     Column("hallucination_count", Integer, nullable=True),
-    Column("time_elapsed", Float, nullable=False),
-    Column("started_at", DateTime(timezone=True), nullable=False),
-    Column("completed_at", DateTime(timezone=True), nullable=False),
     Column(
         "created_at",
         DateTime(timezone=True),
@@ -68,10 +69,9 @@ step_outputs = Table(
         server_default=func.current_timestamp(),
     ),
     UniqueConstraint(
-        "execution_job_id", "workflow_step_id", name="uq_step_outputs_job_step",
+        "execution_job_id", "workflow_step_id", "entity_type", "entity_key",
+        name="uq_step_outputs_job_entity",
     ),
-    CheckConstraint(
-        "(parse_status IS NULL) OR (" + PARSE_STATUS_CHECK_SQL + ")",
-        name="ck_step_outputs_parse_status",
-    ),
+    CheckConstraint(OUTPUT_SCOPE_CHECK_SQL, name="ck_step_outputs_output_scope"),
+    CheckConstraint(OUTPUT_ENTITY_TYPE_CHECK_SQL, name="ck_step_outputs_entity_type"),
 )

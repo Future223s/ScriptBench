@@ -2,17 +2,64 @@
 
 import {
   Button,
+  CanvasEdge,
+  CanvasNode,
+  CanvasSurface,
   EmptyState,
   Inline,
   Panel,
-  SelectableRow,
   Stack,
   StatusBadge,
 } from "../../ui/primitives/index.js";
+import { formatDate } from "../../utils/date.js";
 
 function columnRows(rows, column) {
   return rows.filter(
     (row) => String(row.status || "pending").toLowerCase() === column,
+  );
+}
+
+function ExecutionRow({ row, column, selected, actions, loading }) {
+  const nextStep = row.error_message
+    ? row.error_message
+    : row.next_step_name ||
+      (column === "completed" ? "Execution complete" : "Awaiting next step");
+  const timestamp = formatDate(row.updated_at || row.created_at) || "No timestamp";
+
+  return (
+    <div
+      className={`workspace-execution-row${selected ? " is-selected" : ""}`}
+    >
+      <input
+        type="checkbox"
+        className="ui-choice__control"
+        checked={selected}
+        onChange={(event) =>
+          actions.toggleRowSelection(column, row.id, event.target.checked)
+        }
+        aria-label={`Select ${row.target_label || row.sample_id || `job ${row.id}`}`}
+        disabled={loading}
+      />
+      <button
+        type="button"
+        className="workspace-execution-row__open"
+        onClick={() => actions.openRowDetail(row.id)}
+        disabled={loading}
+      >
+        <strong>{row.target_label || row.sample_id || `Job ${row.id}`}</strong>
+        <StatusBadge>{row.status || column}</StatusBadge>
+        <span
+          className={
+            row.error_message ? "workspace-execution-row__error" : undefined
+          }
+        >
+          {nextStep}
+        </span>
+        <time dateTime={row.updated_at || row.created_at || undefined}>
+          {timestamp}
+        </time>
+      </button>
+    </div>
   );
 }
 
@@ -57,47 +104,30 @@ function ExecutionColumn({
         </Inline>
       }
     >
-      <Stack gap="compact">
+      <div className="workspace-execution-list">
         {visible.length ? (
           visible.map((row) => (
-            <SelectableRow
+            <ExecutionRow
               key={row.id}
-              title={`Sample ${row.sample_id}`}
-              detail={
-                row.error_message
-                  ? `Failed: ${row.error_message}`
-                  : row.next_step_name ||
-                    (column === "completed" ? "Complete" : "Awaiting next step")
-              }
+              row={row}
+              column={column}
               selected={selectedIds.includes(String(row.id))}
-              onSelectedChange={(checked) =>
-                actions.toggleRowSelection(
-                  column,
-                  row.id,
-                  checked,
-                )
-              }
-              action={
-                <Button
-                  size="compact"
-                  onClick={() => actions.openRowDetail(row.id)}
-                  disabled={loading}
-                >
-                  Open
-                </Button>
-              }
+              actions={actions}
+              loading={loading}
             />
           ))
         ) : (
           <EmptyState title={`No ${title.toLowerCase()} rows`} />
         )}
-      </Stack>
+      </div>
     </Panel>
   );
 }
 
 export function WorkspacePanel({
   workflow,
+  graph,
+  selectedNodeId,
   rows = [],
   selection,
   loading,
@@ -130,6 +160,12 @@ export function WorkspacePanel({
           </Inline>
         }
       ></Panel>
+      <ExecutionGraph
+        graph={graph}
+        selectedNodeId={selectedNodeId}
+        actions={actions}
+        loading={loading}
+      />
       {loading ? (
         <EmptyState title="Loading execution rows" />
       ) : (
@@ -175,5 +211,64 @@ export function WorkspacePanel({
         </section>
       )}
     </Stack>
+  );
+}
+
+function ExecutionGraph({ graph, selectedNodeId, actions, loading }) {
+  const nodes = graph?.nodes || [];
+  const edges = graph?.edges || [];
+  if (!nodes.length) return <EmptyState title="No resolved execution graph" />;
+  const minRow = Math.min(...nodes.map((node) => Number(node.row)));
+  const maxRow = Math.max(...nodes.map((node) => Number(node.row)));
+  const minCol = Math.min(...nodes.map((node) => Number(node.col)));
+  const maxCol = Math.max(...nodes.map((node) => Number(node.col)));
+  const rows = Math.max(1, maxRow - minRow + 1);
+  const cols = Math.max(1, maxCol - minCol + 1);
+  const point = (node) => ({
+    x: ((Number(node.col) - minCol + 0.5) / cols) * 100,
+    y: ((Number(node.row) - minRow + 0.5) / rows) * 100,
+  });
+  const byId = new Map(nodes.map((node) => [Number(node.workflow_dag_node_id), node]));
+  const selected = byId.get(Number(selectedNodeId));
+  return (
+    <Panel
+      title="Resolved execution graph"
+      description={graph?.run?.execution_mode === "stage_by_stage" ? "Stage-by-stage" : "End-to-end"}
+      actions={selected ? (
+        <Inline gap="compact">
+          <Button size="compact" variant="primary" onClick={actions.queueSelectedNode} disabled={loading || !selected.released}>
+            Queue all
+          </Button>
+          <Button size="compact" onClick={selected.released ? actions.holdSelectedNode : actions.releaseSelectedNode} disabled={loading}>
+            {selected.released ? "Hold node" : "Release node"}
+          </Button>
+        </Inline>
+      ) : null}
+    >
+      <CanvasSurface label="Resolved execution graph" size="compact">
+        {edges.map((edge) => {
+          const from = byId.get(Number(edge.from_workflow_dag_node_id));
+          const to = byId.get(Number(edge.to_workflow_dag_node_id));
+          if (!from || !to) return null;
+          const a = point(from);
+          const b = point(to);
+          return <CanvasEdge key={edge.id} fromX={a.x} fromY={a.y} toX={b.x} toY={b.y} />;
+        })}
+        {nodes.map((node) => {
+          const position = point(node);
+          return (
+            <CanvasNode
+              key={node.workflow_dag_node_id}
+              x={position.x}
+              y={position.y}
+              title={node.step_name}
+              detail={`Stage ${node.topological_depth} · ${node.execution_scope} → ${node.output_scope} · B ${node.blocked} · P ${node.pending} · Q ${node.queued} · R ${node.running}${node.released ? "" : " · held"}`}
+              selected={Number(selectedNodeId) === Number(node.workflow_dag_node_id)}
+              onClick={() => actions.selectExecutionNode(node.workflow_dag_node_id)}
+            />
+          );
+        })}
+      </CanvasSurface>
+    </Panel>
   );
 }

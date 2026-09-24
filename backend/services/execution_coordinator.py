@@ -19,6 +19,7 @@ from backend.models.events import EventPayload
 from backend.services.job_events import JobEventHub
 from backend.services.output_validator import OutputValidator
 from backend.services.payload_builder import PayloadBuilder
+from backend.services.output_contract import inject_output_contract
 
 
 logger = logging.getLogger(__name__)
@@ -54,14 +55,20 @@ class ExecutionCoordinator:
         await self.event_hub.broadcast(
             self._event("ASSEMBLING", "Assembling execution job.", job)
         )
+        workflow_step = self._workflow_step(int(job["workflow_step_id"]))
+        output_spec = self._output_spec(int(workflow_step["output_spec_id"]))
         payload = self.payload_builder.build(
             workflow_id=int(job["workflow_id"]),
-            sample_id=str(job["sample_id"]),
+            sample_id=(str(job["sample_id"]) if job.get("sample_id") is not None else None),
             workflow_dag_node_id=int(job["workflow_dag_node_id"]),
             execution_job_id=int(job["id"]),
         )
-        workflow_step = self._workflow_step(int(job["workflow_step_id"]))
-        output_spec = self._output_spec(int(workflow_step["output_spec_id"]))
+        payload = inject_output_contract(
+            payload,
+            model_family=str(workflow_step["step_executor_id"]),
+            output_spec=output_spec,
+            output_refs=list(job.get("output_refs") or []),
+        )
         client = self.executor_factory.for_step(workflow_step)
         await self.event_hub.broadcast(
             self._event("REQUEST_SENT", "Sending transcription request.", job)
@@ -70,12 +77,22 @@ class ExecutionCoordinator:
         response = self.output_validator.resolve(
             raw_response=raw_response,
             output_spec=output_spec,
+            execution_scope=str(job.get("execution_scope") or "samples"),
+            output_scope=str(job.get("output_scope") or "samples"),
+            entity_ids=[
+                str(item.get("entity_id"))
+                for item in (job.get("output_refs") or [])
+            ],
         )
         self.output_validator.persist(
             execution_job={
                 "id": job["id"],
                 "workflow_id": job["workflow_id"],
-                "sample_id": job["sample_id"],
+                "sample_id": job.get("sample_id"),
+                "input_refs": job.get("input_refs") or [],
+                "output_refs": job.get("output_refs") or [],
+                "execution_scope": job.get("execution_scope"),
+                "output_scope": job.get("output_scope"),
             },
             workflow_step_id=int(job["workflow_step_id"]),
             response=response,
@@ -84,6 +101,8 @@ class ExecutionCoordinator:
             completed_at=datetime.now(timezone.utc),
             time_elapsed=time.perf_counter() - started_clock,
         )
+        if response.parse_status != "success":
+            raise ValueError(response.parse_error or "Execution output failed validation")
         row_status = self.repository.complete_job_and_advance(job)
         await self.event_hub.broadcast(
             self._event(

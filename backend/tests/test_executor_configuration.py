@@ -76,7 +76,7 @@ class ExecutorConfigurationTests(unittest.TestCase):
                 name="Test", model_family="gemini", payload={}
             )).inserted_primary_key[0]
             spec_id = conn.execute(output_specs.insert().values(
-                name="Text", type="plain-text"
+                name="Text", item_schema={"type": "string"}
             )).inserted_primary_key[0]
         request = WorkflowStepCreateRequest(name="Read", step_executor_id="gemini", method="transcribe",
             executor_config={"model": "test", "temperature": 0.4, "max_tokens": 25},
@@ -84,8 +84,38 @@ class ExecutorConfigurationTests(unittest.TestCase):
         result = create_workflow_step(request, engine)
         self.assertEqual(request.executor_config, result.data.executor_config)
         self.assertEqual("gemini", result.data.step_executor_id)
+        self.assertEqual("samples", result.data.execution_scope)
+        self.assertEqual("samples", result.data.output_scope)
         request.step_executor_id = "anthropic"
         with self.assertRaises(HTTPException) as caught:
             create_workflow_step(request, engine)
         self.assertEqual(400, caught.exception.status_code)
         engine.dispose()
+
+    def test_batch_step_accepts_plain_text_values_and_persists_both_scopes(self):
+        from backend.api.v2.endpoints.workflow_steps import create_workflow_step
+        from backend.database.tables.payload_templates_table import payload_templates
+        from backend.database.tables.output_specs_table import output_specs
+
+        with self.engine.begin() as conn:
+            template_id = conn.execute(payload_templates.insert().values(
+                name="Batch template", model_family="gemini", payload={}
+            )).inserted_primary_key[0]
+            text_spec_id = conn.execute(output_specs.insert().values(
+                name="Batch text", item_schema={"type": "string"}
+            )).inserted_primary_key[0]
+        values = {
+            "name": "Batch read",
+            "step_executor_id": "gemini",
+            "method": "transcribe",
+            "executor_config": {"model": "test"},
+            "execution_scope": "documents",
+            "output_scope": "samples_batch",
+            "payload_template_id": template_id,
+        }
+        result = create_workflow_step(
+            WorkflowStepCreateRequest(**values, output_spec_id=text_spec_id),
+            self.engine,
+        )
+        self.assertEqual("documents", result.data.execution_scope)
+        self.assertEqual("samples_batch", result.data.output_scope)
