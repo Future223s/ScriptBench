@@ -78,6 +78,36 @@ const iconPaths = {
       <rect x="8" y="8" width="8" height="8" rx="1" />
     </>
   ),
+  dashboard: (
+    <>
+      <rect x="4" y="4" width="6" height="6" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <rect x="14" y="14" width="6" height="6" rx="1" />
+    </>
+  ),
+  library: <path d="M5 4v16M9 5v14M13 4l4 16M19 4v16" />,
+  blocks: (
+    <>
+      <rect x="4" y="4" width="7" height="7" rx="1" />
+      <rect x="13" y="13" width="7" height="7" rx="1" />
+      <path d="M14 7h4v4M7 14v4h4" />
+    </>
+  ),
+  workflow: (
+    <>
+      <circle cx="6" cy="6" r="2" />
+      <circle cx="18" cy="18" r="2" />
+      <path d="M6 8v8a2 2 0 0 0 2 2h8M8 6h7a3 3 0 0 1 3 3v7" />
+    </>
+  ),
+  workspace: (
+    <>
+      <rect x="4" y="5" width="16" height="14" rx="2" />
+      <path d="M4 10h16M10 10v9" />
+    </>
+  ),
+  analysis: <path d="M5 19v-5M10 19V9M15 19v-8M20 19V5M4 19h17" />,
 };
 
 export function Icon({ name, label }) {
@@ -133,6 +163,37 @@ export function SectionTitle({ children }) {
 
 export function PageTitle({ children }) {
   return <h1 className="ui-page-title">{children}</h1>;
+}
+
+export function PageHeader({
+  title,
+  description,
+  controls,
+  actions,
+  variant = "plain",
+  showCopy = true,
+}) {
+  return (
+    <header className={joinClasses("ui-page-header", `ui-page-header--${variant}`)}>
+      {showCopy ? (
+        <div className="ui-page-header__copy">
+          <PageTitle>{title}</PageTitle>
+          {description ? <Instruction>{description}</Instruction> : null}
+        </div>
+      ) : null}
+      {controls ? <div className="ui-page-header__controls">{controls}</div> : null}
+      {actions ? <div className="ui-page-header__actions">{actions}</div> : null}
+    </header>
+  );
+}
+
+export function StackedSelect({ label, children, ...props }) {
+  return (
+    <label className="ui-stacked-select">
+      <span>{label}</span>
+      <select {...props}>{children}</select>
+    </label>
+  );
 }
 
 export function TextInput({ className: _className, style: _style, ...props }) {
@@ -646,6 +707,7 @@ export function PrimaryNavigation({
           disabled={item.disabled}
           title={item.disabled ? "Coming soon" : undefined}
         >
+          {item.icon ? <Icon name={item.icon} /> : null}
           {item.label}
         </button>
       ))}

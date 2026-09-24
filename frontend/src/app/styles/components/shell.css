@@ -5,7 +5,7 @@
 
 .app-shell-frame {
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-columns: 188px minmax(0, 1fr);
   min-height: 100dvh;
 }
 
@@ -20,13 +20,11 @@
   flex-direction: column;
   z-index: var(--layer-sticky);
   gap: var(--space-4);
-  width: 224px;
+  width: 188px;
   height: 100dvh;
-  padding: var(--space-4) var(--space-3);
+  padding: var(--space-5) var(--space-3) var(--space-4);
   border-right: 1px solid var(--border-subtle);
-  background: rgba(255, 253, 248, 0.9);
-  box-shadow: 8px 0 28px rgba(52, 38, 27, 0.07);
-  backdrop-filter: blur(18px);
+  background: var(--surface-solid);
 }
 
 .topbar-header {
@@ -92,7 +90,7 @@
 
 .brand-title {
   color: var(--accent-strong);
-  font-size: var(--font-size-heading);
+  font-size: var(--font-size-title-sm);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.12em;
 }

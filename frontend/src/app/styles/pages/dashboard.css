@@ -1,6 +1,6 @@
 .dashboard-page {
   display: grid;
-  grid-template-columns: minmax(32rem, 0.9fr) minmax(0, 1.6fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   flex: 1;
   padding: var(--space-4) clamp(var(--space-3), 2.3vw, var(--space-5))

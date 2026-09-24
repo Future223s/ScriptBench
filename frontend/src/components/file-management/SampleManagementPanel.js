@@ -391,7 +391,21 @@ export function SampleManagementPanel({ state, actions }) {
 
   const filterActions = (
     <Inline gap="default">
+      {type === "sample" ? (
+        <Button size="compact" onClick={actions.openManagementModal}>
+          Create sample set
+        </Button>
+      ) : null}
+      {type === "derivative" ? (
+        <Button
+          size="compact"
+          onClick={actions.workflowStepsActions?.openCreateDerivativeGroup}
+        >
+          Create derivative group
+        </Button>
+      ) : null}
       <Button
+        size="compact"
         onClick={() =>
           allVisibleSelected
             ? actions.clearSelection(type)
@@ -403,6 +417,7 @@ export function SampleManagementPanel({ state, actions }) {
       </Button>
       {hasSelectedRecords ? (
         <Button
+          size="compact"
           variant="danger"
           onClick={() => actions.submitManagement("delete")}
           disabled={state.loading}

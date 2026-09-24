@@ -4,6 +4,7 @@ import {
   Button,
   Field,
   Inline,
+  PageHeader,
   Panel,
   Select,
   Stack,
@@ -16,14 +17,17 @@ export function WorkspacePicker({
   actions,
 }) {
   return (
-    <Panel
-      title="Workflow workspace"
-      actions={
+    <Stack>
+      <PageHeader
+        title="Workspace"
+        description="Select a workflow to monitor and control its execution."
+        actions={
         <Button variant="primary" onClick={actions?.openDashboard}>
           Create workflow
         </Button>
       }
-    >
+      />
+      <Panel title="Open workflow">
       <Stack gap="compact">
         <Field label="Existing workflow">
           <Select
@@ -53,6 +57,7 @@ export function WorkspacePicker({
           </Button>
         </Inline>
       </Stack>
-    </Panel>
+      </Panel>
+    </Stack>
   );
 }

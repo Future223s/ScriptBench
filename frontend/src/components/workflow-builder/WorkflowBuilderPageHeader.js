@@ -3,8 +3,8 @@
 import {
   Button,
   Inline,
-  PageTitle,
-  Select,
+  PageHeader,
+  StackedSelect,
 } from "../../ui/primitives/index.js";
 
 export function WorkflowBuilderPageHeader({
@@ -20,11 +20,14 @@ export function WorkflowBuilderPageHeader({
   onFinalize,
 }) {
   return (
-    <header className="workflow-builder-header">
-      <Inline gap="compact">
-        <PageTitle>Workflow Builder</PageTitle>
-        <Select
-          inline
+    <PageHeader
+      variant="floating"
+      showCopy={false}
+      title="Workflow Builder"
+      description="Compose and configure a reusable execution graph."
+      controls={
+        <StackedSelect
+          label="Workflow"
           value={selectedWorkflowId || ""}
           onChange={(event) => onSelectWorkflow?.(event.target.value)}
           aria-label="Select workflow"
@@ -35,12 +38,12 @@ export function WorkflowBuilderPageHeader({
               {workflow.name}
             </option>
           ))}
-        </Select>
-      </Inline>
-      <Inline gap="compact" justify="end">
+        </StackedSelect>
+      }
+      actions={
+        <Inline gap="compact" justify="end">
         <Button
           size="compact"
-          variant="primary"
           onClick={onNewWorkflow}
           disabled={saving || finalizing}
         >
@@ -56,13 +59,13 @@ export function WorkflowBuilderPageHeader({
         </Button>
         <Button
           size="compact"
-          variant="primary"
           onClick={onFinalize}
           disabled={finalizeDisabled}
         >
           {finalizing ? "Finalizing..." : "Finalize workflow"}
         </Button>
-      </Inline>
-    </header>
+        </Inline>
+      }
+    />
   );
 }

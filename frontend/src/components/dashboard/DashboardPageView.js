@@ -2,12 +2,15 @@
 
 import {
   EmptyState,
+  Icon,
+  IconButton,
   LoadingPlaceholder,
+  PageHeader,
   Panel,
+  StackedSelect,
 } from "../../ui/primitives/index.js";
 import { DashboardIntro } from "./DashboardIntro.js";
 import { SampleSetAnalyticsPanel } from "./SampleSetAnalyticsPanel.js";
-import { SampleSetsPanel } from "./SampleSetsPanel.js";
 
 export function DashboardPageView({
   loading,
@@ -42,11 +45,35 @@ export function DashboardPageView({
         </main>
       ) : (
         <main className="dashboard-page">
-          <SampleSetsPanel
-            sampleSets={sampleSets}
-            selectedSampleSetId={selectedSampleSetId}
-            onSelectSampleSet={onSelectSampleSet}
-            onDeleteSampleSet={onDeleteSampleSet}
+          <PageHeader
+            title="Sample Set Dashboard"
+            description="Review sample coverage and workflow performance."
+            controls={
+              <StackedSelect
+                label="Sample set"
+                value={selectedSampleSetId || ""}
+                onChange={(event) =>
+                  onSelectSampleSet?.(Number(event.target.value))
+                }
+              >
+                {sampleSets.map((sampleSet) => (
+                  <option key={sampleSet.id} value={sampleSet.id}>
+                    {sampleSet.name || `Sample set ${sampleSet.id}`}
+                  </option>
+                ))}
+              </StackedSelect>
+            }
+            actions={
+              selectedSampleSet ? (
+                <IconButton
+                  label={`Delete sample set ${selectedSampleSet.name || selectedSampleSet.id}`}
+                  variant="danger"
+                  onClick={() => onDeleteSampleSet?.(Number(selectedSampleSet.id))}
+                >
+                  <Icon name="delete" />
+                </IconButton>
+              ) : null
+            }
           />
           <div className="main-area">
             {sampleSetAnalyticsLoading ? (

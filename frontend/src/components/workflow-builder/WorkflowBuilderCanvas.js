@@ -7,8 +7,6 @@ import {
   CanvasNode,
   CanvasSurface,
   Inline,
-  Panel,
-  Stack,
   StatusBadge,
 } from "../../ui/primitives/index.js";
 import { getCanvasBounds, findNode } from "./workflowBuilderUtils.js";
@@ -47,10 +45,68 @@ export function WorkflowBuilderCanvas({ state, actions }) {
   }
 
   return (
-    <Panel
-      title="Canvas"
-      fill
-      actions={
+    <section className="workflow-builder-canvas-shell">
+      <CanvasSurface
+        label="Workflow canvas"
+        size="workspace"
+        fill
+        onPointerMove={(event) => setHoveredPlacement(getPlacementFromPointer(event))}
+        onPointerLeave={() => setHoveredPlacement(null)}
+      >
+        {state.edges.map((edge) => {
+          const fromNode = findNode(state.nodes, edge.from);
+          const toNode = findNode(state.nodes, edge.to);
+          if (!fromNode || !toNode) return null;
+          const from = toPoint(Number(fromNode.row), Number(fromNode.col));
+          const to = toPoint(Number(toNode.row), Number(toNode.col));
+          return (
+            <CanvasEdge
+              key={edge.id}
+              fromX={from.x}
+              fromY={from.y}
+              toX={to.x}
+              toY={to.y}
+              selected={Number(state.selectedEdgeId) === Number(edge.id)}
+              onClick={() => actions.selectWorkflowEdge(edge.id)}
+            />
+          );
+        })}
+        {state.nodes.map((node) => {
+          const point = toPoint(Number(node.row), Number(node.col));
+          return (
+            <CanvasNode
+              key={node.id}
+              x={point.x}
+              y={point.y}
+              title={node.label}
+              detail={node.executor_config?.provider || node.executor_config?.executor || node.step_executor_id || "Executor not specified"}
+              selected={Number(state.selectedNodeId) === Number(node.id)}
+              onClick={() => actions.selectNode(node.id)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                actions.openNodeDetail(node.id);
+              }}
+            />
+          );
+        })}
+        {hoveredPlacement ? (
+          <CanvasNode
+            x={toPoint(hoveredPlacement.row, hoveredPlacement.col).x}
+            y={toPoint(hoveredPlacement.row, hoveredPlacement.col).y}
+            title="Add step"
+            detail="Click to place"
+            variant="preview"
+            ariaLabel="Add workflow step here"
+            onClick={() => actions.selectPlacementTarget(hoveredPlacement.row, hoveredPlacement.col)}
+          />
+        ) : null}
+      </CanvasSurface>
+      {modeHint ? (
+        <div className="workflow-builder-canvas-mode-hint" role="status">
+          <StatusBadge size="compact">{modeHint}</StatusBadge>
+        </div>
+      ) : null}
+      <div className="workflow-builder-canvas-tools">
         <Inline gap="compact" justify="end">
           <Button
             size="compact"
@@ -84,75 +140,7 @@ export function WorkflowBuilderCanvas({ state, actions }) {
             Cancel
           </Button>
         </Inline>
-      }
-    >
-      <div
-        className="ui-stack ui-stack--compact ui-stack--fill"
-        style={{ gridTemplateRows: "auto minmax(0, 1fr)" }}
-      >
-        <CanvasSurface
-          label="Workflow canvas"
-          size="compact"
-          fill
-          onPointerMove={(event) => setHoveredPlacement(getPlacementFromPointer(event))}
-          onPointerLeave={() => setHoveredPlacement(null)}
-        >
-          {modeHint ? (
-            <div className="workflow-builder-canvas-mode-hint" role="status">
-              <StatusBadge size="compact">{modeHint}</StatusBadge>
-            </div>
-          ) : null}
-          {state.edges.map((edge) => {
-            const fromNode = findNode(state.nodes, edge.from);
-            const toNode = findNode(state.nodes, edge.to);
-            if (!fromNode || !toNode) return null;
-            const from = toPoint(Number(fromNode.row), Number(fromNode.col));
-            const to = toPoint(Number(toNode.row), Number(toNode.col));
-            return (
-              <CanvasEdge
-                key={edge.id}
-                fromX={from.x}
-                fromY={from.y}
-                toX={to.x}
-                toY={to.y}
-                selected={Number(state.selectedEdgeId) === Number(edge.id)}
-                onClick={() => actions.selectWorkflowEdge(edge.id)}
-              />
-            );
-          })}
-          {state.nodes.map((node) => {
-            const point = toPoint(Number(node.row), Number(node.col));
-            return (
-              <CanvasNode
-                key={node.id}
-                x={point.x}
-                y={point.y}
-                title={node.label}
-                detail={
-                  `${node.execution_scope || "samples"} → ${node.output_scope || "samples"} · ${node.executor_config?.model || node.step_executor_id || "Model not specified"}`
-                }
-                selected={Number(state.selectedNodeId) === Number(node.id)}
-                onClick={() => actions.selectNode(node.id)}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  actions.openNodeDetail(node.id);
-                }}
-              />
-            );
-          })}
-          {hoveredPlacement ? (
-            <CanvasNode
-              x={toPoint(hoveredPlacement.row, hoveredPlacement.col).x}
-              y={toPoint(hoveredPlacement.row, hoveredPlacement.col).y}
-              title="Add step"
-              detail="Click to place"
-              variant="preview"
-              ariaLabel="Add workflow step here"
-              onClick={() => actions.selectPlacementTarget(hoveredPlacement.row, hoveredPlacement.col)}
-            />
-          ) : null}
-        </CanvasSurface>
       </div>
-    </Panel>
+    </section>
   );
 }

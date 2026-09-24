@@ -72,6 +72,10 @@ Instructional text must use sentence case and the shared `Instruction` primitive
 
 The UI library is versioned as one contract. Visual or public-prop changes require a changelog entry; breaking changes require a major-version migration note. Consumer pages must migrate to approved variants rather than preserving deprecated styling.
 
+### Changelog
+
+- **1.1.0** — Added the shared `PageHeader` and `StackedSelect` primitives, the floating page-header variant, and optional primary-navigation icons for the unified application-shell migration.
+
 ## Linting and cleanup
 
 During migration, treat the following as errors:

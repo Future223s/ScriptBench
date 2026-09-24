@@ -1,27 +1,11 @@
 .workflow-steps-page {
   flex: 1;
   min-width: 0;
-  padding: 10px clamp(14px, 2.3vw, 28px) 20px;
+  padding: var(--space-5) var(--page-gutter);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
   align-items: stretch;
-}
-
-.workflow-steps-page__header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.workflow-steps-page__header h1 {
-  margin: 0;
-  font-size: var(--font-size-title);
-}
-
-.workflow-steps-page__header > .ui-button {
-  justify-self: end;
 }
 
 .workflow-resource-nav {
@@ -40,8 +24,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--line);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .workflow-steps-catalog .ui-data-table table {

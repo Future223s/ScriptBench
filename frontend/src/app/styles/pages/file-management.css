@@ -1,43 +1,17 @@
 .file-management-page {
   flex: 1;
   min-width: 0;
-  padding: 10px clamp(14px, 2.3vw, 28px) 20px;
+  padding: var(--space-5) var(--page-gutter);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
   align-items: stretch;
-}
-
-.file-management-page__header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.file-management-page__header > .ui-button {
-  justify-self: end;
-}
-
-.file-management-page__header h1,
-.file-management-page__header p {
-  margin: 0;
-}
-
-.file-management-page__header h1 {
-  font-size: var(--font-size-title);
-}
-
-.file-management-page__header p {
-  margin-top: var(--space-1);
-  color: var(--text-muted);
-  font-size: var(--font-size-caption);
 }
 
 .file-management-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(24rem, 1fr);
-  gap: 16px;
+  gap: var(--space-4);
   align-items: start;
   min-width: 0;
   flex: 1;
@@ -56,8 +30,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--line);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .file-management-list-panel__header {

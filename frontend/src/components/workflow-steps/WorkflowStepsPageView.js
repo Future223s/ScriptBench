@@ -6,7 +6,7 @@ import {
   DataTable,
   Icon,
   IconButton,
-  Inline,
+  PageHeader,
   StatusBadge,
 } from "../../ui/primitives/index.js";
 import { WorkflowStepsOverlays } from "./WorkflowStepsOverlays.js";
@@ -97,30 +97,20 @@ export function WorkflowStepsPageView({ state, actions }) {
 
   return (
     <div className="page-surface workflow-steps-page">
-      <header className="workflow-steps-page__header">
-        <h1>Workflow Steps</h1>
-        <Button variant="primary" onClick={actions.openCreateWorkflowStep}>
-          Create workflow step
-        </Button>
-      </header>
+      <PageHeader
+        title="Workflow Steps"
+        description="Create and manage reusable workflow steps."
+        actions={
+          <Button variant="primary" onClick={actions.openCreateWorkflowStep}>
+            Create workflow step
+          </Button>
+        }
+      />
       <section className="workflow-steps-catalog">
         <CompactFilterBar
           filters={filters}
           activeFilters={activeFilterTokens(filters)}
           onClearAll={() => actions.clearFilters("workflow-step")}
-          actions={
-            <Inline gap="compact">
-              <Button
-                size="compact"
-                onClick={() => actions.openCreatePayloadTemplate()}
-              >
-                New payload template
-              </Button>
-              <Button size="compact" onClick={() => actions.openCreateOutputSpec()}>
-                New output spec
-              </Button>
-            </Inline>
-          }
           ariaLabel="Workflow step filters"
         />
         <DataTable

@@ -1,6 +1,6 @@
 "use client";
 
-import { EmptyState, Panel, Stack } from "../../ui/primitives/index.js";
+import { EmptyState } from "../../ui/primitives/index.js";
 import { WorkflowBuilderCanvas } from "./WorkflowBuilderCanvas.js";
 import { WorkflowBuilderMetadataForm } from "./WorkflowBuilderMetadataForm.js";
 import { WorkflowBuilderPageHeader } from "./WorkflowBuilderPageHeader.js";
@@ -12,9 +12,9 @@ export function WorkflowBuilderPageView({ state, actions }) {
     return (
       <main className="workflow-builder-page">
         <WorkflowBuilderPageHeader disabled saving={false} />
-        <Panel>
+        <section className="workflow-builder-loading">
           <EmptyState>Loading Workflow Builder...</EmptyState>
-        </Panel>
+        </section>
       </main>
     );
   }
@@ -38,16 +38,8 @@ export function WorkflowBuilderPageView({ state, actions }) {
         onSave={actions.saveWorkflow}
         onFinalize={actions.finalizeWorkflow}
       />
-      <div className="workflow-builder-grid">
-        <aside className="workflow-builder-sidebar">
-          <Stack>
-            <WorkflowBuilderMetadataForm state={state} actions={actions} />
-          </Stack>
-        </aside>
-        <section className="workflow-builder-workbench">
-          <WorkflowBuilderCanvas state={state} actions={actions} />
-        </section>
-      </div>
+      <WorkflowBuilderMetadataForm state={state} actions={actions} />
+      <WorkflowBuilderCanvas state={state} actions={actions} />
       <WorkflowStepAssignmentModal state={state} actions={actions} />
       <WorkflowStepDetailModal state={state} actions={actions} />
     </main>

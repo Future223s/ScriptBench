@@ -10,26 +10,32 @@ const primaryNavItems = [
   {
     id: "dashboard",
     label: "Dashboard",
+    icon: "dashboard",
   },
   {
     id: "file-management",
-    label: "File Management",
+    label: "Library",
+    icon: "library",
   },
   {
     id: "workflow-steps",
     label: "Workflow Steps",
+    icon: "blocks",
   },
   {
     id: "workflow-builder",
     label: "Workflow Builder",
+    icon: "workflow",
   },
   {
     id: "workflow-workspace",
     label: "Workspace",
+    icon: "workspace",
   },
   {
     id: "analysis",
     label: "Analysis",
+    icon: "analysis",
   },
 ];
 

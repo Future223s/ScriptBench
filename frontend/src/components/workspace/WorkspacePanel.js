@@ -7,6 +7,7 @@ import {
   CanvasSurface,
   EmptyState,
   Inline,
+  PageHeader,
   Panel,
   Stack,
   StatusBadge,
@@ -141,9 +142,12 @@ export function WorkspacePanel({
   };
   return (
     <Stack>
-      <Panel
-        title={workflow?.name || "Workflow workspace"}
-        description={workflow?.description}
+      <PageHeader
+        title="Workspace"
+        description={
+          [workflow?.name, workflow?.description].filter(Boolean).join(" · ") ||
+          "Monitor and control workflow execution."
+        }
         actions={
           <Inline gap="compact" align="end">
             <Button
@@ -159,7 +163,7 @@ export function WorkspacePanel({
             <Button onClick={actions.switchWorkflow} disabled={loading}>Switch workflow</Button>
           </Inline>
         }
-      ></Panel>
+      />
       <ExecutionGraph
         graph={graph}
         selectedNodeId={selectedNodeId}
