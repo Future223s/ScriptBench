@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { DevControls } from "./DevControls.js";
 import { NotificationBar } from "./NotificationBar.js";
 import { useNotificationOverlay } from "./NotificationOverlay.js";
-import { PrimaryNavigation } from "../../ui/primitives/index.js";
+import { Icon, PrimaryNavigation } from "../../ui/primitives/index.js";
 
 const primaryNavItems = [
   {
@@ -34,36 +35,79 @@ const primaryNavItems = [
 
 export function TopBar({ prototypeNav, onNavigatePrototype }) {
   const notifications = useNotificationOverlay();
+  const [navigationOpen, setNavigationOpen] = useState(false);
+
+  useEffect(() => {
+    if (!navigationOpen) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setNavigationOpen(false);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [navigationOpen]);
+
+  function navigate(itemId) {
+    setNavigationOpen(false);
+    onNavigatePrototype?.(itemId);
+  }
 
   return (
-    <header className="topbar">
+    <aside className="topbar">
       <div className="topbar-header">
         <div className="brand">
           <span className="brand-title">ScriptBench</span>
         </div>
-        <div
-          className="topbar-notification-slot"
-          aria-live="polite"
-          aria-atomic="true"
+        <button
+          type="button"
+          className="topbar-menu-toggle"
+          aria-label={navigationOpen ? "Close navigation" : "Open navigation"}
+          aria-controls="primary-sidebar-navigation"
+          aria-expanded={navigationOpen}
+          onClick={() => setNavigationOpen((current) => !current)}
         >
-          <div className="topbar-notification-stack">
-            {(notifications?.notifications || []).map((notification) => (
-              <NotificationBar
-                key={notification.id}
-                kind={notification.kind}
-                message={notification.message}
-                role={notification.kind === "error" ? "alert" : "status"}
-              />
-            ))}
-          </div>
-        </div>
-        <DevControls />
+          <Icon name={navigationOpen ? "close" : "menu"} />
+        </button>
       </div>
-      <PrimaryNavigation
-        items={primaryNavItems}
-        activeId={prototypeNav}
-        onChange={onNavigatePrototype}
-      />
-    </header>
+      <div
+        className="topbar-notification-slot"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div className="topbar-notification-stack">
+          {(notifications?.notifications || []).map((notification) => (
+            <NotificationBar
+              key={notification.id}
+              kind={notification.kind}
+              message={notification.message}
+              role={notification.kind === "error" ? "alert" : "status"}
+            />
+          ))}
+        </div>
+      </div>
+      <div
+        id="primary-sidebar-navigation"
+        className={`topbar-navigation${navigationOpen ? " is-open" : ""}`}
+      >
+        <PrimaryNavigation
+          items={primaryNavItems}
+          activeId={prototypeNav}
+          onChange={navigate}
+          orientation="vertical"
+        />
+        <div className="topbar-footer">
+          <DevControls />
+        </div>
+      </div>
+      {navigationOpen ? (
+        <button
+          type="button"
+          className="topbar-navigation-scrim"
+          aria-label="Close navigation"
+          onClick={() => setNavigationOpen(false)}
+        />
+      ) : null}
+    </aside>
   );
 }

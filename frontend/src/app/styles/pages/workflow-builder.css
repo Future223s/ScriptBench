@@ -22,7 +22,7 @@
   gap: var(--space-3);
   min-width: 0;
   flex: 1;
-  min-height: clamp(520px, calc(100dvh - 260px), 760px);
+  min-height: clamp(520px, calc(100dvh - 100px), 900px);
   height: 100%;
   width: 100%;
 }

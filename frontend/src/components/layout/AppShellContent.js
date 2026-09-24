@@ -7,12 +7,12 @@ export function AppShellContent({ children }) {
   const topBar = useTopBar();
 
   return (
-    <>
+    <div className="app-shell-frame">
       <TopBar
         prototypeNav={topBar.prototypeNav}
         onNavigatePrototype={topBar.navigatePrototype}
       />
-      {children}
-    </>
+      <div className="app-shell-content">{children}</div>
+    </div>
   );
 }

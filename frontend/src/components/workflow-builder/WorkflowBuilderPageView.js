@@ -38,19 +38,13 @@ export function WorkflowBuilderPageView({ state, actions }) {
         onSave={actions.saveWorkflow}
         onFinalize={actions.finalizeWorkflow}
       />
-      <div
-        className="workflow-builder-grid"
-        style={{ minHeight: "calc(100dvh - 190px)" }}
-      >
+      <div className="workflow-builder-grid">
         <aside className="workflow-builder-sidebar">
           <Stack>
             <WorkflowBuilderMetadataForm state={state} actions={actions} />
           </Stack>
         </aside>
-        <section
-          className="workflow-builder-workbench"
-          style={{ minHeight: "calc(100dvh - 190px)" }}
-        >
+        <section className="workflow-builder-workbench">
           <WorkflowBuilderCanvas state={state} actions={actions} />
         </section>
       </div>

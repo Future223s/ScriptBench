@@ -57,6 +57,7 @@ export function IconButton({
 const iconPaths = {
   add: <path d="M12 5v14M5 12h14" />,
   close: <path d="m6 6 12 12M18 6 6 18" />,
+  menu: <path d="M5 7h14M5 12h14M5 17h14" />,
   delete: <path d="M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12" />,
   chevron: <path d="m7 10 5 5 5-5" />,
   zoomIn: (
@@ -620,9 +621,17 @@ export function PrimaryNavigation({
   activeId,
   onChange,
   ariaLabel = "Primary navigation",
+  orientation = "horizontal",
 }) {
   return (
-    <nav className="ui-primary-navigation" aria-label={ariaLabel}>
+    <nav
+      className={joinClasses(
+        "ui-primary-navigation",
+        `ui-primary-navigation--${orientation}`,
+      )}
+      aria-label={ariaLabel}
+      aria-orientation={orientation}
+    >
       {items.map((item) => (
         <button
           key={item.id}
