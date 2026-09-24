@@ -12,18 +12,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background:
-    radial-gradient(
-      circle at 12% -10%,
-      rgba(255, 255, 255, 0.96),
-      transparent 34%
-    ),
-    radial-gradient(
-      circle at 100% 0%,
-      rgba(231, 242, 235, 0.72),
-      transparent 32%
-    ),
-    linear-gradient(145deg, #f8f5ef, var(--bg));
+  background: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-family-body);
   font-size: var(--font-size-body);

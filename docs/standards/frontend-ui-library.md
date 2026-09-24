@@ -27,7 +27,7 @@ The primitives domain owns the visual language and the only reusable UI building
 - `CollapsibleSection` — a standard labelled open/close content region.
 - `EmptyState`, `LoadingState`, `LoadingPlaceholder`, and `Notification`
 
-It also owns the locked theme: Inter for UI text, Playfair Display for display headings, and all color, spacing, typography, radius, elevation, motion, responsive, and icon-size tokens.
+It also owns the locked theme: Inter for UI text, Georgia for display headings, and all color, spacing, typography, radius, elevation, motion, responsive, and icon-size tokens.
 
 Only the primitives domain may define or change these styles. Each primitive exposes documented variants and semantic props; it must not accept arbitrary styling overrides.
 
@@ -74,6 +74,7 @@ The UI library is versioned as one contract. Visual or public-prop changes requi
 
 ### Changelog
 
+- **1.2.0** — Aligned the locked typography, warm neutral colors, elevation, stacked-selector proportions, and edit icon with the approved dashboard prototype.
 - **1.1.0** — Added the shared `PageHeader` and `StackedSelect` primitives, the floating page-header variant, and optional primary-navigation icons for the unified application-shell migration.
 
 ## Linting and cleanup

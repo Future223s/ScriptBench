@@ -57,6 +57,12 @@ export interface SampleSetAnalyticsResponse {
     string,
     {
       completed_sample_count: number;
+      samples?: Array<{
+        sample_id: string;
+        cer?: number | null;
+        wer?: number | null;
+        created_at?: string | null;
+      }>;
       metrics: {
         cer?: MetricSummary | null;
         wer?: MetricSummary | null;

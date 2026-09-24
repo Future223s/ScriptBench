@@ -212,8 +212,8 @@
   align-content: center;
   gap: 2px;
   min-width: 190px;
-  min-height: var(--control-height);
-  padding: var(--space-1) 32px var(--space-1) var(--space-3);
+  min-height: 50px;
+  padding: var(--space-2) 34px var(--space-2) 11px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface-solid);
@@ -236,7 +236,7 @@
 }
 .ui-stacked-select > span {
   color: var(--text-muted);
-  font-size: var(--font-size-label);
+  font-size: 10px;
   line-height: 1;
 }
 .ui-stacked-select select {
@@ -248,6 +248,7 @@
   appearance: none;
   background: transparent;
   color: var(--text-primary);
+  font-size: 13px;
   font-weight: var(--font-weight-semibold);
 }
 .ui-choice {

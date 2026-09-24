@@ -59,6 +59,7 @@ const iconPaths = {
   close: <path d="m6 6 12 12M18 6 6 18" />,
   menu: <path d="M5 7h14M5 12h14M5 17h14" />,
   delete: <path d="M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12" />,
+  pencil: <path d="m4 20 4.2-1 10.7-10.7a2.1 2.1 0 0 0-3-3L5.2 16 4 20ZM14.5 6.5l3 3" />,
   chevron: <path d="m7 10 5 5 5-5" />,
   zoomIn: (
     <>

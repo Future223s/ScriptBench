@@ -32,6 +32,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  padding: 0 8px;
 }
 
 .topbar-menu-toggle {

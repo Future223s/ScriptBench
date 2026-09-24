@@ -119,8 +119,10 @@ class SampleSetAnalyticsRepository:
                 connection.execute(
                     select(
                         execution_jobs.c.workflow_id,
+                        step_outputs.c.sample_id,
                         step_outputs.c.cer,
                         step_outputs.c.wer,
+                        step_outputs.c.created_at,
                     )
                     .select_from(
                         execution_jobs.join(

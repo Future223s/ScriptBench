@@ -119,6 +119,7 @@ def get_sample_set_analytics(
         str(row["id"]): {
             "metrics": {"cer": None, "wer": None, "hallucinations": None},
             "completed_sample_count": 0,
+            "samples": [],
         }
         for row in workflows_payload
     }
@@ -129,20 +130,27 @@ def get_sample_set_analytics(
             lambda: {"cer": [], "wer": []}
         )
         for row in analytics_repository.list_terminal_metrics(workflow_ids):
-            values = metric_values[int(row["workflow_id"])]
+            workflow_id = int(row["workflow_id"])
+            values = metric_values[workflow_id]
             for metric in ("cer", "wer"):
                 value = row[metric]
                 if value is not None:
                     values[metric].append(float(value))
+            analytics_by_workflow[str(workflow_id)]["samples"].append(
+                {
+                    "sample_id": row["sample_id"],
+                    "cer": row["cer"],
+                    "wer": row["wer"],
+                    "created_at": row["created_at"],
+                }
+            )
         for workflow_id, values in metric_values.items():
-            analytics_by_workflow[str(workflow_id)] = {
-                "metrics": {
-                    "cer": _metric_summary(values["cer"]),
-                    "wer": _metric_summary(values["wer"]),
-                    "hallucinations": None,
-                },
-                "completed_sample_count": completed_counts.get(workflow_id, 0),
+            analytics_by_workflow[str(workflow_id)]["metrics"] = {
+                "cer": _metric_summary(values["cer"]),
+                "wer": _metric_summary(values["wer"]),
+                "hallucinations": None,
             }
+            analytics_by_workflow[str(workflow_id)]["completed_sample_count"] = completed_counts.get(workflow_id, 0)
         for workflow_id, count in completed_counts.items():
             analytics_by_workflow[str(workflow_id)]["completed_sample_count"] = count
     return ApiResponse(
