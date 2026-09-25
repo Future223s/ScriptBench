@@ -7,6 +7,8 @@ export interface WorkflowSummary {
   description?: string | null;
   status?: string | null;
   execution_mode?: "continuous" | "stage_by_stage" | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 export interface ExecutionJob {
   id: ApiId;

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { workspaceApi } from "../../api/endpoints/workspace.ts";
 import { useNotificationOverlay } from "../../components/layout/NotificationOverlay.js";
 
@@ -16,7 +15,6 @@ function initialState() {
   return {
     workflows: [],
     selectedWorkflowId: null,
-    workspacePickerWorkflowId: null,
     selectedWorkflowSummary: null,
     rows: [],
     executionGraph: { run: null, nodes: [], edges: [] },
@@ -47,7 +45,6 @@ function columnFor(row) {
 }
 
 export function useWorkspacePage() {
-  const router = useRouter();
   const { syncNotifications } = useNotificationOverlay() || {};
   const [state, setState] = useState(initialState);
   const stateRef = useRef(state);
@@ -187,10 +184,19 @@ export function useWorkspacePage() {
     patchState({ loadingWorkflows: true, workspaceError: "" });
     try {
       const response = await workspaceApi.getWorkflows();
+      const workflows = response.workflows || [];
       patchState({
-        workflows: response.workflows || [],
+        workflows,
         loadingWorkflows: false,
       });
+      const mostRecentWorkflow = [...workflows].sort((left, right) => {
+        const leftTimestamp = Date.parse(left.updated_at || left.created_at || "") || 0;
+        const rightTimestamp = Date.parse(right.updated_at || right.created_at || "") || 0;
+        return rightTimestamp - leftTimestamp || Number(right.id) - Number(left.id);
+      })[0];
+      if (mostRecentWorkflow) {
+        await openWorkflowWorkspace(mostRecentWorkflow.id, workflows);
+      }
     } catch (error) {
       patchState({
         workflows: [],
@@ -200,37 +206,9 @@ export function useWorkspacePage() {
     }
   }
 
-  async function switchWorkflow() {
-    if (switchingRef.current || stateRef.current.applyingExecutionAction) return;
-    const workflowId = activeWorkflowRef.current;
-    if (!workflowId) return;
-    switchingRef.current = true;
-    patchState({ applyingExecutionAction: true, workspaceError: "" });
-    try {
-      await workspaceApi.stopExecution(workflowId);
-      activeWorkflowRef.current = null;
-      closeSocket();
-      patchState({
-        selectedWorkflowId: null, selectedWorkflowSummary: null,
-        workspacePickerWorkflowId: workflowId, rows: [],
-        executionGraph: { run: null, nodes: [], edges: [] },
-        selectedExecutionNodeId: null,
-        selectedRowIdsByColumn: initialSelection,
-        selectedExecutionRowId: null, selectedExecutionRow: null,
-        failureOverlay: null, acknowledgedFailureRowIds: [],
-        workspaceNotice: "", liveRowUpdateStatus: "disconnected",
-      });
-    } catch (exc) {
-      patchState({ workspaceError: exc instanceof Error ? exc.message : String(exc) });
-    } finally {
-      switchingRef.current = false;
-      patchState({ applyingExecutionAction: false });
-    }
-  }
-
-  async function openWorkflowWorkspace(workflowId) {
+  async function openWorkflowWorkspace(workflowId, availableWorkflows = stateRef.current.workflows) {
     if (switchingRef.current) return;
-    const workflow = stateRef.current.workflows.find(
+    const workflow = availableWorkflows.find(
       (item) => String(item.id) === String(workflowId),
     );
     if (!workflow) return patchState({ workspaceError: "Select a workflow first." });
@@ -271,10 +249,6 @@ export function useWorkspacePage() {
       switchingRef.current = false;
       patchState({ loadingWorkspace: false });
     }
-  }
-
-  function setWorkflowId(workflowId) {
-    patchState({ workspacePickerWorkflowId: workflowId || null });
   }
 
   async function startExecution() {
@@ -528,12 +502,7 @@ export function useWorkspacePage() {
     state,
     rootRef: useRef(null),
     actions: {
-      openDashboard: () => router.push("/dashboard"),
-      setWorkspacePickerWorkflowId: setWorkflowId,
-      openSelectedWorkflow: () =>
-        void openWorkflowWorkspace(stateRef.current.workspacePickerWorkflowId),
-      openWorkflowWorkspace,
-      switchWorkflow,
+      openWorkflowWorkspace: (workflowId) => void openWorkflowWorkspace(workflowId),
       startExecution,
       stopExecution,
       toggleRowSelection,

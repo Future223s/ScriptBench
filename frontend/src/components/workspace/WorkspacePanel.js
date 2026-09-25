@@ -10,6 +10,7 @@ import {
   PageHeader,
   Panel,
   Stack,
+  StackedSelect,
   StatusBadge,
 } from "../../ui/primitives/index.js";
 import { formatDate } from "../../utils/date.js";
@@ -126,6 +127,8 @@ function ExecutionColumn({
 }
 
 export function WorkspacePanel({
+  workflows = [],
+  selectedWorkflowId,
   workflow,
   graph,
   selectedNodeId,
@@ -148,6 +151,20 @@ export function WorkspacePanel({
           [workflow?.name, workflow?.description].filter(Boolean).join(" · ") ||
           "Monitor and control workflow execution."
         }
+        controls={
+          <StackedSelect
+            label="Workflow"
+            value={selectedWorkflowId ?? ""}
+            onChange={(event) => actions.openWorkflowWorkspace(event.target.value)}
+            disabled={loading || !workflows.length}
+            aria-label="Select workflow"
+          >
+            {!workflows.length ? <option value="">No workflows available</option> : null}
+            {workflows.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </StackedSelect>
+        }
         actions={
           <Inline gap="compact" align="end">
             <Button
@@ -160,7 +177,6 @@ export function WorkspacePanel({
             <Button onClick={actions.stopExecution} disabled={loading}>
               Stop execution
             </Button>
-            <Button onClick={actions.switchWorkflow} disabled={loading}>Switch workflow</Button>
           </Inline>
         }
       />
