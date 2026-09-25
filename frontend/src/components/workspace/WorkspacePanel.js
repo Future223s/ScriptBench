@@ -240,24 +240,20 @@ function ExecutionGraph({ graph, selectedNodeId, actions, loading }) {
     y: ((Number(node.row) - minRow + 0.5) / rows) * 100,
   });
   const byId = new Map(nodes.map((node) => [Number(node.workflow_dag_node_id), node]));
-  const selected = byId.get(Number(selectedNodeId));
   const detailNode = byId.get(Number(detailNodeId));
+  const executionIsRunning = String(graph?.run?.status || "").toLowerCase() === "running";
   return (
     <>
       <Panel
         title="Resolved execution graph"
         actions={(
-          <Inline gap="compact">
-            <Button size="compact" onClick={actions.queueSelectedNode} disabled={loading || !selected?.released}>
-              Queue
-            </Button>
-            <Button size="compact" variant="primary" onClick={actions.startExecution} disabled={loading}>
-              Start execution
-            </Button>
-            <Button size="compact" onClick={actions.stopExecution} disabled={loading}>
-              Stop execution
-            </Button>
-          </Inline>
+          <Button
+            variant={executionIsRunning ? "danger" : "primary"}
+            onClick={executionIsRunning ? actions.stopExecution : actions.startExecution}
+            disabled={loading}
+          >
+            {executionIsRunning ? "Stop execution" : "Start execution"}
+          </Button>
         )}
       >
         <CanvasSurface label="Resolved execution graph" size="compact">

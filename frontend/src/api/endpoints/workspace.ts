@@ -44,7 +44,7 @@ export interface ResolvedExecutionNode {
   total: number;
 }
 export interface ResolvedExecutionGraph {
-  run: Record<string, unknown> | null;
+  run: (Record<string, unknown> & { status?: string | null }) | null;
   nodes: ResolvedExecutionNode[];
   edges: Array<{
     id: number;

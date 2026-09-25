@@ -280,6 +280,8 @@ export function useWorkspacePage() {
     patchState({ applyingExecutionAction: true, workspaceError: "" });
     try {
       await workspaceApi.stopExecution(workflowId);
+      if (String(activeWorkflowRef.current) !== String(workflowId)) return;
+      await refreshGraph(workflowId);
       patchState({ applyingExecutionAction: false });
     } catch (error) {
       patchState({
