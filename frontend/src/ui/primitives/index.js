@@ -1243,6 +1243,7 @@ export function CanvasSurface({
     >
       <div
         className="ui-canvas__viewport"
+        data-canvas-viewport
         style={{ transform: `scale(${zoom})` }}
       >
         {children}

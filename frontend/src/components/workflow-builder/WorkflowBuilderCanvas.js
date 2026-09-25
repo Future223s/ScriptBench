@@ -33,7 +33,10 @@ export function WorkflowBuilderCanvas({ state, actions }) {
 
   function getPlacementFromPointer(event) {
     if (state.mode !== "add-step") return null;
-    const rect = event.currentTarget.getBoundingClientRect();
+    const viewport = event.currentTarget.querySelector("[data-canvas-viewport]");
+    if (!viewport) return null;
+    const rect = viewport.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
     const x = (event.clientX - rect.left) / rect.width;
     const y = (event.clientY - rect.top) / rect.height;
     if (x < 0 || x > 1 || y < 0 || y > 1) return null;
