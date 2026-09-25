@@ -10,7 +10,6 @@ import {
   DataTable,
   Icon,
   IconButton,
-  PageHeader,
   StatusBadge,
   TextInput,
 } from "../../ui/primitives/index.js";
@@ -145,7 +144,7 @@ export function WorkflowStepsPageView({ state, actions }) {
 
   return (
     <div className="page-surface workflow-steps-page">
-      <PageHeader
+      <Catalog
         title="Workflow Steps"
         description="Create and manage reusable workflow steps."
         actions={
@@ -153,8 +152,6 @@ export function WorkflowStepsPageView({ state, actions }) {
             Create workflow step
           </Button>
         }
-      />
-      <Catalog
         ariaLabel="Workflow steps catalog"
         search={searchFilter ? (
           <TextInput
