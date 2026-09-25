@@ -1,9 +1,9 @@
 "use client";
 
 import {
+  Catalog,
   CompactFilterBar,
   EmptyState,
-  Inline,
   StatusBadge,
 } from "../../ui/primitives/index.js";
 
@@ -24,6 +24,7 @@ export function FileManagementListPanel({
   description,
   filters,
   actions,
+  controls,
   summary,
   rows,
   emptyState,
@@ -40,18 +41,13 @@ export function FileManagementListPanel({
     }));
 
   return (
-    <section className="file-management-list-panel">
-      <header className="file-management-list-panel__header">
-        <div>
-          <h2>{title}</h2>
-          {description ? <p>{description}</p> : null}
-        </div>
-        <Inline gap="compact">
-          {summary ? <StatusBadge>{summary}</StatusBadge> : null}
-          {actions}
-        </Inline>
-      </header>
-      {filters.length ? (
+    <Catalog
+      title={title}
+      description={description}
+      meta={summary ? <StatusBadge>{summary}</StatusBadge> : null}
+      actions={actions}
+      controls={controls}
+      filters={filters.length ? (
         <CompactFilterBar
           filters={filters}
           activeFilters={activeFilters}
@@ -63,7 +59,9 @@ export function FileManagementListPanel({
           ariaLabel={`${title} filters`}
         />
       ) : null}
+      ariaLabel={`${title} catalog`}
+    >
       {rows || <EmptyState title={emptyState} />}
-    </section>
+    </Catalog>
   );
 }

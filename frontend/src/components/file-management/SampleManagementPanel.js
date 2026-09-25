@@ -1,6 +1,15 @@
 "use client";
 
-import { Button, DataTable, Inline } from "../../ui/primitives/index.js";
+import { useEffect, useRef, useState } from "react";
+
+import {
+  Button,
+  DataTable,
+  Field,
+  Grid,
+  Inline,
+  TextInput,
+} from "../../ui/primitives/index.js";
 import { formatDate } from "../../utils/date.js";
 import { truncate } from "../../utils/html.js";
 import { FileManagementListPanel } from "./FileManagementListPanel.js";
@@ -196,10 +205,9 @@ function recordColumns(type, sampleSets, derivativeGroups) {
 export function ManagementFields({ type, draft, actions }) {
   if (type === "sample") {
     return (
-      <div className="form-grid">
-        <div className="field wide">
-          <label htmlFor="sample-set-name">Sample set name</label>
-          <input
+      <Grid columns={2}>
+        <Field label="Sample set name">
+          <TextInput
             id="sample-set-name"
             name="sampleSetName"
             value={draft.sampleSetName}
@@ -209,10 +217,9 @@ export function ManagementFields({ type, draft, actions }) {
             placeholder="EMMO line crops"
             required
           />
-        </div>
-        <div className="field wide">
-          <label htmlFor="sample-set-description">Description</label>
-          <input
+        </Field>
+        <Field label="Description">
+          <TextInput
             id="sample-set-description"
             name="sampleSetDescription"
             value={draft.sampleSetDescription}
@@ -224,8 +231,8 @@ export function ManagementFields({ type, draft, actions }) {
             }
             placeholder="Optional notes"
           />
-        </div>
-      </div>
+        </Field>
+      </Grid>
     );
   }
 
@@ -238,6 +245,8 @@ function filterSummary(type, visibleCount) {
 }
 
 export function SampleManagementPanel({ state, actions }) {
+  const [sampleSetSelectionMode, setSampleSetSelectionMode] = useState(false);
+  const managementWasOpen = useRef(false);
   const sampleSets = state.sampleSets || [];
   const derivativeGroups = state.derivativeGroups || [];
   const type = managementModes[state.managementType]
@@ -253,6 +262,21 @@ export function SampleManagementPanel({ state, actions }) {
   const allVisibleSelected =
     visibleRecordIds.length > 0 &&
     visibleRecordIds.every((recordId) => selectedIds.includes(recordId));
+  useEffect(() => {
+    setSampleSetSelectionMode(false);
+  }, [type]);
+  useEffect(() => {
+    if (
+      managementWasOpen.current &&
+      !state.managementModalOpen &&
+      type === "sample" &&
+      !selectedIds.length
+    ) {
+      setSampleSetSelectionMode(false);
+    }
+    managementWasOpen.current = state.managementModalOpen;
+  }, [state.managementModalOpen, type, selectedIds.length]);
+  const selectionEnabled = type !== "sample" || sampleSetSelectionMode;
   const rows = (
     <DataTable
       ariaLabel={mode.title}
@@ -263,17 +287,13 @@ export function SampleManagementPanel({ state, actions }) {
       selectedRowId={
         state.detailType === type ? state.selectedRecord?.id : undefined
       }
-      selectedRowIds={selectedIds}
+      selectedRowIds={selectionEnabled ? selectedIds : []}
       onRowActivate={(record) =>
         actions.openRecord(type, recordIdForType(type, record))
       }
-      onRowSelectedChange={(record, selected) =>
-        actions.toggleSelection(
-          type,
-          recordIdForType(type, record),
-          selected,
-        )
-      }
+      onRowSelectedChange={selectionEnabled ? (record, selected) =>
+        actions.toggleSelection(type, recordIdForType(type, record), selected)
+      : undefined}
       emptyState={
         state.loading
           ? `Loading ${mode.title.toLowerCase()}...`
@@ -389,10 +409,13 @@ export function SampleManagementPanel({ state, actions }) {
             },
           ];
 
-  const filterActions = (
+  const catalogActions = (
     <Inline gap="default">
       {type === "sample" ? (
-        <Button size="compact" onClick={actions.openManagementModal}>
+        <Button size="compact" onClick={() => {
+          actions.clearSelection(type);
+          setSampleSetSelectionMode(true);
+        }}>
           Create sample set
         </Button>
       ) : null}
@@ -404,6 +427,11 @@ export function SampleManagementPanel({ state, actions }) {
           Create derivative group
         </Button>
       ) : null}
+    </Inline>
+  );
+
+  const selectionControls = (
+    <Inline gap="default">
       <Button
         size="compact"
         onClick={() =>
@@ -415,7 +443,16 @@ export function SampleManagementPanel({ state, actions }) {
       >
         {allVisibleSelected ? "Unselect all" : "Select all"}
       </Button>
-      {hasSelectedRecords ? (
+      {type === "sample" && sampleSetSelectionMode ? (
+        <>
+          <Button size="compact" onClick={() => {
+            actions.clearSelection(type);
+            setSampleSetSelectionMode(false);
+          }}>Cancel</Button>
+          <Button size="compact" variant="primary" onClick={actions.openManagementModal} disabled={!hasSelectedRecords}>Confirm selection</Button>
+        </>
+      ) : null}
+      {type !== "sample" && hasSelectedRecords ? (
         <Button
           size="compact"
           variant="danger"
@@ -432,8 +469,9 @@ export function SampleManagementPanel({ state, actions }) {
     <FileManagementListPanel
       title={mode.title}
       filters={filters}
-      actions={filterActions}
+      actions={catalogActions}
       summary={filterSummary(type, visibleRecords.length)}
+      controls={selectionEnabled ? selectionControls : null}
       rows={rows}
       emptyState={`No ${mode.title.toLowerCase()} match the current filters.`}
     />

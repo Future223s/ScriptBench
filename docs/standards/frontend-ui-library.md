@@ -25,6 +25,7 @@ The primitives domain owns the visual language and the only reusable UI building
 - `Tabs` / `SegmentedControl`
 - `StepStrip` — numbered current/completed/upcoming progress for short flows.
 - `CollapsibleSection` — a standard labelled open/close content region.
+- `Catalog` — a reusable catalog surface with title/meta, composable header actions, optional selection controls, filters, body, and footer slots.
 - `EmptyState`, `LoadingState`, `LoadingPlaceholder`, and `Notification`
 
 It also owns the locked theme: Inter for UI text, Georgia for display headings, and all color, spacing, typography, radius, elevation, motion, responsive, and icon-size tokens.
@@ -74,6 +75,7 @@ The UI library is versioned as one contract. Visual or public-prop changes requi
 
 ### Changelog
 
+- **1.3.0** — Added the composable `Catalog` primitive and separated page-header actions from catalog-header and selection controls.
 - **1.2.0** — Aligned the locked typography, warm neutral colors, elevation, stacked-selector proportions, and edit icon with the approved dashboard prototype.
 - **1.1.0** — Added the shared `PageHeader` and `StackedSelect` primitives, the floating page-header variant, and optional primary-navigation icons for the unified application-shell migration.
 

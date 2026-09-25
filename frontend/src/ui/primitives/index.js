@@ -573,6 +573,37 @@ export function CompactFilterBar({
   );
 }
 
+export function Catalog({
+  title,
+  description,
+  meta,
+  actions,
+  controls,
+  filters,
+  footer,
+  ariaLabel,
+  children,
+}) {
+  return (
+    <section className="ui-catalog" aria-label={ariaLabel || title}>
+      <header className="ui-catalog__header">
+        <div className="ui-catalog__copy">
+          <div className="ui-catalog__title-line">
+            <h2>{title}</h2>
+            {meta ? <div className="ui-catalog__meta">{meta}</div> : null}
+          </div>
+          {description ? <p>{description}</p> : null}
+        </div>
+        {actions ? <div className="ui-catalog__actions">{actions}</div> : null}
+      </header>
+      {controls ? <div className="ui-catalog__controls">{controls}</div> : null}
+      {filters ? <div className="ui-catalog__filters">{filters}</div> : null}
+      <div className="ui-catalog__body">{children}</div>
+      {footer ? <footer className="ui-catalog__footer">{footer}</footer> : null}
+    </section>
+  );
+}
+
 const interactiveElementSelector =
   "button, a, input, select, textarea, label, [role='button']";
 
