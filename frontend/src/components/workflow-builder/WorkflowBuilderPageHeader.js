@@ -43,14 +43,12 @@ export function WorkflowBuilderPageHeader({
       actions={
         <Inline gap="compact" justify="end">
         <Button
-          size="compact"
           onClick={onNewWorkflow}
           disabled={saving || finalizing}
         >
           New workflow
         </Button>
         <Button
-          size="compact"
           variant="primary"
           onClick={onSave}
           disabled={disabled}
@@ -58,7 +56,6 @@ export function WorkflowBuilderPageHeader({
           {saving ? "Saving..." : "Save workflow"}
         </Button>
         <Button
-          size="compact"
           onClick={onFinalize}
           disabled={finalizeDisabled}
         >
