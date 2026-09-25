@@ -1,6 +1,18 @@
 @import "./tokens.css";
 @import "./reset.css";
 @import "./utilities.css";
+@import "../../ui/primitives/Button/Button.css";
+@import "../../ui/primitives/FormControl/FormControl.css";
+@import "../../ui/primitives/PageHeader/PageHeader.css";
+@import "../../ui/primitives/StatusBadge/StatusBadge.css";
+@import "../../ui/primitives/SegmentedControl/SegmentedControl.css";
+@import "../../ui/primitives/Tabs/Tabs.css";
+@import "../../ui/primitives/ColumnFilter/ColumnFilter.css";
+@import "../../ui/primitives/DataTable/DataTable.css";
+@import "../../ui/primitives/CatalogPagination/CatalogPagination.css";
+@import "../../ui/patterns/Catalog/Catalog.css";
+
+/* Compatibility styles for primitives that have not been verified and extracted. */
 @import "../../ui/primitives/primitives.css";
 @import "../../ui/library/themes.css";
 

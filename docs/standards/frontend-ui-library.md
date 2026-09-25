@@ -25,7 +25,6 @@ The primitives domain owns the visual language and the only reusable UI building
 - `Tabs` / `SegmentedControl`
 - `StepStrip` — numbered current/completed/upcoming progress for short flows.
 - `CollapsibleSection` — a standard labelled open/close content region.
-- `Catalog` — the canonical catalog surface with title/description, metadata and action slots, a primary-search/selection toolbar, body, and footer slots.
 - `ColumnFilter` — the catalog column-header filter trigger and menu, including the active-filter dot.
 - `CatalogPagination` — the standard result range and previous/next catalog footer.
 - `DataTable` — the canonical catalog table with composable columns, row rendering, activation, and optional selection.
@@ -33,7 +32,23 @@ The primitives domain owns the visual language and the only reusable UI building
 
 It also owns the locked theme: Inter for UI text, Georgia for display headings, and all color, spacing, typography, radius, elevation, motion, responsive, and icon-size tokens.
 
-Only the primitives domain may define or change these styles. Each primitive exposes documented variants and semantic props; it must not accept arbitrary styling overrides.
+Only the primitives domain may define or change these styles. A primitive has one canonical style by default. Variants are reserved for reusable semantic differences such as primary and destructive actions; they must not encode page-specific appearances or accept arbitrary styling overrides.
+
+## Patterns domain
+
+Patterns compose primitives into reusable product structures without redefining them:
+
+- `Catalog` — title/description, metadata and action slots, primary search or selection controls, a body, and a footer.
+
+Patterns live under `frontend/src/ui/patterns/{PatternName}` with their own implementation and stylesheet.
+
+## Style ownership and location
+
+- `frontend/src/ui/foundation/tokens.css` contains values only: semantic colors, typography, spacing, radii, control dimensions, elevation, and motion.
+- `frontend/src/ui/primitives/{PrimitiveName}/{PrimitiveName}.css` owns one primitive's complete canonical appearance and states.
+- `frontend/src/ui/patterns/{PatternName}/{PatternName}.css` owns only the layout required to compose its primitives.
+- `frontend/src/app/styles/pages/{page-name}.css` owns high-level page geometry that cannot be expressed by a shared pattern.
+- `frontend/src/ui/primitives/primitives.css` and `frontend/src/app/styles/components` remain compatibility layers during migration. New verified styling must not be added to them.
 
 ## Workflow: tokens → primitives → code
 
@@ -66,7 +81,7 @@ All application pages are strictly consumer pages. They may:
 
 They may not define typography, colors, spacing scales, button/form/panel/modal styling, or page-specific overrides of primitive/template classes. Page CSS is permitted only for domain geometry that cannot belong to a template (for example, workflow-canvas node positioning), and it must use locked tokens.
 
-Larger page-specific component styles that compose primitives must live in `/ui/pages/{page_name}.css`. Do not add those styles to a global CSS file; global CSS is limited to shared application-wide concerns.
+Page-specific geometry must live in `frontend/src/app/styles/pages/{page-name}.css`. Do not add primitive or pattern styling there; global CSS is limited to shared application-wide concerns.
 
 ## Copy casing
 
@@ -78,6 +93,7 @@ The UI library is versioned as one contract. Visual or public-prop changes requi
 
 ### Changelog
 
+- **1.8.0** — Began the canonical stylesheet split: verified primitives now own dedicated CSS files, `Catalog` moved to the patterns layer, and legacy styles remain as an explicit compatibility layer.
 - **1.7.0** — Adopted the approved prototype's dark colorway as the canonical application palette through the shared semantic tokens.
 - **1.6.0** — Standardized `Tabs` on the Dashboard underline treatment as its sole visual form; `SegmentedControl` remains the distinct compact pill control.
 - **1.5.0** — Added the opt-in Dashboard application theme for its compact typography, controls, spacing, radii, and elevation; File Management is the first consumer.
