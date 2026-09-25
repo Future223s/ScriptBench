@@ -107,7 +107,6 @@ export function SampleSetAnalyticsPanel({ sampleSets, selectedSampleSetId, sampl
   return <>
     <header className="dashboard-context">
       <div>
-        <p className="dashboard-eyebrow">Sample set dashboard</p>
         <div className="dashboard-title-line"><h1>{currentSet.name || "Sample set"}</h1><button type="button" className="dashboard-title-edit" aria-label="Manage sample set" onClick={onManageSampleSet}><Icon name="pencil" /></button></div>
         <p className="dashboard-subtitle">{currentSet.created_at ? `Created ${shortDate(currentSet.created_at)} · ` : ""}{sampleCount} historical document pages</p>
       </div>
