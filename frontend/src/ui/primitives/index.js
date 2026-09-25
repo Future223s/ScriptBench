@@ -697,18 +697,41 @@ export function DataTable({
   onRowDoubleClick,
   selectedRowIds = [],
   onRowSelectedChange,
+  rowActions,
+  openRowActionsId: controlledOpenRowActionsId,
+  onOpenRowActionsChange,
   emptyState = "No records are available.",
 }) {
+  const [internalOpenRowActionsId, setInternalOpenRowActionsId] = useState("");
+  const tableRef = useRef(null);
+  const openRowActionsId = controlledOpenRowActionsId === undefined
+    ? internalOpenRowActionsId
+    : controlledOpenRowActionsId;
+  const setOpenRowActionsId = (value) => {
+    if (controlledOpenRowActionsId === undefined) {
+      setInternalOpenRowActionsId(value);
+    }
+    onOpenRowActionsChange?.(value);
+  };
   const selectedIds = new Set(selectedRowIds.map(String));
   const activate = (row) => onRowActivate?.(row);
+  useEffect(() => {
+    if (!openRowActionsId) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (!tableRef.current?.contains(event.target)) setOpenRowActionsId("");
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [openRowActionsId]);
   return (
-    <div className="ui-data-table">
+    <div className="ui-data-table" ref={tableRef}>
       <table aria-label={ariaLabel}>
         <colgroup>
           {onRowSelectedChange ? <col className="ui-data-table__selection-col" /> : null}
           {columns.map((column) => (
             <col key={column.id} style={column.width ? { width: column.width } : undefined} />
           ))}
+          {rowActions ? <col className="ui-data-table__row-actions-col" /> : null}
         </colgroup>
         <thead>
           <tr>
@@ -718,11 +741,13 @@ export function DataTable({
                 {column.header || column.label}
               </th>
             ))}
+            {rowActions ? <th scope="col"><span className="u-sr-only">Actions</span></th> : null}
           </tr>
         </thead>
         <tbody>
-          {rows.length ? rows.map((row) => {
+          {rows.length ? rows.map((row, rowIndex) => {
             const rowId = String(getRowId(row));
+            const actions = rowActions?.(row) || [];
             const isActive =
               String(selectedRowId ?? "") === rowId || selectedIds.has(rowId);
             return (
@@ -762,11 +787,45 @@ export function DataTable({
                     {column.render ? column.render(row) : row[column.id]}
                   </td>
                 ))}
+                {rowActions ? (
+                  <td className="ui-data-table__row-actions" data-column="Actions">
+                    <div className="ui-row-actions" data-row-actions>
+                      <IconButton
+                        label={`Actions for ${getRowLabel(row)}`}
+                        onClick={() => setOpenRowActionsId(openRowActionsId === rowId ? "" : rowId)}
+                        aria-expanded={openRowActionsId === rowId}
+                      >
+                        <span aria-hidden="true">•••</span>
+                      </IconButton>
+                      {openRowActionsId === rowId ? (
+                        <div className={joinClasses(
+                          "ui-row-actions__menu",
+                          rowIndex >= rows.length - 2 && "ui-row-actions__menu--up",
+                        )}>
+                          {actions.map((action) => (
+                            <button
+                              key={action.id || action.label}
+                              type="button"
+                              className={action.tone === "danger" ? "is-danger" : undefined}
+                              disabled={action.disabled}
+                              onClick={() => {
+                                setOpenRowActionsId("");
+                                action.onSelect?.(row);
+                              }}
+                            >
+                              {action.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                ) : null}
               </tr>
             );
           }) : (
             <tr>
-              <td className="ui-data-table__empty" colSpan={columns.length + (onRowSelectedChange ? 1 : 0)}>
+              <td className="ui-data-table__empty" colSpan={columns.length + (onRowSelectedChange ? 1 : 0) + (rowActions ? 1 : 0)}>
                 {emptyState}
               </td>
             </tr>

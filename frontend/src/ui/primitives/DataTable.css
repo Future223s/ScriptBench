@@ -56,6 +56,10 @@
   width: 42px;
 }
 
+.ui-data-table__row-actions-col {
+  width: 44px;
+}
+
 .ui-data-table__selection {
   text-align: center;
 }
@@ -73,6 +77,70 @@
 .ui-data-table__actions {
   text-align: right !important;
   white-space: nowrap;
+}
+
+.ui-data-table__row-actions {
+  position: relative;
+  padding-right: 0 !important;
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.ui-row-actions {
+  position: relative;
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.ui-row-actions .ui-icon-button {
+  border-color: transparent;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.ui-row-actions__menu {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  display: grid;
+  width: 160px;
+  gap: 2px;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-soft);
+}
+
+.ui-row-actions__menu--up {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+}
+
+.ui-row-actions__menu button {
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-row-actions__menu button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.ui-row-actions__menu button.is-danger {
+  color: var(--red);
+}
+
+.ui-row-actions__menu button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .ui-data-table__empty {

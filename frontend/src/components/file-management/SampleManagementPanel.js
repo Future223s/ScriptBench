@@ -475,6 +475,28 @@ export function SampleManagementPanel({ state, actions }) {
       onRowSelectedChange={selectionEnabled ? (record, selected) =>
         actions.toggleSelection(type, recordIdForType(type, record), selected)
       : undefined}
+      rowActions={(record) => {
+        const recordId = recordIdForType(type, record);
+        return [
+          {
+            id: "open",
+            label: "Open details",
+            onSelect: () => actions.openRecord(type, recordId),
+          },
+          ...(type === "document" ? [{
+            id: "assemble",
+            label: "Assemble PDF",
+            disabled: !record.raw?.sample_count,
+            onSelect: () => actions.assembleDocument(recordId),
+          }] : []),
+          {
+            id: "delete",
+            label: "Delete",
+            tone: "danger",
+            onSelect: () => actions.deleteRecord(type, recordId),
+          },
+        ];
+      }}
       emptyState={
         state.loading
           ? `Loading ${mode.title.toLowerCase()}...`

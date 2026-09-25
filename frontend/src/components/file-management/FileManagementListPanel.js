@@ -32,10 +32,12 @@ export function FileManagementListPanel({
   selectedRowIds,
   onRowActivate,
   onRowSelectedChange,
+  rowActions,
   pageSize = 8,
   emptyState,
 }) {
   const [openFilterId, setOpenFilterId] = useState("");
+  const [openRowActionsId, setOpenRowActionsId] = useState("");
   const [page, setPage] = useState(0);
   const searchFilter = filters.find((filter) => filter.kind !== "select");
   const columnFilters = new Map(
@@ -49,6 +51,7 @@ export function FileManagementListPanel({
   useEffect(() => {
     setPage(0);
     setOpenFilterId("");
+    setOpenRowActionsId("");
   }, [title, filterSignature]);
 
   const recordList = records || [];
@@ -70,7 +73,10 @@ export function FileManagementListPanel({
           open={openFilterId === filter.id}
           align={column.filterAlign || (index === allColumns.length - 1 ? "end" : "start")}
           onToggle={() =>
-            setOpenFilterId((current) => current === filter.id ? "" : filter.id)
+            setOpenFilterId((current) => {
+              setOpenRowActionsId("");
+              return current === filter.id ? "" : filter.id;
+            })
           }
         >
           {(filter.options || []).map((option) => (
@@ -101,6 +107,12 @@ export function FileManagementListPanel({
       selectedRowIds={selectedRowIds}
       onRowActivate={onRowActivate}
       onRowSelectedChange={onRowSelectedChange}
+      rowActions={rowActions}
+      openRowActionsId={openRowActionsId}
+      onOpenRowActionsChange={(rowId) => {
+        setOpenRowActionsId(rowId);
+        if (rowId) setOpenFilterId("");
+      }}
       emptyState={emptyState}
     />
   ) : rows;
