@@ -31,7 +31,6 @@ export function FileManagementPageView({ state, actions }) {
         }))}
         activeId={state.managementType}
         onChange={actions.setManagementType}
-        variant="underline"
         ariaLabel="Library views"
       />
       <section className="file-management-grid file-management-grid--single">

@@ -446,7 +446,6 @@
   color: var(--red);
 }
 
-.ui-tabs,
 .ui-segmented-control {
   align-self: flex-start;
   display: inline-flex;
@@ -455,7 +454,6 @@
   border-radius: var(--radius-pill);
   background: var(--surface-2);
 }
-.ui-tabs__tab,
 .ui-segmented-control__item {
   min-height: 30px;
   padding: 5px var(--space-3);
@@ -468,17 +466,38 @@
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
-.ui-tabs__tab.is-active,
 .ui-segmented-control__item.is-active {
   border-color: var(--line);
   background: var(--surface-solid);
   color: var(--text-primary);
   box-shadow: 0 2px 6px rgba(52, 38, 27, 0.1);
 }
+.ui-tabs {
+  display: flex;
+  width: 100%;
+  gap: 20px;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
 .ui-tabs__tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 0;
+  padding: 9px 1px 11px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.ui-tabs__tab.is-active {
+  border-bottom-color: var(--accent);
+  color: var(--text-primary);
 }
 .ui-tabs__count {
   min-width: 1.4rem;
@@ -493,31 +512,6 @@
 .ui-tabs__tab.is-active .ui-tabs__count {
   background: var(--accent-soft);
   color: var(--accent-strong);
-}
-.ui-tabs--underline {
-  display: flex;
-  width: 100%;
-  gap: 20px;
-  padding: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-}
-.ui-tabs--underline .ui-tabs__tab {
-  min-height: 0;
-  padding: 9px 1px 11px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  color: var(--text-muted);
-  font-size: var(--font-size-body-sm);
-  font-weight: var(--font-weight-medium);
-}
-.ui-tabs--underline .ui-tabs__tab.is-active {
-  border-bottom-color: var(--accent);
-  background: transparent;
-  color: var(--text-primary);
-  box-shadow: none;
 }
 
 .ui-filter-bar {

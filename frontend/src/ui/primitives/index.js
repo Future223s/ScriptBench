@@ -456,13 +456,12 @@ export function Tabs({
   items,
   activeId,
   onChange,
-  variant = "pill",
   ariaLabel,
   className,
 }) {
   return (
     <div
-      className={joinClasses("ui-tabs", `ui-tabs--${variant}`, className)}
+      className={joinClasses("ui-tabs", className)}
       role="tablist"
       aria-label={ariaLabel}
     >

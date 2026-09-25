@@ -125,7 +125,6 @@ export function SampleSetAnalyticsPanel({ sampleSets, selectedSampleSetId, sampl
       ]}
       activeId={activeTab}
       onChange={setActiveTab}
-      variant="underline"
       ariaLabel="Sample set views"
       className="dashboard-view-tabs"
     />
