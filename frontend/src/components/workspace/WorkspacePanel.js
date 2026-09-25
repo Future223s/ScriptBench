@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
+
 import {
   Button,
   CanvasEdge,
   CanvasNode,
   CanvasSurface,
+  DescriptionList,
+  Dialog,
   EmptyState,
   Inline,
   PageHeader,
@@ -235,6 +239,7 @@ export function WorkspacePanel({
 }
 
 function ExecutionGraph({ graph, selectedNodeId, actions, loading }) {
+  const [detailNodeId, setDetailNodeId] = useState(null);
   const nodes = graph?.nodes || [];
   const edges = graph?.edges || [];
   if (!nodes.length) return <EmptyState title="No resolved execution graph" />;
@@ -250,44 +255,75 @@ function ExecutionGraph({ graph, selectedNodeId, actions, loading }) {
   });
   const byId = new Map(nodes.map((node) => [Number(node.workflow_dag_node_id), node]));
   const selected = byId.get(Number(selectedNodeId));
+  const detailNode = byId.get(Number(detailNodeId));
   return (
-    <Panel
-      title="Resolved execution graph"
-      actions={selected ? (
-        <Inline gap="compact">
-          <Button size="compact" variant="primary" onClick={actions.queueSelectedNode} disabled={loading || !selected.released}>
-            Queue all
-          </Button>
-          <Button size="compact" onClick={selected.released ? actions.holdSelectedNode : actions.releaseSelectedNode} disabled={loading}>
-            {selected.released ? "Hold node" : "Release node"}
-          </Button>
-        </Inline>
-      ) : null}
-    >
-      <CanvasSurface label="Resolved execution graph" size="compact">
-        {edges.map((edge) => {
-          const from = byId.get(Number(edge.from_workflow_dag_node_id));
-          const to = byId.get(Number(edge.to_workflow_dag_node_id));
-          if (!from || !to) return null;
-          const a = point(from);
-          const b = point(to);
-          return <CanvasEdge key={edge.id} fromX={a.x} fromY={a.y} toX={b.x} toY={b.y} />;
-        })}
-        {nodes.map((node) => {
-          const position = point(node);
-          return (
-            <CanvasNode
-              key={node.workflow_dag_node_id}
-              x={position.x}
-              y={position.y}
-              title={node.step_name}
-              detail={`Stage ${node.topological_depth} · ${node.execution_scope} → ${node.output_scope} · B ${node.blocked} · P ${node.pending} · Q ${node.queued} · R ${node.running}${node.released ? "" : " · held"}`}
-              selected={Number(selectedNodeId) === Number(node.workflow_dag_node_id)}
-              onClick={() => actions.selectExecutionNode(node.workflow_dag_node_id)}
-            />
-          );
-        })}
-      </CanvasSurface>
-    </Panel>
+    <>
+      <Panel
+        title="Resolved execution graph"
+        actions={selected ? (
+          <Inline gap="compact">
+            <Button size="compact" variant="primary" onClick={actions.queueSelectedNode} disabled={loading || !selected.released}>
+              Queue all
+            </Button>
+            <Button size="compact" onClick={selected.released ? actions.holdSelectedNode : actions.releaseSelectedNode} disabled={loading}>
+              {selected.released ? "Hold node" : "Release node"}
+            </Button>
+          </Inline>
+        ) : null}
+      >
+        <CanvasSurface label="Resolved execution graph" size="compact">
+          {edges.map((edge) => {
+            const from = byId.get(Number(edge.from_workflow_dag_node_id));
+            const to = byId.get(Number(edge.to_workflow_dag_node_id));
+            if (!from || !to) return null;
+            const a = point(from);
+            const b = point(to);
+            return <CanvasEdge key={edge.id} fromX={a.x} fromY={a.y} toX={b.x} toY={b.y} />;
+          })}
+          {nodes.map((node) => {
+            const position = point(node);
+            return (
+              <CanvasNode
+                key={node.workflow_dag_node_id}
+                x={position.x}
+                y={position.y}
+                title={node.step_name}
+                detail={`${node.execution_scope} → ${node.output_scope}`}
+                selected={Number(selectedNodeId) === Number(node.workflow_dag_node_id)}
+                onClick={() => actions.selectExecutionNode(node.workflow_dag_node_id)}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setDetailNodeId(node.workflow_dag_node_id);
+                }}
+              />
+            );
+          })}
+        </CanvasSurface>
+      </Panel>
+      <Dialog
+        open={Boolean(detailNode)}
+        title={detailNode?.step_name || "Execution node"}
+        description="Resolved execution node details"
+        size="small"
+        onClose={() => setDetailNodeId(null)}
+      >
+        {detailNode ? (
+          <DescriptionList
+            items={[
+              ["Execution scope", detailNode.execution_scope],
+              ["Output scope", detailNode.output_scope],
+              ["Stage", detailNode.topological_depth],
+              ["Release state", detailNode.released ? "Released" : "Held"],
+              ["Blocked", detailNode.blocked],
+              ["Pending", detailNode.pending],
+              ["Queued", detailNode.queued],
+              ["Running", detailNode.running],
+              ["Completed", detailNode.completed],
+              ["Total", detailNode.total],
+            ]}
+          />
+        ) : null}
+      </Dialog>
+    </>
   );
 }
