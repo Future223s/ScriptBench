@@ -15,7 +15,7 @@
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: var(--font-size-caption);
+  font-size: var(--font-size-body-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }

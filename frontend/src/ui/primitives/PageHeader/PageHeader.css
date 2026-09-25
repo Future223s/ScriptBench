@@ -10,13 +10,13 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: start;
-  gap: var(--space-3);
+  gap: 18px;
   min-width: 0;
 }
 
 .ui-page-header__copy {
   display: grid;
-  gap: var(--space-1);
+  gap: 0;
   min-width: 0;
 }
 
@@ -35,7 +35,15 @@
 }
 
 .ui-page-header__copy .ui-page-title {
+  margin-bottom: 3px;
   font-size: var(--font-size-display);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-title);
+}
+
+.ui-page-header__copy .ui-instruction {
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-title);
 }
 
 .ui-page-header__controls,

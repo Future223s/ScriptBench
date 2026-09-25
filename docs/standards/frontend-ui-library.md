@@ -93,6 +93,7 @@ The UI library is versioned as one contract. Visual or public-prop changes requi
 
 ### Changelog
 
+- **1.9.0** — Promoted the approved Dashboard configuration into the canonical foundation tokens and owning primitive styles; application pages no longer opt into a Dashboard theme.
 - **1.8.0** — Began the canonical stylesheet split: verified primitives now own dedicated CSS files, `Catalog` moved to the patterns layer, and legacy styles remain as an explicit compatibility layer.
 - **1.7.0** — Adopted the approved prototype's dark colorway as the canonical application palette through the shared semantic tokens.
 - **1.6.0** — Standardized `Tabs` on the Dashboard underline treatment as its sole visual form; `SegmentedControl` remains the distinct compact pill control.

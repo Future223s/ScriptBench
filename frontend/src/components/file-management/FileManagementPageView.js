@@ -11,10 +11,7 @@ import {
 
 export function FileManagementPageView({ state, actions }) {
   return (
-    <div
-      className="page-surface file-management-page"
-      data-ui-theme="dashboard"
-    >
+    <div className="page-surface file-management-page">
       <PageHeader
         title="Library"
         description="Store and upload documents, samples, derivatives, and assets."

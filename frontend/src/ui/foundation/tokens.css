@@ -7,14 +7,14 @@
     BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  --text-1: 12px;
-  --text-2: 14px;
-  --text-3: 18px;
+  --text-1: 11px;
+  --text-2: 12px;
+  --text-3: 15px;
   --text-4: 28px;
   --weight-regular: 400;
   --weight-strong: 500;
   --leading-tight: 1.2;
-  --leading-normal: 1.5;
+  --leading-normal: 1.2;
 
   /* The only approved spacing, radii, control, and elevation values. */
   --space-1: 4px;
@@ -23,12 +23,12 @@
   --space-4: 16px;
   --space-5: 24px;
   --radius-1: 8px;
-  --radius-2: 16px;
+  --radius-2: 12px;
   --radius-round: 999px;
   --stroke: 1px;
-  --control-height: 40px;
+  --control-height: 38px;
   --control-height-compact: 32px;
-  --shadow: 0 16px 32px rgba(0, 0, 0, 0.22);
+  --shadow: 0 7px 18px rgba(52, 38, 27, 0.06);
   --duration: 160ms;
   --easing: ease;
 
@@ -54,7 +54,7 @@
 
   /* Structural constants, not a visual scale. */
   --page-max-width: 1180px;
-  --page-gutter: clamp(16px, 2vw, 32px);
+  --page-gutter: 24px;
   --layer-sticky: 10;
   --layer-modal: 20;
 
@@ -122,4 +122,10 @@
   --tracking-label: 0.08em;
   --tracking-title: 0;
   --text-interactive: var(--color-primary-strong);
+}
+
+@media (max-width: 560px) {
+  :root {
+    --page-gutter: 15px;
+  }
 }
