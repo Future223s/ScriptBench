@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   Button,
-  DataTable,
   Field,
   Grid,
   Inline,
@@ -75,6 +74,7 @@ function recordColumns(type, sampleSets, derivativeGroups) {
       {
         id: "pdf",
         label: "PDF",
+        filterId: "document-pdf-filter",
         width: "18%",
         render: (record) => (record.has_blob ? "Available" : "Virtual"),
       },
@@ -112,12 +112,18 @@ function recordColumns(type, sampleSets, derivativeGroups) {
       {
         id: "group",
         label: "Group",
+        filterId: "derivative-group-filter",
         width: "18%",
         render: (record) =>
           groups.get(String(record.derivative_group_id || ""))?.name ||
           "Ungrouped",
       },
-      { id: "category", label: "Category", width: "12%" },
+      {
+        id: "category",
+        label: "Category",
+        filterId: "derivative-category-filter",
+        width: "12%",
+      },
       {
         id: "mime",
         label: "MIME type",
@@ -142,7 +148,12 @@ function recordColumns(type, sampleSets, derivativeGroups) {
         className: "ui-data-table__primary",
         render: (record) => recordDisplayName(type, record) || record.id,
       },
-      { id: "type", label: "Type", width: "18%" },
+      {
+        id: "type",
+        label: "Type",
+        filterId: "asset-type-filter",
+        width: "18%",
+      },
       {
         id: "mime",
         label: "MIME type",
@@ -184,6 +195,7 @@ function recordColumns(type, sampleSets, derivativeGroups) {
     {
       id: "sampleSets",
       label: "Sample sets",
+      filterId: "sample-set-filter",
       width: "18%",
       render: (record) => membershipLabel(record.id, sampleSets),
     },
@@ -276,31 +288,7 @@ export function SampleManagementPanel({ state, actions }) {
     }
     managementWasOpen.current = state.managementModalOpen;
   }, [state.managementModalOpen, type, selectedIds.length]);
-  const selectionEnabled = type !== "sample" || sampleSetSelectionMode;
-  const rows = (
-    <DataTable
-      ariaLabel={mode.title}
-      columns={recordColumns(type, sampleSets, derivativeGroups)}
-      rows={state.loading ? [] : visibleRecords}
-      getRowId={(record) => recordIdForType(type, record)}
-      getRowLabel={(record) => recordDisplayName(type, record)}
-      selectedRowId={
-        state.detailType === type ? state.selectedRecord?.id : undefined
-      }
-      selectedRowIds={selectionEnabled ? selectedIds : []}
-      onRowActivate={(record) =>
-        actions.openRecord(type, recordIdForType(type, record))
-      }
-      onRowSelectedChange={selectionEnabled ? (record, selected) =>
-        actions.toggleSelection(type, recordIdForType(type, record), selected)
-      : undefined}
-      emptyState={
-        state.loading
-          ? `Loading ${mode.title.toLowerCase()}...`
-          : `No ${mode.title.toLowerCase()} match the current filters.`
-      }
-    />
-  );
+  const selectionEnabled = type === "sample" && sampleSetSelectionMode;
 
   const filters =
     type === "document"
@@ -468,12 +456,30 @@ export function SampleManagementPanel({ state, actions }) {
   return (
     <FileManagementListPanel
       title={mode.title}
+      description={`All ${mode.title.toLowerCase()} in the Library.`}
       filters={filters}
       actions={catalogActions}
       summary={filterSummary(type, visibleRecords.length)}
       controls={selectionEnabled ? selectionControls : null}
-      rows={rows}
-      emptyState={`No ${mode.title.toLowerCase()} match the current filters.`}
+      records={state.loading ? [] : visibleRecords}
+      columns={recordColumns(type, sampleSets, derivativeGroups)}
+      getRowId={(record) => recordIdForType(type, record)}
+      getRowLabel={(record) => recordDisplayName(type, record)}
+      selectedRowId={
+        state.detailType === type ? state.selectedRecord?.id : undefined
+      }
+      selectedRowIds={selectionEnabled ? selectedIds : []}
+      onRowActivate={(record) =>
+        actions.openRecord(type, recordIdForType(type, record))
+      }
+      onRowSelectedChange={selectionEnabled ? (record, selected) =>
+        actions.toggleSelection(type, recordIdForType(type, record), selected)
+      : undefined}
+      emptyState={
+        state.loading
+          ? `Loading ${mode.title.toLowerCase()}...`
+          : `No ${mode.title.toLowerCase()} match the current filters.`
+      }
     />
   );
 }

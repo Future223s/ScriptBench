@@ -578,8 +578,8 @@ export function Catalog({
   description,
   meta,
   actions,
+  search,
   controls,
-  filters,
   footer,
   ariaLabel,
   children,
@@ -590,17 +590,79 @@ export function Catalog({
         <div className="ui-catalog__copy">
           <div className="ui-catalog__title-line">
             <h2>{title}</h2>
-            {meta ? <div className="ui-catalog__meta">{meta}</div> : null}
           </div>
           {description ? <p>{description}</p> : null}
         </div>
-        {actions ? <div className="ui-catalog__actions">{actions}</div> : null}
+        {meta || actions ? (
+          <div className="ui-catalog__header-actions">
+            {meta ? <div className="ui-catalog__meta">{meta}</div> : null}
+            {actions ? <div className="ui-catalog__actions">{actions}</div> : null}
+          </div>
+        ) : null}
       </header>
-      {controls ? <div className="ui-catalog__controls">{controls}</div> : null}
-      {filters ? <div className="ui-catalog__filters">{filters}</div> : null}
+      {search || controls ? (
+        <div className="ui-catalog__toolbar">
+          {search ? <div className="ui-catalog__search">{search}</div> : null}
+          {controls ? <div className="ui-catalog__controls">{controls}</div> : null}
+        </div>
+      ) : null}
       <div className="ui-catalog__body">{children}</div>
       {footer ? <footer className="ui-catalog__footer">{footer}</footer> : null}
     </section>
+  );
+}
+
+export function ColumnFilter({
+  label,
+  active = false,
+  open = false,
+  onToggle,
+  align = "start",
+  children,
+}) {
+  return (
+    <div
+      className={joinClasses(
+        "ui-column-filter",
+        align === "end" && "ui-column-filter--end",
+      )}
+    >
+      <button
+        type="button"
+        className={open ? "is-open" : undefined}
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        {active ? <i className="ui-column-filter__dot" aria-label="Filter active" /> : null}
+        <span>{label}</span>
+        <span className="ui-column-filter__chevron" aria-hidden="true">⌄</span>
+      </button>
+      {open ? <div className="ui-column-filter__menu">{children}</div> : null}
+    </div>
+  );
+}
+
+export function CatalogPagination({
+  start,
+  end,
+  total,
+  onPrevious,
+  onNext,
+  previousDisabled = false,
+  nextDisabled = false,
+}) {
+  return (
+    <>
+      <span>{total ? `${start}–${end} of ${total}` : "No matching records"}</span>
+      <div className="ui-catalog-pagination__actions">
+        <Button size="compact" disabled={previousDisabled} onClick={onPrevious}>
+          Previous
+        </Button>
+        <Button size="compact" disabled={nextDisabled} onClick={onNext}>
+          Next
+        </Button>
+      </div>
+    </>
   );
 }
 
@@ -636,7 +698,7 @@ export function DataTable({
             {onRowSelectedChange ? <th scope="col"><span className="u-sr-only">Select</span></th> : null}
             {columns.map((column) => (
               <th key={column.id} scope="col" className={column.headerClassName}>
-                {column.label}
+                {column.header || column.label}
               </th>
             ))}
           </tr>
