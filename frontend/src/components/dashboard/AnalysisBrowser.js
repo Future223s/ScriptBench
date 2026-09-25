@@ -7,8 +7,10 @@ import { dashboardApi } from "../../api/endpoints/dashboard.ts";
 import { buildCharacterDiff } from "../../utils/textDiff.js";
 import {
   Button,
+  Catalog,
+  CatalogPagination,
   CodeBlock,
-  CompactFilterBar,
+  ColumnFilter,
   DataTable,
   DescriptionList,
   Dialog,
@@ -26,6 +28,7 @@ import {
   Stack,
   StatusBadge,
   Tabs,
+  TextInput,
 } from "../../ui/primitives/index.js";
 
 function value(value, fallback = "—") {
@@ -70,39 +73,14 @@ function includesQuery(values, query) {
   return values.some((entry) => String(entry || "").toLocaleLowerCase().includes(normalized));
 }
 
-function AnalysisFilters({ mode, items, filters, onChange, onClear }) {
-  const set = (key) => (nextValue) => onChange({ ...filters, [key]: nextValue });
-  const option = (label, values, allLabel) => [
+function filterOptions(items, valueKey, labelKey, allLabel) {
+  return [
     { value: "", label: allLabel },
-    ...values.map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel })),
+    ...uniqueOptions(items, valueKey, labelKey).map(([optionValue, optionLabel]) => ({
+      value: optionValue,
+      label: optionLabel,
+    })),
   ];
-  const isTranscriptions = mode === "transcriptions";
-  const defaults = isTranscriptions ? emptyTranscriptionFilters : emptyDisagreementFilters;
-  const definitions = isTranscriptions ? [
-    { id: "query", label: "Search transcription text", placeholder: "Search transcriptions", value: filters.query, onChange: set("query") },
-    { id: "workflow", label: "Workflow", kind: "select", value: filters.workflow, onChange: set("workflow"), options: option("Workflow", uniqueOptions(items, "workflow_id", "workflow_name"), "All workflows") },
-    { id: "step", label: "Workflow step", kind: "select", value: filters.step, onChange: set("step"), options: option("Workflow step", uniqueOptions(items, "workflow_step_id", "workflow_step_name"), "All steps") },
-    { id: "sample", label: "Sample", kind: "select", value: filters.sample, onChange: set("sample"), options: option("Sample", uniqueOptions(items, "sample_id", "sample_name"), "All samples") },
-    { id: "sampleSet", label: "Sample set", kind: "select", value: filters.sampleSet, onChange: set("sampleSet"), options: option("Sample set", uniqueOptions(items, "sample_set_id", "sample_set_name"), "All sample sets") },
-    { id: "sort", label: "Sort", kind: "select", value: filters.sort, onChange: set("sort"), options: [["sample", "Sort: Sample"], ["workflow", "Sort: Workflow → sample → step"], ["cer-desc", "Sort: Highest CER"], ["disagreements-desc", "Sort: Most disagreements"], ["newest", "Sort: Newest execution"]].map(([value, label]) => ({ value, label })) },
-  ] : [
-    { id: "query", label: "Search changed text", placeholder: "Search changed text", value: filters.query, onChange: set("query") },
-    { id: "workflow", label: "Workflow", kind: "select", value: filters.workflow, onChange: set("workflow"), options: option("Workflow", uniqueOptions(items, "workflow_id", "workflow_name"), "All workflows") },
-    { id: "sourceStep", label: "Source step", kind: "select", value: filters.sourceStep, onChange: set("sourceStep"), options: option("Source step", uniqueOptions(items, "source_step_id", "source_step_name"), "All source steps") },
-    { id: "targetStep", label: "Target step", kind: "select", value: filters.targetStep, onChange: set("targetStep"), options: option("Target step", uniqueOptions(items, "target_step_id", "target_step_name"), "All target steps") },
-    { id: "targetModel", label: "Model", kind: "select", value: filters.targetModel, onChange: set("targetModel"), options: option("Model", uniqueOptions(items, "target_model"), "All models") },
-    { id: "sort", label: "Sort", kind: "select", value: filters.sort, onChange: set("sort"), options: [["workflow", "Sort: Workflow → sample → steps"], ["sample", "Sort: Sample"], ["corrections", "Sort: Corrections first"], ["regressions", "Sort: Regressions first"]].map(([value, label]) => ({ value, label })) },
-    { id: "sample", label: "Sample", kind: "select", value: filters.sample, onChange: set("sample"), options: option("Sample", uniqueOptions(items, "sample_id", "sample_name"), "All samples"), overflow: true },
-  ];
-  const filterLabels = new Map(definitions.map((definition) => [definition.id, definition]));
-  const activeFilters = Object.entries(filters).flatMap(([key, currentValue]) => {
-    if (!currentValue || currentValue === defaults[key]) return [];
-    const definition = filterLabels.get(key);
-    if (!definition) return [];
-    const displayValue = definition.options?.find((entry) => entry.value === currentValue)?.label || currentValue;
-    return [{ id: key, label: key === "query" ? `Search: ${currentValue}` : displayValue, onRemove: () => set(key)(defaults[key]) }];
-  });
-  return <CompactFilterBar filters={definitions} activeFilters={activeFilters} onClearAll={onClear} ariaLabel={`${isTranscriptions ? "Transcription" : "Disagreement"} filters`} />;
 }
 
 function HighlightedContext({ text, start, end }) {
@@ -362,39 +340,134 @@ function filterAnalysisItems(mode, sourceItems, filters) {
 
 function AnalysisCatalog({ mode, sourceItems, items, filters, onFiltersChange, onClear, selected, onSelect, onOpen }) {
   const isTranscriptions = mode === "transcriptions";
-  const columns = isTranscriptions ? [
-    { id: "sample", label: "Sample", width: "16%", className: "ui-data-table__primary", render: (item) => item.sample_name },
-    { id: "step", label: "Workflow step", width: "17%", render: (item) => item.workflow_step_name },
-    { id: "cer", label: "CER", width: "8%", className: "ui-data-table__numeric", render: (item) => item.cer == null ? "N/A" : Number(item.cer).toFixed(3) },
-    { id: "disagreements", label: "Disagreements", width: "10%", className: "ui-data-table__numeric", render: (item) => item.disagreement_count == null ? "N/A" : Number(item.disagreement_count).toFixed(1) },
-    { id: "preceded", label: "Preceded by", width: "15%", render: (item) => relationshipNames(item, "upstream") },
-    { id: "followed", label: "Followed by", width: "15%", render: (item) => relationshipNames(item, "downstream") },
-    { id: "workflow", label: "Workflow", width: "19%", render: (item) => item.workflow_name },
+  const [openFilterId, setOpenFilterId] = useState("");
+  const [page, setPage] = useState(0);
+  const pageSize = 8;
+  useEffect(() => {
+    setOpenFilterId("");
+    setPage(0);
+  }, [mode]);
+  const defaults = isTranscriptions ? emptyTranscriptionFilters : emptyDisagreementFilters;
+  const sortOptions = isTranscriptions ? [
+    ["sample", "Sort: Sample"],
+    ["workflow", "Sort: Workflow → sample → step"],
+    ["cer-desc", "Sort: Highest CER"],
+    ["disagreements-desc", "Sort: Most disagreements"],
+    ["newest", "Sort: Newest execution"],
   ] : [
-    { id: "change", label: "Change", width: "28%", className: "ui-data-table__primary", render: (item) => <DisagreementChange item={item} /> },
-    { id: "steps", label: "Source → Target", width: "25%", render: (item) => `${item.source_step_name} → ${item.target_step_name}` },
-    { id: "sample", label: "Sample", width: "17%", render: (item) => item.sample_name },
-    { id: "type", label: "Type", width: "13%", render: (item) => <StatusBadge tone={operationTone(item.operation_type)} size="compact">{String(item.operation_type || "change").toUpperCase()}</StatusBadge> },
-    { id: "workflow", label: "Workflow", width: "17%", render: (item) => item.workflow_name },
+    ["workflow", "Sort: Workflow → sample → steps"],
+    ["sample", "Sort: Sample"],
+    ["corrections", "Sort: Corrections first"],
+    ["regressions", "Sort: Regressions first"],
   ];
+  const filterDefinitions = isTranscriptions ? {
+    sample: { id: "sample", options: filterOptions(sourceItems, "sample_id", "sample_name", "All samples") },
+    sampleSet: { id: "sampleSet", options: filterOptions(sourceItems, "sample_set_id", "sample_set_name", "All sample sets") },
+    step: { id: "step", options: filterOptions(sourceItems, "workflow_step_id", "workflow_step_name", "All steps") },
+    workflow: { id: "workflow", options: filterOptions(sourceItems, "workflow_id", "workflow_name", "All workflows") },
+  } : {
+    sourceStep: { id: "sourceStep", options: filterOptions(sourceItems, "source_step_id", "source_step_name", "All source steps") },
+    targetStep: { id: "targetStep", options: filterOptions(sourceItems, "target_step_id", "target_step_name", "All target steps") },
+    sample: { id: "sample", options: filterOptions(sourceItems, "sample_id", "sample_name", "All samples") },
+    targetModel: { id: "targetModel", options: filterOptions(sourceItems, "target_model", "target_model", "All models") },
+    workflow: { id: "workflow", options: filterOptions(sourceItems, "workflow_id", "workflow_name", "All workflows") },
+  };
+  const columns = isTranscriptions ? [
+    { id: "sample", label: "Sample", filterId: "sample", width: "14%", className: "ui-data-table__primary", render: (item) => item.sample_name },
+    { id: "sampleSet", label: "Sample set", filterId: "sampleSet", width: "12%", render: (item) => item.sample_set_name },
+    { id: "step", label: "Workflow step", filterId: "step", width: "15%", render: (item) => item.workflow_step_name },
+    { id: "cer", label: "CER", width: "7%", className: "ui-data-table__numeric", render: (item) => item.cer == null ? "N/A" : Number(item.cer).toFixed(3) },
+    { id: "disagreements", label: "Disagreements", width: "9%", className: "ui-data-table__numeric", render: (item) => item.disagreement_count == null ? "N/A" : Number(item.disagreement_count).toFixed(1) },
+    { id: "preceded", label: "Preceded by", width: "12%", render: (item) => relationshipNames(item, "upstream") },
+    { id: "followed", label: "Followed by", width: "12%", render: (item) => relationshipNames(item, "downstream") },
+    { id: "workflow", label: "Workflow", filterId: "workflow", width: "19%", render: (item) => item.workflow_name },
+  ] : [
+    { id: "change", label: "Change", width: "23%", className: "ui-data-table__primary", render: (item) => <DisagreementChange item={item} /> },
+    { id: "sourceStep", label: "Source step", filterId: "sourceStep", width: "14%", render: (item) => item.source_step_name },
+    { id: "targetStep", label: "Target step", filterId: "targetStep", width: "14%", render: (item) => item.target_step_name },
+    { id: "sample", label: "Sample", filterId: "sample", width: "14%", render: (item) => item.sample_name },
+    { id: "type", label: "Type", width: "10%", render: (item) => <StatusBadge tone={operationTone(item.operation_type)} size="compact">{String(item.operation_type || "change").toUpperCase()}</StatusBadge> },
+    { id: "model", label: "Model", filterId: "targetModel", width: "10%", render: (item) => item.target_model || "—" },
+    { id: "workflow", label: "Workflow", filterId: "workflow", width: "15%", render: (item) => item.workflow_name },
+  ];
+  const setFilter = (key, nextValue) => {
+    setPage(0);
+    setOpenFilterId("");
+    onFiltersChange({ ...filters, [key]: nextValue });
+  };
+  const tableColumns = columns.map((column, index) => {
+    const definition = filterDefinitions[column.filterId];
+    if (!definition) return column;
+    return {
+      ...column,
+      header: (
+        <ColumnFilter
+          label={column.label}
+          active={Boolean(filters[definition.id])}
+          open={openFilterId === definition.id}
+          align={index === columns.length - 1 ? "end" : "start"}
+          onToggle={() => setOpenFilterId((current) => current === definition.id ? "" : definition.id)}
+        >
+          {definition.options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={String(filters[definition.id] || "") === String(option.value) ? "is-selected" : undefined}
+              onClick={() => setFilter(definition.id, option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </ColumnFilter>
+      ),
+    };
+  });
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * pageSize;
+  const visibleItems = items.slice(pageStart, pageStart + pageSize);
+  const hasActiveFilters = Object.entries(filters).some(([key, currentValue]) => String(currentValue ?? "") !== String(defaults[key] ?? ""));
   return (
-    <Stack gap="compact">
-      <AnalysisFilters
-        mode={mode}
-        items={sourceItems}
-        filters={filters}
-        onChange={onFiltersChange}
-        onClear={onClear}
-      />
-      <div className="analysis-results-summary">{items.length} shown</div>
+    <Catalog
+      title={isTranscriptions ? "Transcriptions" : "Disagreements"}
+      description={isTranscriptions ? "Inspect model outputs and their evaluation metrics." : "Inspect changes between connected workflow steps."}
+      meta={<StatusBadge>{items.length} results</StatusBadge>}
+      actions={hasActiveFilters ? <Button size="compact" onClick={() => { setPage(0); setOpenFilterId(""); onClear(); }}>Clear filters</Button> : null}
+      search={(
+        <TextInput
+          type="search"
+          value={filters.query}
+          placeholder={isTranscriptions ? "Search transcription text" : "Search changed text"}
+          aria-label={isTranscriptions ? "Search transcription text" : "Search changed text"}
+          onChange={(event) => setFilter("query", event.target.value)}
+        />
+      )}
+      controls={(
+        <Select aria-label={`Sort ${mode}`} value={filters.sort} onChange={(event) => setFilter("sort", event.target.value)}>
+          {sortOptions.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
+        </Select>
+      )}
+      footer={(
+        <CatalogPagination
+          start={items.length ? pageStart + 1 : 0}
+          end={Math.min(pageStart + pageSize, items.length)}
+          total={items.length}
+          previousDisabled={safePage === 0}
+          nextDisabled={safePage >= pageCount - 1}
+          onPrevious={() => setPage((current) => Math.max(0, current - 1))}
+          onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+        />
+      )}
+      ariaLabel={`${isTranscriptions ? "Transcriptions" : "Disagreements"} catalog`}
+    >
       <ListPreview
         previewLabel={`${isTranscriptions ? "Transcription" : "Disagreement"} preview`}
         list={
           <div className="analysis-catalog-table">
             <DataTable
               ariaLabel={isTranscriptions ? "Transcriptions" : "Disagreements"}
-              columns={columns}
-              rows={items}
+              columns={tableColumns}
+              rows={visibleItems}
               selectedRowId={selected?.id}
               onRowActivate={onSelect}
               onRowDoubleClick={onOpen}
@@ -407,7 +480,7 @@ function AnalysisCatalog({ mode, sourceItems, items, filters, onFiltersChange, o
           : <DisagreementPreview item={selected} onOpen={() => onOpen(selected)} />
         ) : <EmptyState title={`Select a ${isTranscriptions ? "transcription" : "disagreement"}`}>Choose a row to inspect it here. Double-click a row to open full detail.</EmptyState>}
       />
-    </Stack>
+    </Catalog>
   );
 }
 

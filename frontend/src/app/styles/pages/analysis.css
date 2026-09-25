@@ -32,12 +32,6 @@
   box-shadow: none;
 }
 
-.analysis-results-summary {
-  color: var(--text-muted);
-  font-size: var(--font-size-caption);
-  text-align: right;
-}
-
 .analysis-loading-more {
   display: flex;
   justify-content: flex-end;
@@ -46,15 +40,14 @@
 .analysis-browser .ui-list-preview {
   align-items: start;
   gap: 0;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
 }
 
 .analysis-catalog-table .ui-data-table {
   border: 0;
+}
+
+.analysis-catalog-table .ui-data-table table {
+  min-width: 920px;
 }
 
 .analysis-catalog-table .ui-status-badge {
