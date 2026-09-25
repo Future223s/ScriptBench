@@ -5,7 +5,6 @@ import {
   Panel,
   Select,
   Stack,
-  StatusBadge,
   Textarea,
   TextInput,
 } from "../../ui/primitives/index.js";
@@ -77,11 +76,6 @@ export function WorkflowBuilderMetadataForm({ state, actions }) {
             <option value="stage_by_stage">Stage-by-stage</option>
           </Select>
         </Field>
-        <StatusBadge>
-          {state.sampleSets.length
-            ? `${state.sampleSets.length} sample sets available.`
-            : "No sample sets available."}
-        </StatusBadge>
       </Stack>
     </Panel>
   );
