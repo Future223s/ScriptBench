@@ -40,15 +40,15 @@ Patterns compose primitives into reusable product structures without redefining 
 
 - `Catalog` — title/description, metadata and action slots, primary search or selection controls, a body, and a footer.
 
-Patterns live under `frontend/src/ui/patterns/{PatternName}` with their own implementation and stylesheet.
+Patterns live under `frontend/src/ui/patterns` with one flat stylesheet per pattern.
 
 ## Style ownership and location
 
 - `frontend/src/ui/foundation/tokens.css` contains values only: semantic colors, typography, spacing, radii, control dimensions, elevation, and motion.
-- `frontend/src/ui/primitives/{PrimitiveName}/{PrimitiveName}.css` owns one primitive's complete canonical appearance and states.
-- `frontend/src/ui/patterns/{PatternName}/{PatternName}.css` owns only the layout required to compose its primitives.
+- `frontend/src/ui/primitives/{PrimitiveName}.css` owns one primitive's complete canonical appearance and states.
+- `frontend/src/ui/patterns/{PatternName}.css` owns only the layout required to compose its primitives.
 - `frontend/src/app/styles/pages/{page-name}.css` owns high-level page geometry that cannot be expressed by a shared pattern.
-- `frontend/src/ui/primitives/primitives.css` and `frontend/src/app/styles/components` remain compatibility layers during migration. New verified styling must not be added to them.
+- `frontend/src/app/styles/components` remains a compatibility layer during migration. New verified styling must not be added there.
 
 ## Workflow: tokens → primitives → code
 
@@ -93,6 +93,7 @@ The UI library is versioned as one contract. Visual or public-prop changes requi
 
 ### Changelog
 
+- **1.10.0** — Flattened primitive and pattern styles to one CSS file per reusable component and removed the monolithic `primitives.css` compatibility file.
 - **1.9.0** — Promoted the approved Dashboard configuration into the canonical foundation tokens and owning primitive styles; application pages no longer opt into a Dashboard theme.
 - **1.8.0** — Began the canonical stylesheet split: verified primitives now own dedicated CSS files, `Catalog` moved to the patterns layer, and legacy styles remain as an explicit compatibility layer.
 - **1.7.0** — Adopted the approved prototype's dark colorway as the canonical application palette through the shared semantic tokens.

@@ -1,0 +1,76 @@
+.ui-step-strip {
+  position: relative;
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-step-strip::before {
+  position: absolute;
+  top: calc(var(--space-4) / 2);
+  right: calc(var(--space-4) / 2);
+  left: calc(var(--space-4) / 2);
+  height: var(--stroke);
+  background: var(--line);
+  content: "";
+}
+
+.ui-step-strip li {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: 1;
+  justify-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ui-step-strip li > span {
+  display: inline-grid;
+  width: var(--space-4);
+  height: var(--space-4);
+  place-items: center;
+  border-radius: var(--radius-round);
+  background: var(--surface-2);
+  font-size: var(--font-size-caption);
+  font-weight: var(--weight-strong);
+}
+
+.ui-step-strip li > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ui-step-strip strong {
+  overflow: hidden;
+  font-size: var(--font-size-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-step-strip small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-step-strip li.is-active {
+  color: var(--accent-strong);
+}
+
+.ui-step-strip li.is-active > span {
+  background: var(--accent);
+  color: var(--surface-solid);
+}
+
+.ui-step-strip li.is-complete > span {
+  background: var(--green-soft);
+  color: var(--green);
+}
+

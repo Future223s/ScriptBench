@@ -1,0 +1,21 @@
+.ui-split-pane {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.ui-split-pane--horizontal {
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+}
+.ui-split-pane--vertical {
+  grid-template-columns: 1fr;
+}
+.ui-split-pane__primary,
+.ui-split-pane__secondary {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .ui-split-pane--horizontal {
+    grid-template-columns: 1fr;
+  }
+}

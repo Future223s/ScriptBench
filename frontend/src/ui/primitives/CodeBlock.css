@@ -1,0 +1,27 @@
+.ui-code-block {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.ui-code-block p {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-label);
+}
+.ui-code-block pre {
+  max-height: 210px;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  color: var(--text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-copy);
+  white-space: pre-wrap;
+}
+

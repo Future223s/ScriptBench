@@ -1,0 +1,102 @@
+.ui-filter-bar {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ui-filter-bar__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ui-filter-bar__control {
+  flex: 1 1 9rem;
+  min-width: 8rem;
+}
+.ui-filter-bar__control:has(input[type="search"]) {
+  flex-basis: 14rem;
+}
+.ui-filter-bar__control .ui-input,
+.ui-filter-bar__overflow .ui-input {
+  min-height: var(--control-height-sm);
+  padding-block: 6px;
+  font-size: var(--font-size-body-sm);
+}
+.ui-filter-bar__overflow {
+  position: relative;
+}
+.ui-filter-bar__overflow > summary {
+  min-height: var(--control-height-sm);
+  display: inline-flex;
+  align-items: center;
+  padding: 6px var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: var(--text-secondary);
+  font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  list-style: none;
+}
+.ui-filter-bar__overflow > summary::-webkit-details-marker {
+  display: none;
+}
+.ui-filter-bar__overflow-controls {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  display: grid;
+  min-width: 17rem;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-soft);
+}
+.ui-filter-bar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.ui-filter-bar__active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.ui-filter-token,
+.ui-filter-bar__clear {
+  min-height: 26px;
+  padding: 3px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-caption);
+}
+.ui-filter-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+}
+.ui-filter-token:hover,
+.ui-filter-bar__clear:hover {
+  color: var(--text-primary);
+}
+.ui-filter-bar__clear {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .ui-filter-bar__overflow-controls {
+    position: static;
+    margin-top: var(--space-1);
+  }
+}

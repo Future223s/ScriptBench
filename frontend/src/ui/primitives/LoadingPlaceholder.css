@@ -1,0 +1,45 @@
+.ui-loading-placeholder {
+  display: grid;
+  width: 100%;
+  min-height: calc(var(--space-5) * 4);
+  align-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.ui-loading-placeholder--line {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.ui-loading-placeholder--fill {
+  height: 100%;
+  min-height: 100%;
+  align-self: stretch;
+}
+
+.ui-loading-placeholder span {
+  display: block;
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  animation: ui-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.ui-loading-placeholder span:nth-child(2) {
+  width: 72%;
+}
+
+.ui-loading-placeholder span:nth-child(3) {
+  width: 48%;
+}
+
+@keyframes ui-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+

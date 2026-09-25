@@ -1,0 +1,44 @@
+.ui-icon-button {
+  display: inline-grid;
+  width: var(--control-height-compact);
+  height: var(--control-height-compact);
+  place-items: center;
+  padding: 0;
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-title);
+  font-weight: var(--weight-strong);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ui-icon-button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface-solid);
+}
+
+.ui-icon-button--danger {
+  border-color: var(--red);
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.ui-icon-button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.ui-icon-button:focus-visible {
+  outline: var(--space-1) solid var(--accent-soft);
+  outline-offset: var(--space-1);
+}
+
+.ui-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+

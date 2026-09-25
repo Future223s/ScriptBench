@@ -1,0 +1,27 @@
+.ui-list-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+}
+.ui-list-preview__list,
+.ui-list-preview__preview {
+  min-width: 0;
+}
+.ui-list-preview__preview {
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--line);
+}
+
+@media (max-width: 720px) {
+  .ui-list-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-list-preview__preview {
+    padding-top: var(--space-4);
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}

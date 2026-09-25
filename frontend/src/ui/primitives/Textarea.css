@@ -1,0 +1,8 @@
+.ui-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.ui-textarea--compact {
+  min-height: 56px;
+}

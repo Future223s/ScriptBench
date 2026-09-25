@@ -1,0 +1,47 @@
+.ui-collapsible-section {
+  overflow: hidden;
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-solid);
+}
+
+.ui-collapsible-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  color: var(--text-primary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ui-collapsible-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.ui-collapsible-section summary > span {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.ui-collapsible-section summary strong {
+  font-size: var(--font-size-body-sm);
+}
+
+.ui-collapsible-section summary small {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.ui-collapsible-section summary > .ui-icon {
+  transition: transform var(--duration) var(--easing);
+}
+
+.ui-collapsible-section[open] summary > .ui-icon {
+  transform: rotate(180deg);
+}
+
+.ui-collapsible-section__body {
+  padding: 0 var(--space-3) var(--space-3);
+}
