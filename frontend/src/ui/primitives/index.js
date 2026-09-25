@@ -594,22 +594,29 @@ export function Catalog({
   ariaLabel,
   children,
 }) {
+  const hasHeader = Boolean(title || description || meta || actions);
   return (
     <section className="ui-catalog" aria-label={ariaLabel || title}>
-      <header className="ui-catalog__header">
-        <div className="ui-catalog__copy">
-          <div className="ui-catalog__title-line">
-            <h2>{title}</h2>
-          </div>
-          {description ? <p>{description}</p> : null}
-        </div>
-        {meta || actions ? (
-          <div className="ui-catalog__header-actions">
-            {meta ? <div className="ui-catalog__meta">{meta}</div> : null}
-            {actions ? <div className="ui-catalog__actions">{actions}</div> : null}
-          </div>
-        ) : null}
-      </header>
+      {hasHeader ? (
+        <header className="ui-catalog__header">
+          {title || description ? (
+            <div className="ui-catalog__copy">
+              {title ? (
+                <div className="ui-catalog__title-line">
+                  <h2>{title}</h2>
+                </div>
+              ) : null}
+              {description ? <p>{description}</p> : null}
+            </div>
+          ) : null}
+          {meta || actions ? (
+            <div className="ui-catalog__header-actions">
+              {meta ? <div className="ui-catalog__meta">{meta}</div> : null}
+              {actions ? <div className="ui-catalog__actions">{actions}</div> : null}
+            </div>
+          ) : null}
+        </header>
+      ) : null}
       {search || controls ? (
         <div className="ui-catalog__toolbar">
           {search ? <div className="ui-catalog__search">{search}</div> : null}
