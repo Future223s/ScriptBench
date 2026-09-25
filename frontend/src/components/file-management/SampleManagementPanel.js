@@ -400,7 +400,7 @@ export function SampleManagementPanel({ state, actions }) {
   const catalogActions = (
     <Inline gap="default">
       {type === "sample" ? (
-        <Button size="compact" onClick={() => {
+        <Button size="compact" variant="primary" onClick={() => {
           actions.clearSelection(type);
           setSampleSetSelectionMode(true);
         }}>
