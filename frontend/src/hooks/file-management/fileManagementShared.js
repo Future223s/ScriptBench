@@ -293,12 +293,6 @@ export function normalizeRecordPreview(type, record, derivativeGroups = []) {
     blobBase64: record.blob_base64 || "",
     blobSize: record.blob_size || 0,
     metadata,
-    detailSections: [
-      {
-        title: "Ground truth",
-        content: record.ground_truth_text || "",
-      },
-    ],
     additionalMetadata: metadataEntriesFromObject(
       record,
       new Set([

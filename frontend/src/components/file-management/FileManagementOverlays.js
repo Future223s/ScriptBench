@@ -43,6 +43,7 @@ function stringifyRows(rows = []) {
 function RecordDetails({ type, record }) {
   const metaRows = stringifyRows(record?.metadata || []);
   const additionalMetadata = stringifyRows(record?.additionalMetadata || []);
+  const detailRows = [...metaRows, ...additionalMetadata];
   const detailSections = record?.detailSections || [];
   return (
     <Stack>
@@ -52,10 +53,10 @@ function RecordDetails({ type, record }) {
           <CodeBlock>{record?.groundTruthText || "No ground truth available."}</CodeBlock>
         </>
       ) : null}
-      {metaRows.length ? (
+      {detailRows.length ? (
         <>
           <SectionTitle>Details</SectionTitle>
-          <DescriptionList items={metaRows} />
+          <DescriptionList items={detailRows} />
         </>
       ) : null}
       {detailSections.map((section) => (
@@ -63,12 +64,6 @@ function RecordDetails({ type, record }) {
           {section.content || ""}
         </CodeBlock>
       ))}
-      {additionalMetadata.length ? (
-        <>
-          <SectionTitle>Metadata</SectionTitle>
-          <DescriptionList items={additionalMetadata} />
-        </>
-      ) : null}
     </Stack>
   );
 }
