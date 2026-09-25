@@ -253,7 +253,6 @@ function ExecutionGraph({ graph, selectedNodeId, actions, loading }) {
   return (
     <Panel
       title="Resolved execution graph"
-      description={graph?.run?.execution_mode === "stage_by_stage" ? "Stage-by-stage" : "End-to-end"}
       actions={selected ? (
         <Inline gap="compact">
           <Button size="compact" variant="primary" onClick={actions.queueSelectedNode} disabled={loading || !selected.released}>
