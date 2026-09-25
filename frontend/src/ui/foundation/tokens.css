@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
   /* The only approved font families and type sizes. */
   --font-sans:
@@ -28,29 +28,29 @@
   --stroke: 1px;
   --control-height: 40px;
   --control-height-compact: 32px;
-  --shadow: 0 16px 32px rgba(52, 38, 27, 0.12);
+  --shadow: 0 16px 32px rgba(0, 0, 0, 0.22);
   --duration: 160ms;
   --easing: ease;
 
   /* The only semantic color roles. Themes override these roles, never components. */
-  --color-canvas: #f4f0e8;
-  --color-surface: #fffdf9;
-  --color-surface-muted: #ede6dc;
-  --color-text: #2b2520;
-  --color-text-muted: #6d6258;
-  --color-border: rgba(79, 58, 43, 0.15);
-  --color-border-strong: rgba(79, 58, 43, 0.28);
-  --color-primary: #b85732;
-  --color-primary-strong: #8f3f25;
-  --color-primary-muted: #f8dfd0;
-  --color-success: #2f745f;
-  --color-success-muted: #ddede4;
-  --color-info: #315d7f;
-  --color-info-muted: #dbeaf1;
-  --color-warning: #9a5b18;
-  --color-warning-muted: #fff1d6;
-  --color-danger: #b5362c;
-  --color-danger-muted: #fee4df;
+  --color-canvas: #201d1a;
+  --color-surface: #2a2622;
+  --color-surface-muted: #37312b;
+  --color-text: #f4eee7;
+  --color-text-muted: #bdb2a8;
+  --color-border: rgba(255, 245, 235, 0.13);
+  --color-border-strong: rgba(255, 245, 235, 0.24);
+  --color-primary: #dc8058;
+  --color-primary-strong: #f19b73;
+  --color-primary-muted: #4b3127;
+  --color-success: #73b79f;
+  --color-success-muted: #233d35;
+  --color-info: #86b9d4;
+  --color-info-muted: #233c4b;
+  --color-warning: #e2a45f;
+  --color-warning-muted: #473522;
+  --color-danger: #ed8e82;
+  --color-danger-muted: #4c292b;
 
   /* Structural constants, not a visual scale. */
   --page-max-width: 1180px;

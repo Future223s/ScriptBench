@@ -78,6 +78,7 @@ The UI library is versioned as one contract. Visual or public-prop changes requi
 
 ### Changelog
 
+- **1.7.0** — Adopted the approved prototype's dark colorway as the canonical application palette through the shared semantic tokens.
 - **1.6.0** — Standardized `Tabs` on the Dashboard underline treatment as its sole visual form; `SegmentedControl` remains the distinct compact pill control.
 - **1.5.0** — Added the opt-in Dashboard application theme for its compact typography, controls, spacing, radii, and elevation; File Management is the first consumer.
 - **1.4.0** — Aligned the canonical catalog primitives with the approved Dashboard prototype: full-width primary search, column filters, conditional selection, compact tables, and pagination.
