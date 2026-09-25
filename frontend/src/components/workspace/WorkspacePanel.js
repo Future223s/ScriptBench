@@ -169,20 +169,6 @@ export function WorkspacePanel({
             ))}
           </StackedSelect>
         }
-        actions={
-          <Inline gap="compact" align="end">
-            <Button
-              variant="primary"
-              onClick={actions.startExecution}
-              disabled={loading}
-            >
-              Start execution
-            </Button>
-            <Button onClick={actions.stopExecution} disabled={loading}>
-              Stop execution
-            </Button>
-          </Inline>
-        }
       />
       <ExecutionGraph
         graph={graph}
@@ -260,16 +246,19 @@ function ExecutionGraph({ graph, selectedNodeId, actions, loading }) {
     <>
       <Panel
         title="Resolved execution graph"
-        actions={selected ? (
+        actions={(
           <Inline gap="compact">
-            <Button size="compact" variant="primary" onClick={actions.queueSelectedNode} disabled={loading || !selected.released}>
-              Queue all
+            <Button size="compact" onClick={actions.queueSelectedNode} disabled={loading || !selected?.released}>
+              Queue
             </Button>
-            <Button size="compact" onClick={selected.released ? actions.holdSelectedNode : actions.releaseSelectedNode} disabled={loading}>
-              {selected.released ? "Hold node" : "Release node"}
+            <Button size="compact" variant="primary" onClick={actions.startExecution} disabled={loading}>
+              Start execution
+            </Button>
+            <Button size="compact" onClick={actions.stopExecution} disabled={loading}>
+              Stop execution
             </Button>
           </Inline>
-        ) : null}
+        )}
       >
         <CanvasSurface label="Resolved execution graph" size="compact">
           {edges.map((edge) => {
