@@ -452,9 +452,13 @@ export function CollapsibleSection({
   );
 }
 
-export function Tabs({ items, activeId, onChange }) {
+export function Tabs({ items, activeId, onChange, variant = "pill", ariaLabel }) {
   return (
-    <div className="ui-tabs" role="tablist">
+    <div
+      className={joinClasses("ui-tabs", `ui-tabs--${variant}`)}
+      role="tablist"
+      aria-label={ariaLabel}
+    >
       {items.map((item) => (
         <button
           key={item.id}

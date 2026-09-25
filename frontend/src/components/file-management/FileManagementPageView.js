@@ -6,7 +6,7 @@ import { managementModes } from "../../hooks/file-management/fileManagementShare
 import {
   Button,
   PageHeader,
-  SegmentedControl,
+  Tabs,
 } from "../../ui/primitives/index.js";
 
 export function FileManagementPageView({ state, actions }) {
@@ -18,21 +18,21 @@ export function FileManagementPageView({ state, actions }) {
       <PageHeader
         title="Library"
         description="Store and upload documents, samples, derivatives, and assets."
-        controls={
-          <SegmentedControl
-            items={Object.entries(managementModes).map(([id, item]) => ({
-              id,
-              label: item.title,
-            }))}
-            value={state.managementType}
-            onChange={actions.setManagementType}
-          />
-        }
         actions={
           <Button variant="primary" onClick={actions.openUploadPanel}>
             Upload files
           </Button>
         }
+      />
+      <Tabs
+        items={Object.entries(managementModes).map(([id, item]) => ({
+          id,
+          label: item.title,
+        }))}
+        activeId={state.managementType}
+        onChange={actions.setManagementType}
+        variant="underline"
+        ariaLabel="Library views"
       />
       <section className="file-management-grid file-management-grid--single">
         <SampleManagementPanel state={state} actions={actions} />

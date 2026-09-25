@@ -494,6 +494,31 @@
   background: var(--accent-soft);
   color: var(--accent-strong);
 }
+.ui-tabs--underline {
+  display: flex;
+  width: 100%;
+  gap: 20px;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.ui-tabs--underline .ui-tabs__tab {
+  min-height: 0;
+  padding: 9px 1px 11px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-body-sm);
+  font-weight: var(--font-weight-medium);
+}
+.ui-tabs--underline .ui-tabs__tab.is-active {
+  border-bottom-color: var(--accent);
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: none;
+}
 
 .ui-filter-bar {
   display: grid;
