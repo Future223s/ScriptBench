@@ -1080,17 +1080,24 @@ export function Dialog({
   size = "default",
   actions,
   footer,
+  closeOnBackdrop = true,
+  closeOnEscape = true,
   children,
 }) {
   const dialogRef = useRef(null);
   const onCloseRef = useRef(onClose);
+  const titleId = useId();
+  const descriptionId = useId();
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
   useEffect(() => {
     if (!open) return undefined;
+    const previouslyFocused = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") onCloseRef.current?.();
+      if (event.key === "Escape" && closeOnEscape) onCloseRef.current?.();
       if (event.key !== "Tab") return;
       const focusable = [
         ...(dialogRef.current?.querySelectorAll(
@@ -1111,14 +1118,18 @@ export function Dialog({
     };
     document.addEventListener("keydown", handleKeyDown);
     dialogRef.current?.focus();
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open]);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+    };
+  }, [closeOnEscape, open]);
   if (!open) return null;
   return (
     <div
       className="ui-dialog-backdrop"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
+        if (closeOnBackdrop && event.target === event.currentTarget) onClose?.();
       }}
     >
       <section
@@ -1126,13 +1137,14 @@ export function Dialog({
         className={joinClasses("ui-dialog", `ui-dialog--${size}`)}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="ui-dialog-title"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
         tabIndex="-1"
       >
         <header className="ui-dialog__header">
           <div>
-            <h2 id="ui-dialog-title">{title}</h2>
-            {description ? <p>{description}</p> : null}
+            <h2 id={titleId}>{title}</h2>
+            {description ? <p id={descriptionId}>{description}</p> : null}
           </div>
           <Inline gap="compact">
             {actions}

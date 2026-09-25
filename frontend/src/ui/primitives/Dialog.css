@@ -24,6 +24,9 @@
   width: min(460px, calc(100vw - 36px));
 }
 .ui-dialog--wide {
+  width: min(60rem, calc(100vw - 36px));
+}
+.ui-dialog--extra-wide {
   width: min(80rem, calc(100vw - 36px));
 }
 .ui-dialog__header,
@@ -57,4 +60,3 @@
   border-top: 1px solid var(--line);
   border-bottom: 0;
 }
-

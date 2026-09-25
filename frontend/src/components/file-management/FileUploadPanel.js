@@ -34,29 +34,33 @@ function DocumentUploadFields({ folder, draft, actions, resetKey }) {
   if (folder) {
     return <FileField label="Folder of PDFs" name="document_folder_files" accept="application/pdf,.pdf" multiple folder resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("documentFolderFiles", files)} />;
   }
-  return <>
+  return <Grid columns={2}>
     <Field label="Document name" hint="Document names cannot contain underscores. Pages use document_page.">
       <TextInput name="name" placeholder="EMMO-La115" value={draft.documentName} onChange={(event) => actions.setUploadField("documentName", event.target.value)} />
     </Field>
     <FileField label="PDF" name="file" accept="application/pdf,.pdf" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("documentFile", files)} />
-  </>;
+  </Grid>;
 }
 
 function SampleUploadFields({ folder, draft, actions, resetKey }) {
   if (folder) {
-    return <>
-      <FileField label="Folder of sample files" name="sample_folder_files" multiple folder resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("sampleFolderFiles", files)} />
-      <Field label="Folder of ground-truth text files" hint="Ground-truth files should use the same relative name as the sample file.">
-        <TextInput key={`ground-truth-folder-${resetKey}`} name="ground_truth_folder_files" type="file" webkitdirectory="" multiple onChange={(event) => actions.setUploadFiles("groundTruthFolderFiles", filesFromEvent(event))} />
-      </Field>
+    return <Stack>
+      <Grid columns={2}>
+        <FileField label="Folder of sample files" name="sample_folder_files" multiple folder resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("sampleFolderFiles", files)} />
+        <Field label="Folder of ground-truth text files" hint="Ground-truth files should use the same relative name as the sample file.">
+          <TextInput key={`ground-truth-folder-${resetKey}`} name="ground_truth_folder_files" type="file" webkitdirectory="" multiple onChange={(event) => actions.setUploadFiles("groundTruthFolderFiles", filesFromEvent(event))} />
+        </Field>
+      </Grid>
       <Instruction>Page names must use document_page, or _page when no document exists. Document membership and page order are assigned automatically.</Instruction>
-    </>;
+    </Stack>;
   }
-  return <>
-    <Field label="Sample name"><TextInput name="name" placeholder="page_001" value={draft.sampleName} onChange={(event) => actions.setUploadField("sampleName", event.target.value)} /></Field>
-    <FileField label="File" name="file" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("sampleFile", files)} />
+  return <Stack>
+    <Grid columns={2}>
+      <Field label="Sample name"><TextInput name="name" placeholder="page_001" value={draft.sampleName} onChange={(event) => actions.setUploadField("sampleName", event.target.value)} /></Field>
+      <FileField label="File" name="file" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("sampleFile", files)} />
+    </Grid>
     <Field label="Ground truth text"><Textarea name="ground_truth_text" placeholder="Optional transcription or reference text." value={draft.groundTruthText} onChange={(event) => actions.setUploadField("groundTruthText", event.target.value)} /></Field>
-  </>;
+  </Stack>;
 }
 
 function DerivativeUploadFields({ folder, draft, actions, resetKey }) {
@@ -65,10 +69,10 @@ function DerivativeUploadFields({ folder, draft, actions, resetKey }) {
       <TextInput key={`derivative-folder-${resetKey}`} name="derivative_folder_files" type="file" webkitdirectory="" multiple onChange={(event) => actions.setUploadFiles("derivativeFolderFiles", filesFromEvent(event))} />
     </Field>;
   }
-  return <>
+  return <Grid columns={2}>
     <Field label="Derivative name"><TextInput name="name" placeholder="page_001_crop_01" value={draft.derivativeName} onChange={(event) => actions.setUploadField("derivativeName", event.target.value)} /></Field>
     <FileField label="File" name="file" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("derivativeFile", files)} />
-  </>;
+  </Grid>;
 }
 
 function AssetUploadFields({ folder, draft, actions, resetKey }) {
@@ -77,10 +81,10 @@ function AssetUploadFields({ folder, draft, actions, resetKey }) {
       <TextInput key={`asset-folder-${resetKey}`} name="asset_folder_files" type="file" webkitdirectory="" multiple onChange={(event) => actions.setUploadFiles("assetFolderFiles", filesFromEvent(event))} />
     </Field>;
   }
-  return <>
+  return <Grid columns={2}>
     <Field label="Asset name"><TextInput name="name" placeholder="reference_image" value={draft.assetName} onChange={(event) => actions.setUploadField("assetName", event.target.value)} /></Field>
     <FileField label="File" name="file" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("assetFile", files)} />
-  </>;
+  </Grid>;
 }
 
 export function FileUploadPanel({ state, actions, formId }) {
@@ -98,7 +102,7 @@ export function FileUploadPanel({ state, actions, formId }) {
   return (
     <form id={formId} onSubmit={(event) => { event.preventDefault(); void actions.submitUpload(); }}>
       <Stack>
-        <Grid columns={2}>{fields}</Grid>
+        {fields}
         {folder && (progress.totalFiles || state.uploadLoading) ? (
           <Stack gap="compact">
             <StatusBadge>{progress.completedFiles || 0} of {progress.totalFiles || 0} uploaded</StatusBadge>

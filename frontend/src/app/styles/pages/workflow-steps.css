@@ -30,11 +30,6 @@
   font-size: var(--font-size-caption);
 }
 
-.resource-detail-modal {
-  width: min(980px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
-}
-
 .resource-detail-grid {
   display: grid;
   grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
@@ -97,22 +92,6 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.artifact-group-create-modal {
-  width: min(820px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
-}
-
-.payload-template-create-modal {
-  width: min(1220px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
-  overflow: hidden;
-}
-
-.output-spec-create-modal {
-  width: min(900px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
 }
 
 .output-spec-create-body {
@@ -199,16 +178,6 @@
   .output-spec-field-row .payload-remove-button {
     justify-self: start;
   }
-}
-
-.workflow-step-create-modal {
-  width: min(820px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
-}
-
-.sample-set-create-modal {
-  width: min(760px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
 }
 
 .sample-set-create-body {
@@ -337,9 +306,6 @@
   font-size: 11px;
 }
 
-.payload-template-create-modal .modal-body {
-  min-height: 0;
-}
 .payload-template-builder {
   display: grid;
   gap: 22px;
@@ -816,6 +782,6 @@
   }
 }
 
-.workflow-step-create-modal .payload-stepper {
+.workflow-step-create-body .payload-stepper {
   flex-wrap: wrap;
 }

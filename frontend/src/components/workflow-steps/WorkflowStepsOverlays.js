@@ -1,7 +1,6 @@
 "use client";
 
 import { EmptyState } from "../common/EmptyState.js";
-import { Modal } from "../common/Modal.js";
 import { SampleSetCreateModal } from "./SampleSetCreateModal.js";
 import {
   Button,
@@ -76,68 +75,50 @@ const COMMON_MIME_TYPES = [
 
 function WorkflowStepDetailModal({ open, record, actions }) {
   return (
-    <Modal
+    <Dialog
       open={open}
-      panelClassName="resource-detail-modal"
-      data-modal="resource-detail"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          actions.closeWorkflowStepDetail();
-        }
-      }}
+      title={record?.title || "Resource"}
+      description={record?.typeLabel || "Detail"}
+      size="extra-wide"
+      onClose={actions.closeWorkflowStepDetail}
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>{record?.title || "Resource"}</h2>
-          <span>{record?.typeLabel || "Detail"}</span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeWorkflowStepDetail}
-        >
-          Close
-        </button>
-      </div>
-      <div className="modal-body">
-        {record ? (
-          <div className="resource-detail-grid">
-            <div className="ground-truth-box">
-              <h3>Metadata</h3>
-              <div className="metadata-grid">
-                {(record.metadata || []).map(([label, value]) => (
-                  <div className="metadata-row" key={label}>
-                    <span>{label}</span>
-                    <strong>{String(value)}</strong>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="ground-truth-box">
-              {(record.sections || []).map((section) =>
-                section.collapsible ? (
-                  <details key={section.title} className="resource-detail-section">
-                    <summary>{section.title}</summary>
-                    <pre>{section.content || ""}</pre>
-                  </details>
-                ) : (
-                  <div key={section.title} className="resource-detail-section">
-                    <h3>{section.title}</h3>
-                    <pre>{section.content || ""}</pre>
-                  </div>
-                ),
-              )}
-              <div className="resource-detail-section">
-                <h3>Raw record</h3>
-                <pre>{JSON.stringify(record.raw || {}, null, 2)}</pre>
-              </div>
+      {record ? (
+        <div className="resource-detail-grid">
+          <div className="ground-truth-box">
+            <h3>Metadata</h3>
+            <div className="metadata-grid">
+              {(record.metadata || []).map(([label, value]) => (
+                <div className="metadata-row" key={label}>
+                  <span>{label}</span>
+                  <strong>{String(value)}</strong>
+                </div>
+              ))}
             </div>
           </div>
-        ) : (
-          <EmptyState>No resource selected.</EmptyState>
-        )}
-      </div>
-    </Modal>
+          <div className="ground-truth-box">
+            {(record.sections || []).map((section) =>
+              section.collapsible ? (
+                <details key={section.title} className="resource-detail-section">
+                  <summary>{section.title}</summary>
+                  <pre>{section.content || ""}</pre>
+                </details>
+              ) : (
+                <div key={section.title} className="resource-detail-section">
+                  <h3>{section.title}</h3>
+                  <pre>{section.content || ""}</pre>
+                </div>
+              ),
+            )}
+            <div className="resource-detail-section">
+              <h3>Raw record</h3>
+              <pre>{JSON.stringify(record.raw || {}, null, 2)}</pre>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <EmptyState>No resource selected.</EmptyState>
+      )}
+    </Dialog>
   );
 }
 
@@ -725,24 +706,28 @@ function OutputSpecCreateModal({ state, actions }) {
       );
   const outputPreview = { [entityPlaceholder]: itemPreview };
   return (
-    <Modal
+    <Dialog
       open={state.createOutputSpecOpen}
-      panelClassName="output-spec-create-modal"
+      title="Create output specification"
+      description="Define the shape returned by the model."
+      size="wide"
+      onClose={actions.closeCreateOutputSpec}
+      footer={
+        <Inline gap="compact" justify="end">
+          <Button onClick={actions.closeCreateOutputSpec}>Cancel</Button>
+          <Button
+            variant="primary"
+            onClick={actions.submitCreateOutputSpec}
+            disabled={state.createOutputSpecLoading}
+          >
+            {state.createOutputSpecLoading
+              ? "Creating..."
+              : "Create output specification"}
+          </Button>
+        </Inline>
+      }
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>Create Output Specification</h2>
-          <span>Define the shape returned by the model</span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateOutputSpec}
-        >
-          Close
-        </button>
-      </div>
-      <div className="modal-body output-spec-create-body">
+      <div className="output-spec-create-body">
         <div className="form-grid">
           <div className="field wide">
             <label htmlFor="output-spec-name">Name</label>
@@ -853,26 +838,7 @@ function OutputSpecCreateModal({ state, actions }) {
           </div>
         </div>
       </div>
-      <div className="modal-footer">
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateOutputSpec}
-        >
-          Cancel
-        </button>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={actions.submitCreateOutputSpec}
-          disabled={state.createOutputSpecLoading}
-        >
-          {state.createOutputSpecLoading
-            ? "Creating..."
-            : "Create output specification"}
-        </button>
-      </div>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -884,24 +850,41 @@ function WorkflowStepCreateModal({ state, actions }) {
     (item) => executor && item.model_family === executor.id,
   );
   return (
-    <Modal
+    <Dialog
       open={state.createWorkflowStepOpen}
-      panelClassName="workflow-step-create-modal"
+      title="Create workflow step"
+      description={`Step ${step} of 4`}
+      size="wide"
+      onClose={actions.closeCreateWorkflowStep}
+      footer={
+        <Inline gap="compact" justify="end">
+          <Button onClick={actions.closeCreateWorkflowStep}>Cancel</Button>
+          {step > 1 ? (
+            <Button onClick={actions.previousCreateWorkflowStep}>Back</Button>
+          ) : null}
+          {step < 4 ? (
+            <Button
+              variant="primary"
+              onClick={actions.nextCreateWorkflowStep}
+              disabled={state.createWorkflowStepLoading}
+            >
+              {state.createWorkflowStepLoading ? "Loading..." : "Next"}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={actions.submitCreateWorkflowStep}
+              disabled={state.createWorkflowStepLoading}
+            >
+              {state.createWorkflowStepLoading
+                ? "Creating..."
+                : "Create workflow step"}
+            </Button>
+          )}
+        </Inline>
+      }
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>Create Workflow Step</h2>
-          <span>Step {step} of 4</span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateWorkflowStep}
-        >
-          Close
-        </button>
-      </div>
-      <div className="modal-body workflow-step-create-body">
+      <div className="workflow-step-create-body">
         <div className="payload-stepper">
           {["Metadata & executor", "Configuration", "Payload template", "Output spec"].map((label, index) => (
             <span key={label} className={step === index + 1 ? "is-active" : step > index + 1 ? "is-complete" : ""}>
@@ -1080,48 +1063,7 @@ function WorkflowStepCreateModal({ state, actions }) {
           </div>
         ) : null}
       </div>
-      <div className="modal-footer">
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateWorkflowStep}
-        >
-          Cancel
-        </button>
-        <div className="inline-actions">
-          {step > 1 ? (
-            <button
-              className="btn-ghost"
-              type="button"
-              onClick={actions.previousCreateWorkflowStep}
-            >
-              Back
-            </button>
-          ) : null}
-          {step < 4 ? (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={actions.nextCreateWorkflowStep}
-              disabled={state.createWorkflowStepLoading}
-            >
-              {state.createWorkflowStepLoading ? "Loading..." : "Next"}
-            </button>
-          ) : (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={actions.submitCreateWorkflowStep}
-              disabled={state.createWorkflowStepLoading}
-            >
-              {state.createWorkflowStepLoading
-                ? "Creating..."
-                : "Create workflow step"}
-            </button>
-          )}
-        </div>
-      </div>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -1144,26 +1086,36 @@ function LegacyPayloadTemplateCreateModal({ state, actions }) {
   };
   const workflowSteps = state.workflowSteps || [];
   return (
-    <Modal
+    <Dialog
       open={state.createPayloadTemplateOpen}
-      panelClassName="payload-template-create-modal"
+      title="Create payload template"
+      description={`Step ${step} of 2 · ${step === 1 ? "Template metadata" : "Messages and inputs"}`}
+      size="extra-wide"
+      onClose={actions.closeCreatePayloadTemplate}
+      footer={
+        <Inline gap="compact" justify="end">
+          <Button onClick={actions.closeCreatePayloadTemplate}>Cancel</Button>
+          {step === 2 ? (
+            <Button onClick={actions.previousCreatePayloadTemplateStep}>Back</Button>
+          ) : null}
+          {step === 1 ? (
+            <Button variant="primary" onClick={actions.nextCreatePayloadTemplateStep}>
+              Continue to prompt structure
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={actions.submitCreatePayloadTemplate}
+              disabled={state.createPayloadTemplateLoading}
+            >
+              {state.createPayloadTemplateLoading
+                ? "Creating..."
+                : "Create payload template"}
+            </Button>
+          )}
+        </Inline>
+      }
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>Create Payload Template</h2>
-          <span>
-            Step {step} of 2 ·{" "}
-            {step === 1 ? "Template metadata" : "Messages and inputs"}
-          </span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreatePayloadTemplate}
-        >
-          Close
-        </button>
-      </div>
       <div className="payload-stepper">
         <span className={step === 1 ? "is-active" : "is-complete"}>
           01 <b>Metadata</b>
@@ -1173,7 +1125,7 @@ function LegacyPayloadTemplateCreateModal({ state, actions }) {
           02 <b>Prompt structure</b>
         </span>
       </div>
-      <div className="modal-body payload-template-builder">
+      <div className="payload-template-builder">
         {step === 1 ? (
           <div className="payload-metadata-stage">
             <div className="payload-stage-intro">
@@ -1944,46 +1896,6 @@ function LegacyPayloadTemplateCreateModal({ state, actions }) {
           </div>
         )}
       </div>
-      <div className="modal-footer">
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreatePayloadTemplate}
-        >
-          Cancel
-        </button>
-        <div className="inline-actions">
-          {step === 2 ? (
-            <button
-              className="btn-ghost"
-              type="button"
-              onClick={actions.previousCreatePayloadTemplateStep}
-            >
-              Back
-            </button>
-          ) : null}
-          {step === 1 ? (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={actions.nextCreatePayloadTemplateStep}
-            >
-              Continue to prompt structure
-            </button>
-          ) : (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={actions.submitCreatePayloadTemplate}
-              disabled={state.createPayloadTemplateLoading}
-            >
-              {state.createPayloadTemplateLoading
-                ? "Creating..."
-                : "Create payload template"}
-            </button>
-          )}
-        </div>
-      </div>
-    </Modal>
+    </Dialog>
   );
 }

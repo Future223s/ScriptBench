@@ -99,7 +99,7 @@ function RecordDetailDialog({ open, type, record, actions }) {
       open={open}
       title={record?.name || "Record"}
       description={record?.mimeType || record?.typeLabel || objectTypeLabel(type)}
-      size="wide"
+      size="extra-wide"
       onClose={actions.closeRecordDetail}
       actions={
         <Inline gap="compact">
