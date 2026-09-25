@@ -452,10 +452,17 @@ export function CollapsibleSection({
   );
 }
 
-export function Tabs({ items, activeId, onChange, variant = "pill", ariaLabel }) {
+export function Tabs({
+  items,
+  activeId,
+  onChange,
+  variant = "pill",
+  ariaLabel,
+  className,
+}) {
   return (
     <div
-      className={joinClasses("ui-tabs", `ui-tabs--${variant}`)}
+      className={joinClasses("ui-tabs", `ui-tabs--${variant}`, className)}
       role="tablist"
       aria-label={ariaLabel}
     >

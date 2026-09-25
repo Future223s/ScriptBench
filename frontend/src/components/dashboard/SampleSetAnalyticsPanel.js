@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { Icon } from "../../ui/primitives/index.js";
+import { Icon, Tabs } from "../../ui/primitives/index.js";
 import { formatDate } from "../../utils/date.js";
 
 const PAGE_SIZE = 8;
@@ -117,9 +117,18 @@ export function SampleSetAnalyticsPanel({ sampleSets, selectedSampleSetId, sampl
       </div>
     </header>
 
-    <div className="dashboard-tabs" role="tablist" aria-label="Sample set views">
-      {[["overview", "Overview"], ["samples", `Samples ${sampleCount}`], ["workflows", `Workflows ${workflows.length}`]].map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)}>{label}</button>)}
-    </div>
+    <Tabs
+      items={[
+        { id: "overview", label: "Overview" },
+        { id: "samples", label: `Samples ${sampleCount}` },
+        { id: "workflows", label: `Workflows ${workflows.length}` },
+      ]}
+      activeId={activeTab}
+      onChange={setActiveTab}
+      variant="underline"
+      ariaLabel="Sample set views"
+      className="dashboard-view-tabs"
+    />
 
     {activeTab === "overview" ? <section className="dashboard-tab-panel">
       <div className="dashboard-kpis">
