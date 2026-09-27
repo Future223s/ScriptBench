@@ -8,15 +8,13 @@ import {
   CatalogPagination,
   ColumnFilter,
   DataTable,
-  Icon,
-  IconButton,
   StatusBadge,
   TextInput,
 } from "../../ui/primitives/index.js";
 import { WorkflowStepsOverlays } from "./WorkflowStepsOverlays.js";
 import { workflowStepsFilterConfig } from "../../hooks/workflow-steps/workflowStepsShared.js";
 
-function workflowStepColumns(actions) {
+function workflowStepColumns() {
   return [
     {
       id: "name",
@@ -62,26 +60,12 @@ function workflowStepColumns(actions) {
       width: "10%",
       render: (row) => <StatusBadge>{row.status || "draft"}</StatusBadge>,
     },
-    {
-      id: "actions",
-      label: "",
-      width: "6%",
-      className: "ui-data-table__actions",
-      render: (row) => (
-        <IconButton
-          label={`Delete ${row.name}`}
-          variant="danger"
-          onClick={() => actions.deleteWorkflowStep(row.id)}
-        >
-          <Icon name="delete" />
-        </IconButton>
-      ),
-    },
   ];
 }
 
 export function WorkflowStepsPageView({ state, actions }) {
   const [openFilterId, setOpenFilterId] = useState("");
+  const [openRowActionsId, setOpenRowActionsId] = useState("");
   const [page, setPage] = useState(0);
   const filters = workflowStepsFilterConfig("workflow-step", state, actions);
   const searchFilter = filters.find((filter) => filter.kind !== "select");
@@ -99,7 +83,7 @@ export function WorkflowStepsPageView({ state, actions }) {
   const safePage = Math.min(page, pageCount - 1);
   const pageStart = safePage * pageSize;
   const visibleRecords = records.slice(pageStart, pageStart + pageSize);
-  const columns = workflowStepColumns(actions).map((column, index, allColumns) => {
+  const columns = workflowStepColumns().map((column, index, allColumns) => {
     const filter = columnFilters.get(column.filterId);
     if (!filter) return column;
     const active = String(filter.value ?? "") !== "";
@@ -111,9 +95,10 @@ export function WorkflowStepsPageView({ state, actions }) {
           active={active}
           open={openFilterId === filter.id}
           align={index === allColumns.length - 1 ? "end" : "start"}
-          onToggle={() =>
-            setOpenFilterId((current) => current === filter.id ? "" : filter.id)
-          }
+          onToggle={() => {
+            setOpenRowActionsId("");
+            setOpenFilterId((current) => current === filter.id ? "" : filter.id);
+          }}
         >
           {(filter.options || []).map((option) => (
             <button
@@ -140,6 +125,7 @@ export function WorkflowStepsPageView({ state, actions }) {
   useEffect(() => {
     setPage(0);
     setOpenFilterId("");
+    setOpenRowActionsId("");
   }, [filterSignature]);
 
   return (
@@ -182,6 +168,24 @@ export function WorkflowStepsPageView({ state, actions }) {
           onRowActivate={(row) =>
             actions.openWorkflowStepDetail(row.type, row.id)
           }
+          rowActions={(row) => [
+            {
+              id: "open",
+              label: "Open details",
+              onSelect: () => actions.openWorkflowStepDetail(row.type, row.id),
+            },
+            {
+              id: "delete",
+              label: "Delete",
+              tone: "danger",
+              onSelect: () => actions.deleteWorkflowStep(row.id),
+            },
+          ]}
+          openRowActionsId={openRowActionsId}
+          onOpenRowActionsChange={(rowId) => {
+            setOpenRowActionsId(rowId);
+            if (rowId) setOpenFilterId("");
+          }}
           emptyState={
             state.loading
               ? "Loading workflow steps..."
