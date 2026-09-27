@@ -38,8 +38,8 @@ class WorkflowDagNodeRecord(BaseModel):
 
 class WorkflowDagNodeCreateRequest(BaseModel):
     workflow_step_id: int = Field(gt=0)
-    row: int = Field(ge=1)
-    col: int = Field(ge=1)
+    row: int
+    col: int
     model_config = ConfigDict(extra="forbid")
 
 

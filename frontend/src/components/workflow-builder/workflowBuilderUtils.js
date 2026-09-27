@@ -1,31 +1,47 @@
+export const CANVAS_MIN_ROWS = 15;
+export const CANVAS_MIN_COLS = 21;
+export const CANVAS_NODE_ROW_SPAN = 3;
+export const CANVAS_NODE_COL_SPAN = 6;
+
+export function canvasNodesOverlap(left, right) {
+  return (
+    Math.abs(Number(left.row) - Number(right.row)) < CANVAS_NODE_ROW_SPAN &&
+    Math.abs(Number(left.col) - Number(right.col)) < CANVAS_NODE_COL_SPAN
+  );
+}
+
+export function isCanvasPlacementAvailable(nodes, row, col) {
+  return !(nodes || []).some((node) =>
+    canvasNodesOverlap(node, { row, col }),
+  );
+}
+
 export function getCanvasBounds(state) {
-  const minRows = 5;
-  const minCols = 7;
+  const minRows = CANVAS_MIN_ROWS;
+  const minCols = CANVAS_MIN_COLS;
 
   if (!state.nodes.length) {
     return {
-      minRow: 1,
-      maxRow: minRows,
-      minCol: 1,
-      maxCol: 7,
+      minRow: -7,
+      maxRow: 7,
+      minCol: -10,
+      maxCol: 10,
       rows: minRows,
-      cols: 7,
+      cols: minCols,
     };
   }
 
   const rows = state.nodes.map((node) => Number(node.row));
   const cols = state.nodes.map((node) => Number(node.col));
-  // Coordinates persisted by the API are one-based. Keep the expanded canvas
-  // one-based too, so selecting an empty leading cell cannot submit row/col 0.
-  let minRow = Math.max(1, Math.min(...rows) - 1);
+  let minRow = Math.min(...rows) - 1;
   let maxRow = Math.max(...rows) + 1;
-  let minCol = Math.max(1, Math.min(...cols) - 1);
+  let minCol = Math.min(...cols) - 1;
   let maxCol = Math.max(...cols) + 1;
 
   const rowSpan = maxRow - minRow + 1;
   if (rowSpan < minRows) {
     const extraRows = minRows - rowSpan;
-    const rowsBefore = Math.min(minRow - 1, Math.floor(extraRows / 2));
+    const rowsBefore = Math.floor(extraRows / 2);
     minRow -= rowsBefore;
     maxRow += extraRows - rowsBefore;
   }
@@ -33,7 +49,7 @@ export function getCanvasBounds(state) {
   const colSpan = maxCol - minCol + 1;
   if (colSpan < minCols) {
     const extraCols = minCols - colSpan;
-    const colsBefore = Math.min(minCol - 1, Math.floor(extraCols / 2));
+    const colsBefore = Math.floor(extraCols / 2);
     minCol -= colsBefore;
     maxCol += extraCols - colsBefore;
   }

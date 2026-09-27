@@ -27,6 +27,9 @@ from backend.models.workflow_dag_nodes import (
 router = APIRouter(tags=["workflow-dag-v2"])
 logger = logging.getLogger(__name__)
 
+CANVAS_NODE_ROW_SPAN = 3
+CANVAS_NODE_COL_SPAN = 6
+
 
 def _workflow_or_404(engine, workflow_id: int):
     workflow = WorkflowsRepository(engine).fetch(workflow_id)
@@ -107,11 +110,12 @@ def create_workflow_dag_node(
     repository = WorkflowDagRepository(engine)
     existing = repository.list_nodes(workflow_id)
     if any(
-        int(row["row"]) == payload.row and int(row["col"]) == payload.col
+        abs(int(row["row"]) - payload.row) < CANVAS_NODE_ROW_SPAN
+        and abs(int(row["col"]) - payload.col) < CANVAS_NODE_COL_SPAN
         for row in existing
     ):
         raise HTTPException(
-            status_code=409, detail="Canvas position is already occupied"
+            status_code=409, detail="Canvas position overlaps another workflow step"
         )
 
     node_id = repository.insert_node(

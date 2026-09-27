@@ -296,7 +296,7 @@ class BootstrapRepository:
             conn.execute(
                 update(workflow_dag_nodes)
                 .where(workflow_dag_nodes.c.id == nodes[0])
-                .values(workflow_step_id=workflow_step_id, row=2, col=4)
+                .values(workflow_step_id=workflow_step_id, row=6, col=12)
             )
             if len(nodes) > 1:
                 conn.execute(
@@ -309,7 +309,7 @@ class BootstrapRepository:
                 insert(workflow_dag_nodes).values(
                     workflow_id=workflow_id,
                     workflow_step_id=workflow_step_id,
-                    row=2,
-                    col=4,
+                    row=6,
+                    col=12,
                 )
             )

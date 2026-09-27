@@ -6,9 +6,11 @@ import { workflowBuilderApi } from "../../api/endpoints/workflowBuilder.ts";
 import { APP_DATA_CHANGED_EVENT } from "../../utils/appEvents.js";
 import { defaultWorkflowDraft } from "../../utils/workflow.js";
 import { useNotificationOverlay } from "../../components/layout/NotificationOverlay.js";
-
-const INITIAL_CANVAS_ROWS = 3;
-const INITIAL_CANVAS_COLS = 7;
+import {
+  CANVAS_MIN_COLS,
+  CANVAS_MIN_ROWS,
+  isCanvasPlacementAvailable,
+} from "../../components/workflow-builder/workflowBuilderUtils.js";
 
 function createEmptyWorkflowDraft() {
   return {
@@ -320,16 +322,21 @@ export function useWorkflowBuilderPage() {
   }
 
   function selectPlacementTarget(row, col) {
-    setState((current) => ({
-      ...current,
-      selectedPlacement: { row, col },
-      assignmentOpen: true,
-      assignmentMode: "existing",
-      assignmentStepId: current.assignmentStepId || current.stepCatalog[0]?.id || "",
-      detailOpen: false,
-      detailNodeId: null,
-      error: "",
-    }));
+    setState((current) => {
+      if (!isCanvasPlacementAvailable(current.nodes, row, col)) {
+        return { ...current, error: "Choose a position that does not overlap another step." };
+      }
+      return {
+        ...current,
+        selectedPlacement: { row, col },
+        assignmentOpen: true,
+        assignmentMode: "existing",
+        assignmentStepId: current.assignmentStepId || current.stepCatalog[0]?.id || "",
+        detailOpen: false,
+        detailNodeId: null,
+        error: "",
+      };
+    });
   }
 
   function closeNodeDetail() {
@@ -406,6 +413,17 @@ export function useWorkflowBuilderPage() {
     const current = state;
     if (!current.selectedPlacement) {
       setState((value) => ({ ...value, error: "Choose a canvas position first." }));
+      return;
+    }
+    if (!isCanvasPlacementAvailable(
+      current.nodes,
+      current.selectedPlacement.row,
+      current.selectedPlacement.col,
+    )) {
+      setState((value) => ({
+        ...value,
+        error: "Choose a position that does not overlap another step.",
+      }));
       return;
     }
     const selectedStep = current.stepCatalog.find(
@@ -797,8 +815,8 @@ export function useWorkflowBuilderPage() {
   return {
     state: {
       ...state,
-      initialCanvasRows: INITIAL_CANVAS_ROWS,
-      initialCanvasCols: INITIAL_CANVAS_COLS,
+      initialCanvasRows: CANVAS_MIN_ROWS,
+      initialCanvasCols: CANVAS_MIN_COLS,
     },
     actions: {
       setWorkflowDraftField,

@@ -8,7 +8,9 @@ import {
 } from '../src/hooks/workflow-steps/workflowStepsShared.js';
 import { buildWorkflowPayload } from '../src/utils/workflow.js';
 import { buildCharacterDiff } from '../src/utils/textDiff.js';
-import { getCanvasBounds } from '../src/components/workflow-builder/workflowBuilderUtils.js';
+import {
+  getCanvasBounds, isCanvasPlacementAvailable,
+} from '../src/components/workflow-builder/workflowBuilderUtils.js';
 
 test('step output diff refines substitutions at character level', () => {
   assert.deepEqual(buildCharacterDiff('riwer', 'river'), [
@@ -85,14 +87,19 @@ test('workflow form emits canonical local fields and qualified sample-set relati
   });
 });
 
-test('workflow canvas keeps vertical placement lanes compact', () => {
+test('workflow canvas uses a granular grid and reserves each node footprint', () => {
   assert.deepEqual(getCanvasBounds({ nodes: [] }), {
-    minRow: 1,
-    maxRow: 5,
-    minCol: 1,
-    maxCol: 7,
-    rows: 5,
-    cols: 7,
+    minRow: -7,
+    maxRow: 7,
+    minCol: -10,
+    maxCol: 10,
+    rows: 15,
+    cols: 21,
   });
-  assert.equal(getCanvasBounds({ nodes: [{ row: 2, col: 4 }] }).rows, 5);
+  const nodes = [{ row: 6, col: 12 }];
+  assert.equal(getCanvasBounds({ nodes }).rows, 15);
+  assert.equal(getCanvasBounds({ nodes }).cols, 21);
+  assert.equal(isCanvasPlacementAvailable(nodes, 8, 17), false);
+  assert.equal(isCanvasPlacementAvailable(nodes, 9, 12), true);
+  assert.equal(isCanvasPlacementAvailable(nodes, 6, 18), true);
 });

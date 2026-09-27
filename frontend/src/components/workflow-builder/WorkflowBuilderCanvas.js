@@ -9,7 +9,11 @@ import {
   Inline,
   StatusBadge,
 } from "../../ui/primitives/index.js";
-import { getCanvasBounds, findNode } from "./workflowBuilderUtils.js";
+import {
+  findNode,
+  getCanvasBounds,
+  isCanvasPlacementAvailable,
+} from "./workflowBuilderUtils.js";
 
 export function WorkflowBuilderCanvas({ state, actions }) {
   const bounds = getCanvasBounds(state);
@@ -42,9 +46,9 @@ export function WorkflowBuilderCanvas({ state, actions }) {
     if (x < 0 || x > 1 || y < 0 || y > 1) return null;
     const row = bounds.minRow + Math.min(bounds.rows - 1, Math.floor(y * bounds.rows));
     const col = bounds.minCol + Math.min(bounds.cols - 1, Math.floor(x * bounds.cols));
-    return state.nodes.some((node) => Number(node.row) === row && Number(node.col) === col)
-      ? null
-      : { row, col };
+    return isCanvasPlacementAvailable(state.nodes, row, col)
+      ? { row, col }
+      : null;
   }
 
   return (

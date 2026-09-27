@@ -245,7 +245,12 @@ class CanonicalContractsTests(unittest.TestCase):
         base = f"workflows/{workflow['id']}"
         nodes = [self.post(base + '/workflow-dag-nodes', {
             'workflow_step_id': step['id'], 'row': 1, 'col': col,
-        }) for col in (1, 2)]
+        }) for col in (1, 7)]
+        overlap = self.client.post('/api/v2/' + base + '/workflow-dag-nodes', json={
+            'workflow_step_id': step['id'], 'row': 2, 'col': 5,
+        })
+        self.assertEqual(409, overlap.status_code, overlap.text)
+        self.assertIn('overlaps', overlap.json()['detail'])
         edge = self.post(base + '/workflow-dag-edges', {
             'from_workflow_dag_node_id': nodes[0]['id'], 'to_workflow_dag_node_id': nodes[1]['id'],
             'condition': {'type': 'depends_on'},
@@ -298,7 +303,7 @@ class CanonicalContractsTests(unittest.TestCase):
             'workflow_step_id': source_step['id'], 'row': 1, 'col': 1,
         })
         dependent_node = self.post(valid_base + '/workflow-dag-nodes', {
-            'workflow_step_id': dependent_step['id'], 'row': 1, 'col': 2,
+            'workflow_step_id': dependent_step['id'], 'row': 1, 'col': 7,
         })
         self.post(valid_base + '/workflow-dag-edges', {
             'from_workflow_dag_node_id': source_node['id'],
@@ -331,7 +336,7 @@ class CanonicalContractsTests(unittest.TestCase):
             'workflow_step_id': dependent_step['id'], 'row': 1, 'col': 1,
         })
         source_node = self.post(invalid_base + '/workflow-dag-nodes', {
-            'workflow_step_id': source_step['id'], 'row': 1, 'col': 2,
+            'workflow_step_id': source_step['id'], 'row': 1, 'col': 7,
         })
         self.post(invalid_base + '/workflow-dag-edges', {
             'from_workflow_dag_node_id': dependent_node['id'],
@@ -347,7 +352,7 @@ class CanonicalContractsTests(unittest.TestCase):
             'workflow_step_id': source_step['id'], 'row': 1, 'col': 1,
         })
         second_node = self.post(cyclic_base + '/workflow-dag-nodes', {
-            'workflow_step_id': source_step['id'], 'row': 1, 'col': 2,
+            'workflow_step_id': source_step['id'], 'row': 1, 'col': 7,
         })
         self.post(cyclic_base + '/workflow-dag-edges', {
             'from_workflow_dag_node_id': first_node['id'],
@@ -399,7 +404,7 @@ class CanonicalContractsTests(unittest.TestCase):
             'workflow_step_id': source_step['id'], 'row': 1, 'col': 1,
         })
         final_node = self.post(base + '/workflow-dag-nodes', {
-            'workflow_step_id': final_step['id'], 'row': 1, 'col': 2,
+            'workflow_step_id': final_step['id'], 'row': 1, 'col': 7,
         })
         self.post(base + '/workflow-dag-edges', {
             'from_workflow_dag_node_id': source_node['id'],
