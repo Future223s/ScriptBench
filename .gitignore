@@ -135,3 +135,11 @@ uploads/
 outputs/
 results/
 artifacts/
+
+
+# =========================
+# Local Documentation / Tutorials
+# =========================
+
+docs/
+tutorials/
