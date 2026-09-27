@@ -11,6 +11,7 @@ import { buildCharacterDiff } from '../src/utils/textDiff.js';
 import {
   getCanvasBounds, isCanvasPlacementAvailable,
 } from '../src/components/workflow-builder/workflowBuilderUtils.js';
+import { zoomImageView } from '../src/ui/primitives/imageFrameUtils.js';
 
 test('step output diff refines substitutions at character level', () => {
   assert.deepEqual(buildCharacterDiff('riwer', 'river'), [
@@ -102,4 +103,13 @@ test('workflow canvas uses a granular grid and reserves each node footprint', ()
   assert.equal(isCanvasPlacementAvailable(nodes, 7, 15), false);
   assert.equal(isCanvasPlacementAvailable(nodes, 8, 12), true);
   assert.equal(isCanvasPlacementAvailable(nodes, 6, 16), true);
+});
+
+test('image zoom keeps the cursor point stationary', () => {
+  const focalPoint = { x: 120, y: -40 };
+  const current = { scale: 1, x: 0, y: 0 };
+  const zoomed = zoomImageView(current, 1, focalPoint);
+
+  assert.deepEqual(zoomed, { scale: 2, x: -120, y: 40 });
+  assert.deepEqual(zoomImageView(zoomed, -1, focalPoint), current);
 });

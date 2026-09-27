@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { zoomImageView } from "./imageFrameUtils.js";
 
 function joinClasses(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -1054,42 +1055,56 @@ export function ImageFrame({ variant = "static", src, alt, caption, actions }) {
 }
 
 function ZoomableImageFrame({ src, alt, caption, actions }) {
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [view, setView] = useState({ scale: 1, x: 0, y: 0 });
+  const viewport = useRef(null);
+  const focalPoint = useRef(null);
   const drag = useRef(null);
   const reset = () => {
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
+    setView({ scale: 1, x: 0, y: 0 });
   };
-  const zoom = (amount) =>
-    setScale((value) =>
-      Math.max(1, Math.min(4, Number((value + amount).toFixed(2)))),
-    );
+  const pointFromPointer = (event) => {
+    const rect = viewport.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: event.clientX - rect.left - rect.width / 2,
+      y: event.clientY - rect.top - rect.height / 2,
+    };
+  };
+  const zoom = (amount, point = focalPoint.current || { x: 0, y: 0 }) =>
+    setView((current) => zoomImageView(current, amount, point));
   return (
     <figure className="ui-image-frame ui-image-frame--zoomable">
       <div
+        ref={viewport}
         className="ui-image-frame__zoom-view"
         onWheel={(event) => {
           event.preventDefault();
-          zoom(event.deltaY < 0 ? 0.15 : -0.15);
+          const point = pointFromPointer(event);
+          focalPoint.current = point;
+          zoom(event.deltaY < 0 ? 0.15 : -0.15, point);
         }}
         onDoubleClick={reset}
         onPointerDown={(event) => {
-          if (scale === 1) return;
+          if (view.scale === 1) return;
           drag.current = {
-            x: event.clientX - position.x,
-            y: event.clientY - position.y,
+            x: event.clientX - view.x,
+            y: event.clientY - view.y,
           };
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
         onPointerMove={(event) => {
+          focalPoint.current = pointFromPointer(event);
           if (!drag.current) return;
-          setPosition({
+          setView((current) => ({
+            ...current,
             x: event.clientX - drag.current.x,
             y: event.clientY - drag.current.y,
-          });
+          }));
         }}
         onPointerUp={() => {
+          drag.current = null;
+        }}
+        onPointerCancel={() => {
           drag.current = null;
         }}
       >
@@ -1098,7 +1113,7 @@ function ZoomableImageFrame({ src, alt, caption, actions }) {
           alt={alt}
           draggable="false"
           style={{
-            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
           }}
         />
       </div>
@@ -1108,12 +1123,12 @@ function ZoomableImageFrame({ src, alt, caption, actions }) {
           <Button
             size="compact"
             onClick={() => zoom(-0.25)}
-            disabled={scale === 1}
+            disabled={view.scale === 1}
             aria-label="Zoom out"
           >
             −
           </Button>
-          <StatusBadge>{Math.round(scale * 100)}%</StatusBadge>
+          <StatusBadge>{Math.round(view.scale * 100)}%</StatusBadge>
           <Button
             size="compact"
             onClick={() => zoom(0.25)}
