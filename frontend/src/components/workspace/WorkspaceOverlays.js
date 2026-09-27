@@ -74,6 +74,9 @@ function ExecutionRowDetail({ row, onClose }) {
                 <StatusBadge>
                   {selectedRawOutput?.parse_status || "published"}
                 </StatusBadge>
+                {selectedRawOutput?.repair_applied ? (
+                  <StatusBadge tone="warning">JSON repaired</StatusBadge>
+                ) : null}
               </Inline>
               <Grid columns={3}>
                 <StatusBadge>
@@ -96,6 +99,11 @@ function ExecutionRowDetail({ row, onClose }) {
               <CodeBlock label="Raw response">
                 {selectedRawOutput.raw_model_response || "No raw response available."}
               </CodeBlock>
+              {selectedRawOutput.repair_applied && selectedRawOutput.repair_details ? (
+                <CodeBlock label="JSON repair">
+                  {selectedRawOutput.repair_details}
+                </CodeBlock>
+              ) : null}
             </>
           ) : (
             <StatusBadge>No output is available for this step.</StatusBadge>

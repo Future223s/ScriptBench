@@ -229,6 +229,9 @@ class ExecutionLifecycleTests(unittest.TestCase):
 
         self.assertEqual([1, 2], [row["attempt_no"] for row in attempts])
         self.assertEqual(["failed", "success"], [row["parse_status"] for row in attempts])
+        self.assertEqual([True, False], [row["repair_applied"] for row in attempts])
+        self.assertIn("Strict JSON parsing failed", attempts[0]["repair_details"])
+        self.assertIsNone(attempts[1]["repair_details"])
         self.assertEqual(1, len(published))
         self.assertEqual(attempts[1]["id"], published[0]["raw_output_id"])
         self.assertEqual({"text": "accepted"}, published[0]["output"])
@@ -254,6 +257,58 @@ class ExecutionLifecycleTests(unittest.TestCase):
         )
         self.assertEqual("success", valid.parse_status)
         self.assertEqual("failed", invalid.parse_status)
+
+    def test_truncated_json_is_repaired_before_contract_validation(self):
+        validator = OutputValidator(self.engine)
+        raw_response = '{"sample-1":"complete","sample-2":"partial transcription'
+        result = validator.resolve(
+            raw_response=raw_response,
+            output_spec={"item_schema": {"type": "string"}},
+            entity_ids=["sample-1", "sample-2"],
+        )
+
+        self.assertEqual("success", result.parse_status)
+        self.assertTrue(result.repair_applied)
+        self.assertIn("Unterminated string", result.repair_details)
+        self.assertEqual(
+            {"sample-1": "complete", "sample-2": "partial transcription"},
+            result.parsed_output,
+        )
+
+    def test_repaired_json_still_requires_the_exact_output_keys(self):
+        validator = OutputValidator(self.engine)
+        result = validator.resolve(
+            raw_response='{"sample-1":"complete",',
+            output_spec={"item_schema": {"type": "string"}},
+            entity_ids=["sample-1", "sample-2"],
+        )
+
+        self.assertEqual("failed", result.parse_status)
+        self.assertTrue(result.repair_applied)
+        self.assertIn("exactly once", result.parse_error)
+
+    def test_common_model_json_syntax_errors_are_repaired(self):
+        validator = OutputValidator(self.engine)
+        malformed_responses = (
+            '```json\n{"sample-1":"accepted"}\n```',
+            '{"sample-1":"accepted" "sample-2":"also accepted"}',
+            '{sample-1:"accepted"}',
+        )
+        expected_ids = (
+            ["sample-1"],
+            ["sample-1", "sample-2"],
+            ["sample-1"],
+        )
+
+        for raw_response, entity_ids in zip(malformed_responses, expected_ids):
+            with self.subTest(raw_response=raw_response):
+                result = validator.resolve(
+                    raw_response=raw_response,
+                    output_spec={"item_schema": {"type": "string"}},
+                    entity_ids=entity_ids,
+                )
+                self.assertEqual("success", result.parse_status)
+                self.assertTrue(result.repair_applied)
 
     def test_document_job_scores_each_sample_output_against_its_ground_truth(self):
         with self.engine.begin() as connection:

@@ -19,6 +19,8 @@ class RawOutputRecord(BaseModel):
     complete_output: Any = None
     parse_status: Literal["success", "failed"]
     parse_error: str | None = None
+    repair_applied: bool = False
+    repair_details: str | None = None
     time_elapsed: float
     started_at: datetime
     completed_at: datetime

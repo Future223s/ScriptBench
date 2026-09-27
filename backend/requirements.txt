@@ -12,3 +12,4 @@ Pillow
 dotenv
 anthropic
 jsonschema
+json-repair==0.63.5

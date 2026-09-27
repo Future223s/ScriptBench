@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -51,6 +52,8 @@ raw_outputs = Table(
     Column("complete_output", JSON, nullable=True),
     Column("parse_status", String(32), nullable=False, index=True),
     Column("parse_error", Text, nullable=True),
+    Column("repair_applied", Boolean, nullable=False, server_default="false"),
+    Column("repair_details", Text, nullable=True),
     Column("time_elapsed", Float, nullable=False),
     Column("started_at", DateTime(timezone=True), nullable=False),
     Column("completed_at", DateTime(timezone=True), nullable=False),

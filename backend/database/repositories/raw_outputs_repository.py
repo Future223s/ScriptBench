@@ -30,6 +30,8 @@ class RawOutputsRepository:
         time_elapsed: float,
         started_at,
         completed_at,
+        repair_applied: bool = False,
+        repair_details: str | None = None,
     ) -> int:
         with self.engine.begin() as connection:
             attempt_no = int(
@@ -54,6 +56,8 @@ class RawOutputsRepository:
                         complete_output=complete_output,
                         parse_status=parse_status,
                         parse_error=parse_error,
+                        repair_applied=repair_applied,
+                        repair_details=repair_details,
                         time_elapsed=time_elapsed,
                         started_at=started_at,
                         completed_at=completed_at,

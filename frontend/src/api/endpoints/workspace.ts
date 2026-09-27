@@ -198,6 +198,8 @@ export interface RawOutputRecord {
   complete_output: unknown;
   parse_status: "success" | "failed";
   parse_error: string | null;
+  repair_applied: boolean;
+  repair_details: string | null;
   time_elapsed: number;
   started_at: string;
   completed_at: string;

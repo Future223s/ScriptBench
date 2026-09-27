@@ -1,5 +1,4 @@
 from __future__ import annotations
-import json
 from dataclasses import dataclass
 from typing import Any
 from sqlalchemy.engine import Engine
@@ -8,6 +7,7 @@ from backend.database.repositories.step_outputs_repository import (
 )
 from backend.database.repositories.raw_outputs_repository import RawOutputsRepository
 from backend.services.scoring import ErrorComputationService
+from backend.services.json_repair_service import JsonRepairService
 
 
 @dataclass(frozen=True)
@@ -18,6 +18,8 @@ class ResolvedOutput:
     parse_error: str | None = None
     individual_outputs: list[dict[str, Any]] | None = None
     complete_output: Any = None
+    repair_applied: bool = False
+    repair_details: str | None = None
 
 
 class OutputValidator:
@@ -35,14 +37,26 @@ class OutputValidator:
         output_scope: str = "samples",
         entity_ids: list[str] | None = None,
     ):
-        try:
-            parsed = json.loads(raw_response)
-        except json.JSONDecodeError as e:
-            return ResolvedOutput(raw_response, None, "failed", str(e))
+        parse_result = JsonRepairService.parse(raw_response)
+        if parse_result.error:
+            return ResolvedOutput(
+                raw_response,
+                None,
+                "failed",
+                parse_result.error,
+                repair_applied=parse_result.repair_applied,
+                repair_details=parse_result.repair_details,
+            )
+        parsed = parse_result.value
         expected = [str(value) for value in entity_ids or []]
         if not isinstance(parsed, dict):
             return ResolvedOutput(
-                raw_response, None, "failed", "Output must be a JSON object keyed by stable entity IDs."
+                raw_response,
+                None,
+                "failed",
+                "Output must be a JSON object keyed by stable entity IDs.",
+                repair_applied=parse_result.repair_applied,
+                repair_details=parse_result.repair_details,
             )
         actual = [str(value) for value in parsed]
         if sorted(actual) != sorted(expected):
@@ -51,12 +65,21 @@ class OutputValidator:
                 None,
                 "failed",
                 "Output keys must match the resolved output entity IDs exactly once.",
+                repair_applied=parse_result.repair_applied,
+                repair_details=parse_result.repair_details,
             )
         item_schema = output_spec.get("item_schema") or {"type": "string"}
         for entity_id in expected:
             error = self._validate_item(parsed[entity_id], item_schema)
             if error:
-                return ResolvedOutput(raw_response, None, "failed", error)
+                return ResolvedOutput(
+                    raw_response,
+                    None,
+                    "failed",
+                    error,
+                    repair_applied=parse_result.repair_applied,
+                    repair_details=parse_result.repair_details,
+                )
         individual = [
             {"entity_id": entity_id, "output": parsed[entity_id]}
             for entity_id in expected
@@ -67,6 +90,8 @@ class OutputValidator:
             "success",
             individual_outputs=individual,
             complete_output=parsed,
+            repair_applied=parse_result.repair_applied,
+            repair_details=parse_result.repair_details,
         )
 
     @staticmethod
@@ -110,6 +135,8 @@ class OutputValidator:
             complete_output=response.complete_output,
             parse_status=response.parse_status,
             parse_error=response.parse_error,
+            repair_applied=response.repair_applied,
+            repair_details=response.repair_details,
             time_elapsed=time_elapsed,
             started_at=started_at,
             completed_at=completed_at,
