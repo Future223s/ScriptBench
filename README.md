@@ -73,6 +73,8 @@ Folder uploads infer these relationships from filenames:
 | Documentless derivative | `_page_derivative.png` |
 | Ground truth | `document_page_gt.txt` or `_page_gt.txt` |
 
+![Library document detail with its ordered source pages](assets/file-management.png)
+
 ## Workflow model
 
 The smallest unit of work is a **workflow step**, defined by an execution scope, an executor, a method, the runtime configuration (arguments) corresponding to that method, a payload template, and an output scope
@@ -95,6 +97,8 @@ together while publishing one final transcription for the source page.
 The Workflow Builder validates graph structure and dependencies. Workflows can run
 continuously along available end-to-end paths or stage by stage according to
 topological depth. Individual stages can be held or released.
+
+![Workflow Builder canvas for composing reusable processing steps](assets/workflow-builder.png)
 
 ### From workflow DAG to execution jobs
 
@@ -120,6 +124,8 @@ Finalizing a workflow resolves its authored DAG into a durable execution graph:
 Batch requests and responses are keyed by stable artifact IDs so inputs, outputs,
 and provenance remain aligned across every transition.
 
+![Workspace with a resolved execution graph and per-job queues](assets/workspace.png)
+
 ## Research workflow
 
 1. **Manage artifacts:** upload documents, pages, derivatives, and ground truth;
@@ -131,6 +137,8 @@ and provenance remain aligned across every transition.
 4. **Analyze results:** search outputs across workflows, compare CER and WER, and
    inspect localized disagreements between steps to identify where a pipeline
    improved or degraded a transcription.
+
+![Transcription detail with ground-truth differences aligned to the source image](assets/transcription-detail.png)
 
 ## Current benchmark
 
@@ -148,6 +156,10 @@ In this sample, Claude Fable 5.1 reduced mean CER by 31.8% and mean WER by
 self-correction reduced mean CER by 2.3% relative to its single pass and left mean
 WER effectively unchanged. These are development results from a small collection,
 not a general model leaderboard.
+
+![Side-by-side terminal workflow output comparison with localized disagreement regions](assets/outputs-comparison.png)
+
+![Detailed disagreement inspection with the source image and persisted model payload](assets/analysis.png)
 
 ## Architecture
 
