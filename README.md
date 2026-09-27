@@ -140,21 +140,24 @@ and provenance remain aligned across every transition.
 
 ![Transcription detail with ground-truth differences aligned to the source image](assets/transcription-detail.png)
 
-## Current benchmark
+## Results
 
-The current development database contains a like-for-like comparison on 19
-Economic Upheaval pages with ground truth. Lower scores are better.
+The latest development comparison uses the 98-page Malvern Hills sample set and
+submits every page from a document in one multi-image request. Gemini currently
+has scored outputs for all 98 pages; Fable has 82. To avoid comparing different
+page subsets, the metrics below are calculated only across the 82 pages scored by
+both workflows. Lower scores are better.
 
-| Method | Model | Pages | Mean CER | Mean WER |
-| --- | --- | ---: | ---: | ---: |
-| Claude Fable 5.1 | `claude-fable-5-1` | 19 | **0.2496** | **0.3486** |
-| Gemini self-correction | `gemini-3.1-flash-lite`, two passes | 19 | 0.3576 | 0.5252 |
-| Gemini single-pass | `gemini-3.1-flash-lite` | 19 | 0.3659 | 0.5258 |
+| Workflow | Model | Shared pages | Mean CER | Median CER | Mean WER | Median WER |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Fable multi-image | `claude-fable-5-1` | 82 | **0.0307** | **0.0214** | 0.1121 | 0.0937 |
+| Gemini multi-image | `gemini-3.1-flash-lite` | 82 | 0.0542 | 0.0407 | **0.1092** | **0.0785** |
 
-In this sample, Claude Fable 5.1 reduced mean CER by 31.8% and mean WER by
-33.7% relative to Gemini single-pass, with lower CER on 16 of 19 pages. Gemini
-self-correction reduced mean CER by 2.3% relative to its single pass and left mean
-WER effectively unchanged. These are development results from a small collection,
+On the paired subset, Fable reduced mean CER by 43.3% and achieved lower CER on
+73 of 82 pages. Word-level performance was mixed: Gemini's mean WER was 2.6%
+lower, with lower WER on 47 pages versus 30 for Fable and five ties. The result
+suggests that Fable's character-level improvements do not uniformly translate to
+better word boundaries. These remain development results from one collection,
 not a general model leaderboard.
 
 ![Side-by-side terminal workflow output comparison with localized disagreement regions](assets/outputs-comparison.png)
