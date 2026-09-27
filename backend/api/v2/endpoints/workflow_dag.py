@@ -27,6 +27,11 @@ from backend.models.workflow_dag_nodes import (
 router = APIRouter(tags=["workflow-dag-v2"])
 logger = logging.getLogger(__name__)
 
+# Minimum center-to-center separation for the rendered workflow-step card.
+# This mirrors the canonical 15 x 21 frontend grid without adding a buffer.
+CANVAS_NODE_ROW_SPAN = 2
+CANVAS_NODE_COL_SPAN = 4
+
 
 def _workflow_or_404(engine, workflow_id: int):
     workflow = WorkflowsRepository(engine).fetch(workflow_id)
@@ -100,17 +105,19 @@ def create_workflow_dag_node(
     workflow = _workflow_or_404(engine, workflow_id)
     _editable(workflow)
     steps = WorkflowStepsRepository(engine)
-    if steps.fetch(payload.workflow_step_id) is None:
+    step = steps.fetch(payload.workflow_step_id)
+    if step is None:
         raise HTTPException(status_code=404, detail="Workflow step not found")
 
     repository = WorkflowDagRepository(engine)
     existing = repository.list_nodes(workflow_id)
     if any(
-        int(row["row"]) == payload.row and int(row["col"]) == payload.col
+        abs(int(row["row"]) - payload.row) < CANVAS_NODE_ROW_SPAN
+        and abs(int(row["col"]) - payload.col) < CANVAS_NODE_COL_SPAN
         for row in existing
     ):
         raise HTTPException(
-            status_code=409, detail="Canvas position is already occupied"
+            status_code=409, detail="Canvas position overlaps another workflow step"
         )
 
     node_id = repository.insert_node(
@@ -119,6 +126,9 @@ def create_workflow_dag_node(
             "workflow_step_id": payload.workflow_step_id,
             "row": payload.row,
             "col": payload.col,
+            # Kept as a resolved compatibility snapshot for existing databases;
+            # workflow-step metadata is the authoring source of truth.
+            "execution_scope": step["execution_scope"],
         }
     )
     row = repository.fetch_node(node_id)

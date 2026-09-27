@@ -1,6 +1,13 @@
 "use client";
 
 export const managementModes = {
+  document: {
+    title: "Documents",
+    description: "Browse uploaded, virtual, and assembled documents.",
+    createAction: null,
+    createLabel: "",
+    deleteLabel: "Delete selected",
+  },
   sample: {
     title: "Samples",
     description: "Search samples and review the current set.",
@@ -11,8 +18,8 @@ export const managementModes = {
   derivative: {
     title: "Derivatives",
     description: "Search derivatives and review the current set.",
-    createAction: "create-derivative-group",
-    createLabel: "Save derivative group",
+    createAction: null,
+    createLabel: "",
     deleteLabel: "Delete selected",
   },
   asset: {
@@ -25,6 +32,11 @@ export const managementModes = {
 };
 
 export const DEFAULT_FILTERS = {
+  document: {
+    query: "",
+    queryMode: "contains",
+    pdfStatus: "",
+  },
   sample: {
     query: "",
     queryMode: "contains",
@@ -55,19 +67,19 @@ export const DEFAULT_FILTERS = {
 export const DEFAULT_DRAFTS = {
   sampleSetName: "",
   sampleSetDescription: "",
-  derivativeGroupName: "",
-  derivativeGroupDescription: "",
 };
 
 export const DEFAULT_SELECTIONS = {
+  document: [],
   sample: [],
   derivative: [],
   asset: [],
 };
 
 export const MANAGEMENT_DEFAULT_ACTION = {
+  document: "delete",
   sample: "create-sample-set",
-  derivative: "create-derivative-group",
+  derivative: "delete",
   asset: "delete",
 };
 
@@ -82,6 +94,7 @@ export function createEmptyFolderUploadProgress() {
 
 export function cloneFilters(filters = DEFAULT_FILTERS) {
   return {
+    document: { ...filters.document },
     sample: { ...filters.sample },
     derivative: { ...filters.derivative },
     asset: { ...filters.asset },
@@ -92,6 +105,7 @@ export function cloneFilters(filters = DEFAULT_FILTERS) {
 
 export function cloneSelections(selections = DEFAULT_SELECTIONS) {
   return {
+    document: [...(selections.document || [])],
     sample: [...(selections.sample || [])],
     derivative: [...(selections.derivative || [])],
     asset: [...(selections.asset || [])],
@@ -103,7 +117,7 @@ export function currentDefaultAction(type) {
 }
 
 export function normalizeManagementType(type) {
-  if (type === "derivative" || type === "asset") return type;
+  if (type === "document" || type === "derivative" || type === "asset") return type;
   return "sample";
 }
 
@@ -113,6 +127,7 @@ export function normalizeManagementAction(type, action) {
 }
 
 export function objectTypeLabel(type) {
+  if (type === "document") return "Documents";
   if (type === "derivative") return "Derivatives";
   if (type === "asset") return "Assets";
   return "Samples";
@@ -142,6 +157,34 @@ function metadataEntriesFromObject(source, excludedKeys) {
 export function normalizeRecordPreview(type, record, derivativeGroups = []) {
   const normalizedType = normalizeManagementType(type);
   if (!record) return null;
+
+  if (normalizedType === "document") {
+    return {
+      id: recordIdToString(record.id),
+      name: record.name || record.id || "Document",
+      type: normalizedType,
+      typeLabel: "Document",
+      mimeType: record.mime_type || "application/pdf",
+      blobBase64: record.blob_base64 || "",
+      blobSize: record.blob_size || 0,
+      metadata: [
+        ["ID", record.id],
+        ["Pages", record.sample_count || 0],
+        ["PDF", record.has_blob ? "Available" : "Virtual"],
+      ],
+      detailSections: [
+        {
+          title: "Ordered sample pages",
+          content: (record.sample_names || record.sample_ids || []).join("\n"),
+        },
+      ],
+      additionalMetadata: metadataEntriesFromObject(
+        record.metadata || {},
+        new Set(),
+      ),
+      raw: record,
+    };
+  }
 
   if (normalizedType === "derivative") {
     const metadata = [
@@ -213,6 +256,7 @@ export function normalizeRecordPreview(type, record, derivativeGroups = []) {
       name: record.name || "Asset",
       type: normalizedType,
       typeLabel: "Asset",
+      assetType: record.type || "",
       mimeType: record.mime_type || "",
       blobBase64: record.blob_base64 || "",
       blobSize: record.blob_size || 0,
@@ -249,12 +293,6 @@ export function normalizeRecordPreview(type, record, derivativeGroups = []) {
     blobBase64: record.blob_base64 || "",
     blobSize: record.blob_size || 0,
     metadata,
-    detailSections: [
-      {
-        title: "Ground truth",
-        content: record.ground_truth_text || "",
-      },
-    ],
     additionalMetadata: metadataEntriesFromObject(
       record,
       new Set([
@@ -304,26 +342,16 @@ export function createSampleFilterConfig({ filters, sampleSets, onChange }) {
       label: "Search",
       kind: "text",
       value: filters.query,
+      defaultValue: "",
       placeholder: "Sample ID, name, or ground truth",
       onChange: (value) => onChange("query", value),
-    },
-    {
-      id: "sample-match-mode",
-      label: "Match",
-      kind: "select",
-      value: filters.queryMode,
-      onChange: (value) => onChange("queryMode", value),
-      options: [
-        { value: "contains", label: "Contains" },
-        { value: "starts-with", label: "Begins with" },
-        { value: "exact", label: "Exact" },
-      ],
     },
     {
       id: "sample-set-filter",
       label: "Sample set",
       kind: "select",
       value: filters.sampleSetId,
+      defaultValue: "",
       onChange: (value) => onChange("sampleSetId", value),
       options: [
         { value: "", label: "All sample sets" },
@@ -343,6 +371,7 @@ export function createSampleSetFilterConfig({ filters, onChange }) {
       label: "Search",
       kind: "text",
       value: filters.query,
+      defaultValue: "",
       placeholder: "Name or description",
       onChange: (value) => onChange("query", value),
     },
@@ -351,6 +380,7 @@ export function createSampleSetFilterConfig({ filters, onChange }) {
       label: "Status",
       kind: "select",
       value: filters.status,
+      defaultValue: "",
       onChange: (value) => onChange("status", value),
       options: [
         { value: "", label: "All statuses" },
@@ -377,6 +407,7 @@ export function createDerivativeGroupFilterConfig({
       label: "Search",
       kind: "text",
       value: filters.query,
+      defaultValue: "",
       placeholder: "Name or description",
       onChange: (value) => onChange("query", value),
     },
@@ -385,22 +416,11 @@ export function createDerivativeGroupFilterConfig({
       label: "Mapping type",
       kind: "select",
       value: filters.mappingType,
+      defaultValue: "",
       onChange: (value) => onChange("mappingType", value),
       options: [
         { value: "", label: "All mapping types" },
         ...mappingTypes.map((value) => ({ value, label: value })),
-      ],
-    },
-    {
-      id: "derivative-group-match-mode",
-      label: "Match",
-      kind: "select",
-      value: filters.queryMode,
-      onChange: (value) => onChange("queryMode", value),
-      options: [
-        { value: "contains", label: "Contains" },
-        { value: "starts-with", label: "Begins with" },
-        { value: "exact", label: "Exact" },
       ],
     },
   ];
@@ -448,6 +468,19 @@ function visibleSamples(state) {
         filters.query,
         filters.queryMode,
       )
+    );
+  });
+}
+
+function visibleDocuments(state) {
+  const filters = state.appliedFilters.document;
+  return (state.documents || []).filter((document) => {
+    if (filters.pdfStatus === "available" && !document.has_blob) return false;
+    if (filters.pdfStatus === "virtual" && document.has_blob) return false;
+    return matchesTextMode(
+      `${document.name || ""} ${document.id || ""}`,
+      filters.query,
+      filters.queryMode,
     );
   });
 }
@@ -545,6 +578,7 @@ function visibleDerivativeGroups(state) {
 }
 
 export function visibleRecordsForType(state, type) {
+  if (type === "document") return visibleDocuments(state);
   if (type === "sampleSet") return visibleSampleSets(state);
   if (type === "derivativeGroup") return visibleDerivativeGroups(state);
   if (type === "derivative") return visibleDerivatives(state);

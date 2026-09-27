@@ -1,7 +1,15 @@
 "use client";
 
-import { Modal } from "../common/Modal.js";
 import { SampleFilterPanel } from "../file-management/SampleFilterPanel.js";
+import {
+  Button,
+  Dialog,
+  Field,
+  Inline,
+  Stack,
+  Textarea,
+  TextInput,
+} from "../../ui/primitives/index.js";
 
 export function SampleSetCreateModal({
   open,
@@ -13,58 +21,53 @@ export function SampleSetCreateModal({
   actions,
 }) {
   return (
-    <Modal
+    <Dialog
       open={open}
-      panelClassName="sample-set-create-modal"
-      data-modal="sample-set-create"
-      onClick={(event) => {
-        if (event.target === event.currentTarget)
-          actions.closeCreateSampleSet();
-      }}
+      title="Create sample set"
+      description="Choose an ordered group of samples for workflow runs."
+      size="wide"
+      onClose={actions.closeCreateSampleSet}
+      footer={
+        <Inline gap="compact" justify="end">
+          <Button onClick={actions.closeCreateSampleSet} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={actions.submitCreateSampleSet}
+            disabled={loading}
+          >
+            {loading ? "Creating…" : "Create sample set"}
+          </Button>
+        </Inline>
+      }
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>Create Sample Set</h2>
-          <span>Choose an ordered group of samples for workflow runs.</span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateSampleSet}
-        >
-          Close
-        </button>
-      </div>
-      <div className="modal-body sample-set-create-body">
-        <div className="form-grid">
-          <div className="field wide">
-            <label htmlFor="sample-set-name">Sample set name</label>
-            <input
-              id="sample-set-name"
-              value={draft.name}
-              onChange={(event) =>
-                actions.updateCreateSampleSetField("name", event.target.value)
-              }
-              placeholder="Evaluation set"
-              autoFocus
-            />
-          </div>
-          <div className="field wide">
-            <label htmlFor="sample-set-description">Description</label>
-            <textarea
-              id="sample-set-description"
-              rows="3"
-              value={draft.description}
-              onChange={(event) =>
-                actions.updateCreateSampleSetField(
-                  "description",
-                  event.target.value,
-                )
-              }
-              placeholder="Samples used for the evaluation workflow"
-            />
-          </div>
-        </div>
+      <Stack>
+        <Field label="Sample set name">
+          <TextInput
+            id="sample-set-name"
+            value={draft.name}
+            onChange={(event) =>
+              actions.updateCreateSampleSetField("name", event.target.value)
+            }
+            placeholder="Evaluation set"
+            autoFocus
+          />
+        </Field>
+        <Field label="Description">
+          <Textarea
+            id="sample-set-description"
+            rows="3"
+            value={draft.description}
+            onChange={(event) =>
+              actions.updateCreateSampleSetField(
+                "description",
+                event.target.value,
+              )
+            }
+            placeholder="Samples used for the evaluation workflow"
+          />
+        </Field>
         <SampleFilterPanel
           filters={filters}
           actions={filterActions}
@@ -106,25 +109,7 @@ export function SampleSetCreateModal({
             ) : null
           }
         />
-      </div>
-      <div className="modal-footer">
-        <button
-          className="btn-secondary"
-          type="button"
-          onClick={actions.closeCreateSampleSet}
-          disabled={loading}
-        >
-          Cancel
-        </button>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={actions.submitCreateSampleSet}
-          disabled={loading}
-        >
-          {loading ? "Creating…" : "Create sample set"}
-        </button>
-      </div>
-    </Modal>
+      </Stack>
+    </Dialog>
   );
 }

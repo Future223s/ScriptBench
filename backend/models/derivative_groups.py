@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 def _format_derivative_group_timestamp(value: datetime) -> str:
@@ -25,7 +25,6 @@ class DerivativeGroupCreateRequest(BaseModel):
     description: str | None = None
     position_rule: dict[str, object] | None = None
     mapping_type: str = "one-to-one"
-    derivative_ids: list[int] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
 

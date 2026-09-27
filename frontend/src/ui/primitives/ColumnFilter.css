@@ -1,0 +1,74 @@
+.ui-column-filter {
+  position: relative;
+}
+
+.ui-column-filter > button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+}
+
+.ui-column-filter > button.is-open {
+  color: var(--text-primary);
+}
+
+.ui-column-filter__dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.ui-column-filter__chevron {
+  font-size: 10px;
+}
+
+.ui-column-filter__menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  width: 210px;
+  gap: 2px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-soft);
+}
+
+.ui-column-filter--end .ui-column-filter__menu {
+  right: 0;
+  left: auto;
+}
+
+.ui-column-filter__menu > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+.ui-column-filter__menu > button:hover,
+.ui-column-filter__menu > button.is-selected {
+  background: var(--surface-2);
+}
+
+.ui-column-filter__menu > button.is-selected::after {
+  color: var(--accent);
+  content: "✓";
+}

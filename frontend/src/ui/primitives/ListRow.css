@@ -1,0 +1,32 @@
+.ui-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px var(--space-2);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.ui-list-row.is-selected {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.ui-list-row__copy {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.ui-list-row__copy strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-body-sm);
+}
+.ui-list-row__copy span {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+}
+.ui-list-row__action {
+  flex: 0 0 auto;
+  margin-left: auto;
+}

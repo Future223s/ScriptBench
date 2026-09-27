@@ -1,0 +1,6 @@
+.ui-icon {
+  display: block;
+  width: var(--space-3);
+  height: var(--space-3);
+}
+

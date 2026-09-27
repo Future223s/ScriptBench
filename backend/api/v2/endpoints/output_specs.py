@@ -60,7 +60,6 @@ def create_output_spec(
     output_spec_id = repository.insert(
         {
             "name": name,
-            "type": payload.type,
             "item_schema": payload.item_schema,
             "instructions": (
                 payload.instructions.strip() if payload.instructions else None

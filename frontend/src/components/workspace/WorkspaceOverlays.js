@@ -16,6 +16,7 @@ import {
 function ExecutionRowDetail({ row, onClose }) {
   const workflowSteps = row?.workflow_steps || [];
   const stepOutputs = row?.step_outputs || [];
+  const rawOutputs = row?.raw_outputs || [];
   const [selectedStepId, setSelectedStepId] = useState("");
   const defaultStepId = String(
     stepOutputs[0]?.workflow_step_id ??
@@ -32,10 +33,13 @@ function ExecutionRowDetail({ row, onClose }) {
     );
   }, [defaultStepId, row?.id, workflowSteps]);
   const activeStepId = selectedStepId || defaultStepId;
-  const selectedOutput = stepOutputs.find(
+  const selectedOutputs = stepOutputs.filter(
     (output) => String(output.workflow_step_id) === activeStepId,
   );
-  const displayedOutput = selectedOutput;
+  const selectedOutput = selectedOutputs[0];
+  const selectedRawOutput = [...rawOutputs]
+    .reverse()
+    .find((output) => String(output.workflow_step_id) === activeStepId);
   return (
     <Dialog
       open={Boolean(row)}
@@ -64,38 +68,42 @@ function ExecutionRowDetail({ row, onClose }) {
               ))}
             </Select>
           </Field>
-          {displayedOutput ? (
+          {selectedRawOutput ? (
             <>
               <Inline gap="compact">
                 <StatusBadge>
-                  {selectedOutput?.parse_status || "unknown"}
+                  {selectedRawOutput?.parse_status || "published"}
                 </StatusBadge>
+                {selectedRawOutput?.repair_applied ? (
+                  <StatusBadge tone="warning">JSON repaired</StatusBadge>
+                ) : null}
               </Inline>
               <Grid columns={3}>
                 <StatusBadge>
                   CER{" "}
-                  {selectedOutput.cer != null
+                  {selectedOutput?.cer != null
                     ? Number(selectedOutput.cer).toFixed(3)
                     : "Not scored"}
                 </StatusBadge>
                 <StatusBadge>
                   WER{" "}
-                  {selectedOutput.wer != null
+                  {selectedOutput?.wer != null
                     ? Number(selectedOutput.wer).toFixed(3)
                     : "Not scored"}
                 </StatusBadge>
                 <StatusBadge>
                   Hallucinations{" "}
-                  {selectedOutput.hallucination_count ?? "Not scored"}
+                  {selectedOutput?.hallucination_count ?? "Not scored"}
                 </StatusBadge>
               </Grid>
-              <CodeBlock label="Step output">
-                {selectedOutput?.parsed_output != null
-                  ? typeof selectedOutput.parsed_output === "string"
-                    ? selectedOutput.parsed_output
-                    : JSON.stringify(selectedOutput.parsed_output, null, 2)
-                  : selectedOutput?.raw_model_response || "No structured output available."}
+              <CodeBlock label="Raw response">
+                {selectedRawOutput.raw_model_response || "No raw response available."}
               </CodeBlock>
+              {selectedRawOutput.repair_applied && selectedRawOutput.repair_details ? (
+                <CodeBlock label="JSON repair">
+                  {selectedRawOutput.repair_details}
+                </CodeBlock>
+              ) : null}
             </>
           ) : (
             <StatusBadge>No output is available for this step.</StatusBadge>
@@ -117,8 +125,11 @@ function FailureOverlay({ failure, actions }) {
           <Button variant="primary" onClick={actions.retryFailure}>
             Retry
           </Button>
-          <Button variant="danger" onClick={actions.stopFailureExecution}>
-            Stop execution
+          <Button onClick={actions.skipFailure}>
+            Skip for now
+          </Button>
+          <Button variant="danger" onClick={actions.abortFailure}>
+            Abort
           </Button>
         </Inline>
       }

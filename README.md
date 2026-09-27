@@ -1,230 +1,187 @@
 # ScriptBench
 
-ScriptBench is a web app for uploading samples, organizing them into sample sets, running reproducible, fail-safe transcription workflows, and reviewing the outputs.
+ScriptBench is a platform for constructing, running, and evaluating composable
+handwritten text recognition (HTR) pipelines for historical documents at scale.
+It combines research experimentation with durable execution: researchers can
+compare transcription pipelines while preserving every input, model response,
+failure, and derived result.
 
-## Local setup
+Historical collections routinely contain hundreds or thousands of pages with
+irregular scripts, marginalia, historical spelling, bleed-through, and poor
+contrast. Established platforms such as
+[eScriptorium](https://escriptorium.readthedocs.io/en/latest/) and
+[Transkribus](https://help.transkribus.org/beginners-guide-to-transkribus)
+support segmentation and trained text-recognition models; conventional OCR and
+multimodal language models offer additional approaches. Each performs differently, and useful transcription often requires several preprocessing, classification, correction, and evaluation stages. ScriptBench provides the orchestration and evidence layer for composing those stages into reproducible experiments.
 
-Prerequisites:
+## Why durable execution matters
 
-- Node.js 18 or newer
-- Python installed on your machine
-- `GEMINI_API_KEY` if you want transcription workflows to call Gemini
+ScriptBench grew from a practical failure: a malformed JSON response near the end
+of a script invalidated almost 100 completed Gemini requests because intermediate
+results had not been persisted. Re-running the experiment cost time and model
+calls that had already succeeded.
 
-Start the backend and frontend in separate terminals from the repository root:
+The platform now provides:
 
-1. Backend
+- **Composable workflows:** reusable steps connected as validated directed
+  acyclic graphs (DAGs), with dependency-aware execution.
+- **Durable attempts:** every assembled model payload, raw response, parsed
+  response, validation error, and execution time is stored before a result is
+  published.
+- **Retryability:** failed and completed jobs can be retried independently, with
+  append-only attempt history and explicit retry, skip, and abort controls.
+- **Idempotent materialization:** a workflow resolves once into uniquely keyed
+  jobs, and each job can publish only one output per target artifact.
+- **Bounded concurrency:** the execution worker processes many independent jobs
+  concurrently while enforcing a configurable limit.
+- **Failure visibility:** live WebSocket events stop the affected workflow and
+  present the failed job and message for acknowledgement.
+- **Provenance:** outputs remain linked to their workflow, step, execution job,
+  source artifact, raw attempt, model configuration, and assembled payload.
+- **Validated publication:** raw provider responses are retained even when they
+  fail JSON or output-schema validation; only valid outputs are published.
+- **Restart recovery:** jobs interrupted while running are returned to a pending
+  state without discarding their persisted history.
 
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r backend/requirements.txt
-python -m backend.api.main
+External model calls are not claimed to be exactly-once. ScriptBench protects its
+own job and output records from duplication and preserves the evidence needed to
+inspect or retry an interrupted request.
+
+## Artifact model
+
+ScriptBench organizes source material into three first-class artifacts:
+
+```text
+Document
+└── Sample (page image)
+    └── Derivative (crop or transformed image)
 ```
 
-The backend starts on `http://127.0.0.1:8000` and uses a local SQLite database automatically. No separate database setup is required.
+- A **document** is an ordered collection of pages.
+- A **sample** is an individual page image, with optional ground truth.
+- A **derivative** is a preprocessing output derived from a sample, such as a
+  contrast-enhanced image or a segmented line crop.
 
-2. Frontend
+Folder uploads infer these relationships from filenames:
 
-```powershell
-cd frontend
-npm ci
-npm run dev
+| Artifact | Convention |
+| --- | --- |
+| Document | `document.pdf` |
+| Page | `document_page.png` |
+| Derivative | `document_page_derivative.png` |
+| Documentless page | `_page.png` |
+| Documentless derivative | `_page_derivative.png` |
+| Ground truth | `document_page_gt.txt` or `_page_gt.txt` |
+
+## Workflow model
+
+The smallest unit of work is a **workflow step**, defined by an execution scope, an executor, a method, the runtime configuration (arguments) corresponding to that method, a payload template, and an output scope
+
+The execution scope determines what becomes one model request. The output scope
+determines which artifacts receive the result. Both support six granularities:
+
+| Scope | Unit |
+| --- | --- |
+| `documents` | One document |
+| `documents_batch` | All documents in one job |
+| `samples` | One page |
+| `samples_batch` | The pages belonging to one document |
+| `derivatives` | One derivative |
+| `derivatives_batch` | The derivatives belonging to one page |
+
+This separation allows, for example, all line crops from a page to be submitted
+together while publishing one final transcription for the source page.
+
+The Workflow Builder validates graph structure and dependencies. Workflows can run
+continuously along available end-to-end paths or stage by stage according to
+topological depth. Individual stages can be held or released.
+
+### From workflow DAG to execution jobs
+
+```text
+        ┌─→ 4 ─→ 5
+        ├─→ 3 ─→┘
+1 ──────└─→ 2
 ```
 
-Open `http://127.0.0.1:3001` in your browser.
+Finalizing a workflow resolves its authored DAG into a durable execution graph:
 
-## Open the app
+1. Each node's execution scope expands the selected sample set into independently
+   schedulable jobs.
+2. Artifact lineage maps parent jobs to the downstream jobs that depend on them.
+3. Topological depth defines execution stages, and joins wait until every related
+   parent job has completed.
+4. Completed jobs release eligible children. Continuous mode prioritizes the
+   deepest ready work, while stage-by-stage mode completes an entire depth before
+   advancing.
+5. A step's output scope publishes canonical outputs for downstream steps. Raw
+   attempts remain separate, and invalid attempts are never used as dependencies.
 
-- Frontend: `http://127.0.0.1:3001`
-- API: `http://127.0.0.1:8000`
+Batch requests and responses are keyed by stable artifact IDs so inputs, outputs,
+and provenance remain aligned across every transition.
 
-The frontend is already configured to send `/api` requests to the backend.
+## Research workflow
 
-## Docker
+1. **Manage artifacts:** upload documents, pages, derivatives, and ground truth;
+   organize pages into sample sets and derivatives into reusable groups.
+2. **Construct a pipeline:** define model steps and compose them on the workflow
+   canvas.
+3. **Execute and inspect:** queue selected jobs, monitor their lifecycle, inspect
+   resolved prompts and raw responses, and retry or acknowledge failures.
+4. **Analyze results:** search outputs across workflows, compare CER and WER, and
+   inspect localized disagreements between steps to identify where a pipeline
+   improved or degraded a transcription.
 
-This repository includes a development compose file for running both services together.
+## Current benchmark
 
-Prerequisites:
+The current development database contains a like-for-like comparison on 19
+Economic Upheaval pages with ground truth. Lower scores are better.
 
-- Docker Desktop or Docker Engine with Compose v2
-- `GEMINI_API_KEY` in your shell environment if you want Gemini-powered workflows
+| Method | Model | Pages | Mean CER | Mean WER |
+| --- | --- | ---: | ---: | ---: |
+| Claude Fable 5.1 | `claude-fable-5-1` | 19 | **0.2496** | **0.3486** |
+| Gemini self-correction | `gemini-3.1-flash-lite`, two passes | 19 | 0.3576 | 0.5252 |
+| Gemini single-pass | `gemini-3.1-flash-lite` | 19 | 0.3659 | 0.5258 |
 
-From the repository root, run:
+In this sample, Claude Fable 5.1 reduced mean CER by 31.8% and mean WER by
+33.7% relative to Gemini single-pass, with lower CER on 16 of 19 pages. Gemini
+self-correction reduced mean CER by 2.3% relative to its single pass and left mean
+WER effectively unchanged. These are development results from a small collection,
+not a general model leaderboard.
 
-```powershell
+## Architecture
+
+- A Next.js frontend provides artifact management, workflow construction,
+  execution controls, and analysis.
+- A FastAPI backend resolves workflow graphs, validates provider outputs, computes
+  CER/WER, and serves live job events.
+- PostgreSQL is the durable source of truth for artifacts, workflows, execution
+  state, raw attempts, outputs, and provenance. Local non-Docker development can
+  use SQLite.
+- An in-process asynchronous worker currently claims database-backed jobs and runs
+  up to 20 concurrently.
+
+## Run locally
+
+Requirements: Docker Compose and, for live model execution, `GEMINI_API_KEY`
+and/or `ANTHROPIC_API_KEY`.
+
+```bash
 docker compose -f docker-compose-dev.yml up --build
 ```
 
-Compose starts PostgreSQL, the backend, and the frontend. Bootstrap scripts do not
-run on startup. Both bootstrappers are idempotent: rerunning them updates their
-named demo records without duplication.
+- Application: <http://127.0.0.1:3001>
+- API: <http://127.0.0.1:8000>
 
-The `step_executors` table is the runtime metadata source. Startup and dataset
-seeding insert missing Gemini and Anthropic catalog records and overwrite all
-seed-managed metadata on existing records, including `active`. IDs and `created_at`
-are preserved; `updated_at` is refreshed. See [the exact seed inventory](docs/seeding.md). The wizard lists active executor names on stage one, then gets
-the selected record on stage two to render configuration and method selection.
-`input_schema` and `output_schema` are keyed by method and validate internal
-operation inputs/results; they are separate from payload templates and output specs.
-The code registry only maps supported executor methods to implementations.
-Anthropic image inputs use the [documented base64 message format](https://platform.claude.com/docs/en/build-with-claude/vision).
-Set `ANTHROPIC_API_KEY` alongside `GEMINI_API_KEY` for real execution;
-`DEV=true` enables the small development-settings icon at the top right of the
-navbar. Open it to toggle **Use stub executor** and **Force stub failure** without
-restarting. Development starts with stub execution on and forced failure off.
-With `DEV=false` (the backend default), the controls are hidden, updates are rejected,
-and real providers are used. Compose defaults `DEV` to `true` for development.
+Compose starts PostgreSQL, applies Alembic migrations, and starts the backend and
+frontend. It defaults to development mode with the stub executor enabled, so the
+interface can be exercised without spending provider credits. Use the development
+controls in the navigation bar to enable real providers.
 
-Both controls are shared by clients of the same backend process and apply to the
-next executor created; already-running executions keep their settings. Changes are
-in memory, reset on backend restart, and are not shared across multiple backend
-worker processes. The development Compose setup runs one worker. Opening the
-control refreshes its state from the backend. When stub mode is off, the forced
-failure switch is disabled and has no effect. `DEV` is read once at startup; only
-changing that development gate requires a restart.
-
-Tables and API records use local fields (`id`, `name`, `description`, `blob`,
-`mime_type`, `payload`) and qualified foreign keys (`sample_id`,
-`derivative_group_id`, `step_executor_id`, etc.). Existing databases must be
-recreated: there are no migrations or compatibility aliases. See the
-[complete canonical schema and exact recreation/bootstrap commands](docs/canonical-schema.md).
-Seeding does not reset or migrate the database.
-
-Run the manuscript bootstrap independently after the PostgreSQL service is healthy.
-It accepts an `EMMO` directory containing `images`, `ground_truth_txt`, and
-`segementation_line_crops`; it creates the samples, derivatives, mappings, and demo
-sample set. If the stack is not already running, start it with
-`docker compose -f docker-compose-dev.yml up -d postgres` first:
+To stop the stack:
 
 ```bash
-docker compose -f docker-compose-dev.yml run --rm --no-deps \
-  -v "/absolute/path/to/EMMO:/emmo:ro" \
-  -e EMMO_ROOT=/emmo \
-  backend python -m backend.scripts.bootstrapping.manuscripts
-```
-
-Create one executor-specific demo workflow after bootstrapping manuscripts. This
-creates its payload template, output specification, workflow step, workflow, and DAG node:
-
-```bash
-docker compose -f docker-compose-dev.yml run --rm --no-deps \
-  backend python -m backend.scripts.bootstrapping.workflow --executor gemini
-```
-
-Then open:
-
-- Frontend: `http://127.0.0.1:3001`
-- API: `http://127.0.0.1:8000`
-
-To stop the stack, press `Ctrl+C` and then run:
-
-```powershell
 docker compose -f docker-compose-dev.yml down
 ```
 
-The Docker setup keeps the backend database and frontend build derivatives in named volumes, so your data and cached build state persist between runs.
-
-## High-Level Workflow
-
-1. Upload your samples in **File Management**.
-2. Group related samples and create a **sample set**.
-3. Create a **workflow** and attach the sample set.
-4. Open the **Workflow Workspace** to queue jobs.
-5. Assemble the job outputs into **transcriptions**.
-6. Review and score the transcriptions.
-
-## Terms
-
-- **Sample**: one input item in the system, usually an image.
-- **Ground truth**: the reference text used to evaluate model outputs
-- **Grouping**: a dimensions across which you can make groups of sample
-- **Group value**: a value inside a grouping used to distinguish samples within the group
-- **Sample set**: the bundle of samples used to experiment with different workflows
-- **Workflow**: the transcription configuration, including model choice and prompt instructions.
-- **Transcription job**: one execution unit sent to the model.
-- **Workspace**: the area where jobs are queued, assembled, and reviewed.
-- **Assembled transcription**: a saved reviewable transcription created from job output.
-- **Metrics**: quality measurements such as CER or WER.
-
-## First Transcription Tutorial
-
-### 1. Prepare your files
-
-- For a single file upload, you need:
-  - a sample ID
-  - the image file
-  - optional ground truth text
-- For folder upload, use:
-  - one folder of images
-  - one folder of ground truth text files
-
-Ground truth files should be named like the image file with `_gt` added before the extension, for example `page_01_gt.txt`.
-
-### 2. Upload the samples
-
-1. Open **File Management**.
-2. Click **Upload samples**.
-3. Choose **Folder** if you are uploading a batch.
-4. Pick the image folder.
-5. Pick the ground truth folder if you have one.
-6. Click **Upload**.
-
-If you only have one sample, switch to **Single file**, enter the sample ID, choose the image, add ground truth text if available, then upload.
-
-### 3. Create a grouping
-
-Example scenario: you have one source image per page and several line-crop images derived from each page. For example:
-
-`sample_1` -> `sample_1_line_001`, `sample_1_line_002`, `sample_1_line_003`
-`sample_2` -> `sample_2_line_001`, `sample_2_line_002`
-
-In this setup, the condition for grouping membership consists of being a line-crop dervied from a page.
-
-1. In **File Management**, click **Create grouping**.
-2. Enter a grouping name such as `Original Sample`.
-3. Use the search box and filtering tools to narrow the visible samples. (e.g. filtering by `Contains: line`)
-4. Click **Select all visible** if the filtered rows are the ones you want.
-5. Click **Save grouping**.
-
-### 4. Add grouping values
-
-Once the grouping is created, you might add values like `sample_1` to identify a crop family within the grouping.
-
-1. Open the grouping.
-2. Click **Add value**.
-3. Enter a value name such as `sample_1`.
-4. Select the matching line crops by filtering for line crops that contain `sample_1` in their name.
-5. Save the value.
-
-### 5. Create a sample set
-
-1. In **File Management**, switch to **Create sample set**.
-2. Give the set a name, such as `Line Crops`.
-3. Fill in the sample set type.
-4. Add an optional description.
-5. Save the sample set.
-
-The sample set is what you attach to a workflow later, so it should contain the samples you want to transcribe together.
-
-### 6. Create a workflow
-
-1. Click **Create workflow**.
-2. Enter a workflow name.
-3. Choose a **workflow stage** name, such as `Iteration 1`.
-4. Pick the model family and model such as `gemini` and `gemini-3-flash-preview`
-5. Select the sample set you created.
-6. Add your transcription instructions.
-7. Choose whether this is a single-sample or batch workflow.
-8. Configure the output format if needed.
-9. Create the workflow.
-
-### 7. Run the first transcription jobs
-
-1. Open **Workflow Workspace**.
-2. Select your workflow.
-3. CLick generate jobs, wait for them to complete, and click on a job to inspect its details generated accordingly
-4. Queue the pending jobs and wait for the jobs to complete.
-5. Open any completed job to inspect the resolved prompt and raw model output.
-
-If a job looks wrong, you can retry it from the workspace.
+Persistent database and frontend build data remain in Docker volumes.

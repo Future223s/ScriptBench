@@ -1,34 +1,11 @@
 .workflow-steps-page {
   flex: 1;
   min-width: 0;
-  padding: 10px clamp(14px, 2.3vw, 28px) 20px;
+  padding: var(--space-5) var(--page-gutter);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
   align-items: stretch;
-}
-
-.workflow-steps-page__header {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(360px, 2fr) minmax(
-      180px,
-      1fr
-    );
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.workflow-steps-page__header h1 {
-  margin: 0;
-  font-size: var(--font-size-title);
-}
-
-.workflow-steps-page__header > .ui-button {
-  justify-self: end;
-}
-
-.workflow-steps-page__header > .ui-step-strip {
-  min-width: 0;
 }
 
 .workflow-resource-nav {
@@ -42,47 +19,15 @@
   gap: 3px;
 }
 
-.workflow-steps-grid {
+.workflow-step-executor {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-  min-width: 0;
-  flex: 1;
-  width: 100%;
-  max-width: none;
-  margin: 0 auto;
+  gap: 2px;
+  color: var(--text-primary);
 }
 
-.workflow-steps-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  overflow: visible;
-}
-
-.workflow-steps-stack {
-  gap: 10px;
-}
-
-.resource-row {
-  width: 100%;
-  text-align: left;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.resource-row .badge {
-  margin-left: auto;
-}
-
-.resource-detail-modal {
-  width: min(980px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
+.workflow-step-executor small {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
 }
 
 .resource-detail-grid {
@@ -149,22 +94,6 @@
   flex-wrap: wrap;
 }
 
-.artifact-group-create-modal {
-  width: min(820px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
-}
-
-.payload-template-create-modal {
-  width: min(1220px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
-  overflow: hidden;
-}
-
-.output-spec-create-modal {
-  width: min(760px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
-}
-
 .output-spec-create-body {
   display: grid;
   gap: 14px;
@@ -203,24 +132,52 @@
 
 .output-spec-fields-editor {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .output-spec-field-row {
   display: grid;
-  grid-template-columns: minmax(130px, 0.7fr) minmax(180px, 1.3fr) 25px;
-  gap: 7px;
+  grid-template-columns:
+    minmax(130px, 0.9fr)
+    minmax(180px, 1.35fr)
+    110px
+    92px
+    32px;
+  gap: 8px;
   align-items: center;
 }
 
-.workflow-step-create-modal {
-  width: min(820px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
+.output-spec-field-row > input,
+.output-spec-field-row > select {
+  min-width: 0;
 }
 
-.sample-set-create-modal {
-  width: min(760px, calc(100vw - 36px));
-  max-height: calc(100vh - 36px);
+.output-spec-field-row .ui-choice {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.output-spec-field-row .ui-choice__control {
+  width: 17px;
+  min-height: 17px;
+  padding: 0;
+}
+
+.output-spec-field-row .payload-remove-button {
+  width: 32px;
+  height: 32px;
+  justify-self: end;
+}
+
+@media (max-width: 760px) {
+  .output-spec-field-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .output-spec-field-row .payload-remove-button {
+    justify-self: start;
+  }
 }
 
 .sample-set-create-body {
@@ -319,10 +276,11 @@
   display: grid;
   gap: 4px;
   padding: 14px;
-  border: 1px solid rgba(79, 58, 43, 0.1);
+  border: 1px solid var(--line);
   border-radius: 11px;
   color: var(--text-primary);
-  background: rgba(255, 252, 247, 0.7);
+  background: var(--surface-solid);
+  font: inherit;
   text-align: left;
   cursor: pointer;
 }
@@ -338,20 +296,26 @@
   min-width: 0;
 }
 
-.resource-choice:hover,
+.resource-choice:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
 .resource-choice.is-selected {
-  border-color: rgba(70, 114, 95, 0.7);
-  background: rgba(232, 244, 236, 0.75);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.resource-choice strong {
+  color: var(--text-primary);
 }
 
 .resource-choice span {
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-size: 11px;
 }
 
-.payload-template-create-modal .modal-body {
-  min-height: 0;
-}
 .payload-template-builder {
   display: grid;
   gap: 22px;
@@ -828,6 +792,6 @@
   }
 }
 
-.workflow-step-create-modal .payload-stepper {
+.workflow-step-create-body .payload-stepper {
   flex-wrap: wrap;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { fileManagementApi } from "../../api/endpoints/fileManagement.ts";
 import { APP_DATA_CHANGED_EVENT } from "../../utils/appEvents.js";
@@ -13,6 +13,7 @@ import { useFileUpload } from "./useFileUpload.js";
 
 function createCatalogState() {
   return {
+    documents: [],
     samples: [],
     sampleSets: [],
     derivatives: [],
@@ -26,14 +27,11 @@ export function useFileManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [refreshingDerivativeMappings, setRefreshingDerivativeMappings] =
-    useState(false);
   const [catalogs, setCatalogs] = useState(createCatalogState);
   const [collectionSelections, setCollectionSelections] = useState({
     sampleSet: [],
     derivativeGroup: [],
   });
-  const derivativeMappingStarted = useRef(false);
 
   function setSharedError(message) {
     setError(message);
@@ -49,12 +47,14 @@ export function useFileManagementPage() {
     setSharedError("");
 
     const [
+      documentsResult,
       samplesResult,
       sampleSetsResult,
       derivativesResult,
       derivativeGroupsResult,
       assetsResult,
     ] = await Promise.allSettled([
+      fileManagementApi.getDocuments(),
       fileManagementApi.getSamples(),
       fileManagementApi.getSampleSets(),
       fileManagementApi.getDerivatives(),
@@ -63,6 +63,8 @@ export function useFileManagementPage() {
     ]);
 
     const failures = [];
+    if (documentsResult.status === "rejected")
+      failures.push(documentsResult.reason);
     if (samplesResult.status === "rejected")
       failures.push(samplesResult.reason);
     if (sampleSetsResult.status === "rejected")
@@ -74,6 +76,10 @@ export function useFileManagementPage() {
     if (assetsResult.status === "rejected") failures.push(assetsResult.reason);
 
     setCatalogs({
+      documents:
+        documentsResult.status === "fulfilled"
+          ? documentsResult.value || []
+          : [],
       samples:
         samplesResult.status === "fulfilled"
           ? samplesResult.value.samples || []
@@ -108,13 +114,6 @@ export function useFileManagementPage() {
   useEffect(() => {
     void refresh();
   }, []);
-
-  useEffect(() => {
-    if (loading || derivativeMappingStarted.current || !catalogs.derivatives.length)
-      return;
-    derivativeMappingStarted.current = true;
-    void refreshDerivativeMappings();
-  }, [loading, catalogs.derivatives]);
 
   useEffect(() => {
     if (!syncNotifications) return undefined;
@@ -174,49 +173,10 @@ export function useFileManagementPage() {
     }
   }
 
-  async function refreshDerivativeMappings() {
-    const derivativeRecords = catalogs.derivatives;
-
-    try {
-      setRefreshingDerivativeMappings(true);
-      setSharedError("");
-      setNotice("");
-      const mappedResponse = await fileManagementApi.mapDerivatives(
-        derivativeRecords.map((record) => ({
-          id: record.id,
-          name: record.name,
-        })),
-      );
-      const mappedDerivatives = mappedResponse.data?.mapped_derivatives || [];
-      if (!mappedDerivatives.length) {
-        const firstRejected = mappedResponse.data?.rejected_derivatives?.[0];
-        throw new Error(
-          String(firstRejected?.reason || "No derivatives could be remapped."),
-        );
-      }
-
-      await fileManagementApi.patchDerivatives(
-        mappedDerivatives.map((derivative) => ({
-          id: derivative.id,
-          derivative_group_id: derivative.derivative_group_id,
-          sample_id: derivative.sample_id,
-        })),
-      );
-      setNotice(`Refreshed ${mappedDerivatives.length} derivative mappings.`);
-      await refresh();
-      window.dispatchEvent(new Event(APP_DATA_CHANGED_EVENT));
-    } catch (error) {
-      setSharedError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setRefreshingDerivativeMappings(false);
-    }
-  }
-
   const state = {
     loading,
     error,
     notice,
-    refreshingDerivativeMappings,
     ...catalogs,
     ...browser.state,
     ...selectionActions.state,
@@ -258,6 +218,20 @@ export function useFileManagementPage() {
     clearSelection: selectionActions.actions.clearSelection,
     toggleCollectionSelection,
     deleteSelectedCollections,
+    assembleDocument: async (documentId) => {
+      try {
+        setSharedError("");
+        await fileManagementApi.assembleDocument(documentId);
+        setNotice(`Assembled ${documentId} from its sample images.`);
+        await refresh();
+      } catch (assembleError) {
+        setSharedError(
+          assembleError instanceof Error
+            ? assembleError.message
+            : String(assembleError),
+        );
+      }
+    },
     openRecord: detail.actions.openRecord,
     closeRecordDetail: detail.actions.closeRecordDetail,
     deleteRecord: (type, recordId) =>

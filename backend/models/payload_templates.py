@@ -3,38 +3,31 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .api import ApiResponse
 
 
-class PromptResourceConditionCreateRequest(BaseModel):
-    field_name: str
-    operator: Literal["equals", "not_equals", "greater_than", "less_than", "contains"]
-    value_type: Literal["manual", "sample-field"]
-    value: str
-    model_config = ConfigDict(extra="forbid")
-
-
-class PromptResourceConditionRecord(PromptResourceConditionCreateRequest):
-    id: int
-    prompt_resource_id: int
-    position: int
-
-
 class PromptResourceCreateRequest(BaseModel):
     name: str
-    source_table: Literal["derivatives", "samples", "step_outputs"]
-    batch_limit: int = Field(default=1, gt=0)
-    conditions: list[PromptResourceConditionCreateRequest] = Field(default_factory=list)
+    type: Literal["content", "binding"]
+    source_table: Literal["assets", "documents", "derivatives", "samples", "step_outputs"]
+    row_id: str | None = None
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.type == "content" and not str(self.row_id or "").strip():
+            raise ValueError("Content prompt resources require row_id")
+        if self.type == "binding" and self.row_id is not None:
+            raise ValueError("Binding prompt resources cannot define row_id")
+        return self
 
 
 class PromptResourceRecord(PromptResourceCreateRequest):
     id: int
     payload_template_id: int
     created_at: datetime
-    conditions: list[PromptResourceConditionRecord] = Field(default_factory=list)
 
 
 class PayloadTemplateRecord(BaseModel):

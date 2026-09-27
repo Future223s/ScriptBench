@@ -16,6 +16,8 @@ class SampleRecord(BaseModel):
     blob: bytes | None = None
     mime_type: str | None = None
     ground_truth_text: str | None = None
+    document_id: str | None = None
+    document_position: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -26,6 +28,8 @@ class SampleSummaryResponse(BaseModel):
     name: str
     mime_type: str | None = None
     ground_truth_text: str | None = None
+    document_id: str | None = None
+    document_position: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -40,6 +44,8 @@ class SampleResponse(BaseModel):
     name: str
     mime_type: str | None = None
     ground_truth_text: str | None = None
+    document_id: str | None = None
+    document_position: int | None = None
     created_at: datetime
     updated_at: datetime
     has_blob: bool = False

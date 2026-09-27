@@ -1,18 +1,71 @@
 "use client";
 
+import { useState } from "react";
+
 import {
   Button,
+  CanvasEdge,
+  CanvasNode,
+  CanvasSurface,
+  DescriptionList,
+  Dialog,
   EmptyState,
   Inline,
+  PageHeader,
   Panel,
-  SelectableRow,
   Stack,
+  StackedSelect,
   StatusBadge,
 } from "../../ui/primitives/index.js";
+import { formatDate } from "../../utils/date.js";
 
 function columnRows(rows, column) {
   return rows.filter(
     (row) => String(row.status || "pending").toLowerCase() === column,
+  );
+}
+
+function ExecutionRow({ row, column, selected, actions, loading }) {
+  const nextStep = row.error_message
+    ? row.error_message
+    : row.next_step_name ||
+      (column === "completed" ? "Execution complete" : "Awaiting next step");
+  const timestamp = formatDate(row.updated_at || row.created_at) || "No timestamp";
+
+  return (
+    <div
+      className={`workspace-execution-row${selected ? " is-selected" : ""}`}
+    >
+      <input
+        type="checkbox"
+        className="ui-choice__control"
+        checked={selected}
+        onChange={(event) =>
+          actions.toggleRowSelection(column, row.id, event.target.checked)
+        }
+        aria-label={`Select ${row.target_label || row.sample_id || `job ${row.id}`}`}
+        disabled={loading}
+      />
+      <button
+        type="button"
+        className="workspace-execution-row__open"
+        onClick={() => actions.openRowDetail(row.id)}
+        disabled={loading}
+      >
+        <strong>{row.target_label || row.sample_id || `Job ${row.id}`}</strong>
+        <StatusBadge>{row.status || column}</StatusBadge>
+        <span
+          className={
+            row.error_message ? "workspace-execution-row__error" : undefined
+          }
+        >
+          {nextStep}
+        </span>
+        <time dateTime={row.updated_at || row.created_at || undefined}>
+          {timestamp}
+        </time>
+      </button>
+    </div>
   );
 }
 
@@ -57,47 +110,32 @@ function ExecutionColumn({
         </Inline>
       }
     >
-      <Stack gap="compact">
+      <div className="workspace-execution-list">
         {visible.length ? (
           visible.map((row) => (
-            <SelectableRow
+            <ExecutionRow
               key={row.id}
-              title={`Sample ${row.sample_id}`}
-              detail={
-                row.error_message
-                  ? `Failed: ${row.error_message}`
-                  : row.next_step_name ||
-                    (column === "completed" ? "Complete" : "Awaiting next step")
-              }
+              row={row}
+              column={column}
               selected={selectedIds.includes(String(row.id))}
-              onSelectedChange={(checked) =>
-                actions.toggleRowSelection(
-                  column,
-                  row.id,
-                  checked,
-                )
-              }
-              action={
-                <Button
-                  size="compact"
-                  onClick={() => actions.openRowDetail(row.id)}
-                  disabled={loading}
-                >
-                  Open
-                </Button>
-              }
+              actions={actions}
+              loading={loading}
             />
           ))
         ) : (
           <EmptyState title={`No ${title.toLowerCase()} rows`} />
         )}
-      </Stack>
+      </div>
     </Panel>
   );
 }
 
 export function WorkspacePanel({
+  workflows = [],
+  selectedWorkflowId,
   workflow,
+  graph,
+  selectedNodeId,
   rows = [],
   selection,
   loading,
@@ -111,25 +149,33 @@ export function WorkspacePanel({
   };
   return (
     <Stack>
-      <Panel
-        title={workflow?.name || "Workflow workspace"}
-        description={workflow?.description}
-        actions={
-          <Inline gap="compact" align="end">
-            <Button
-              variant="primary"
-              onClick={actions.startExecution}
-              disabled={loading}
-            >
-              Start execution
-            </Button>
-            <Button onClick={actions.stopExecution} disabled={loading}>
-              Stop execution
-            </Button>
-            <Button onClick={actions.switchWorkflow} disabled={loading}>Switch workflow</Button>
-          </Inline>
+      <PageHeader
+        title="Workspace"
+        description={
+          [workflow?.name, workflow?.description].filter(Boolean).join(" · ") ||
+          "Monitor and control workflow execution."
         }
-      ></Panel>
+        controls={
+          <StackedSelect
+            label="Workflow"
+            value={selectedWorkflowId ?? ""}
+            onChange={(event) => actions.openWorkflowWorkspace(event.target.value)}
+            disabled={loading || !workflows.length}
+            aria-label="Select workflow"
+          >
+            {!workflows.length ? <option value="">No workflows available</option> : null}
+            {workflows.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </StackedSelect>
+        }
+      />
+      <ExecutionGraph
+        graph={graph}
+        selectedNodeId={selectedNodeId}
+        actions={actions}
+        loading={loading}
+      />
       {loading ? (
         <EmptyState title="Loading execution rows" />
       ) : (
@@ -175,5 +221,94 @@ export function WorkspacePanel({
         </section>
       )}
     </Stack>
+  );
+}
+
+function ExecutionGraph({ graph, selectedNodeId, actions, loading }) {
+  const [detailNodeId, setDetailNodeId] = useState(null);
+  const nodes = graph?.nodes || [];
+  const edges = graph?.edges || [];
+  if (!nodes.length) return <EmptyState title="No resolved execution graph" />;
+  const minRow = Math.min(...nodes.map((node) => Number(node.row)));
+  const maxRow = Math.max(...nodes.map((node) => Number(node.row)));
+  const minCol = Math.min(...nodes.map((node) => Number(node.col)));
+  const maxCol = Math.max(...nodes.map((node) => Number(node.col)));
+  const rows = Math.max(1, maxRow - minRow + 1);
+  const cols = Math.max(1, maxCol - minCol + 1);
+  const point = (node) => ({
+    x: ((Number(node.col) - minCol + 0.5) / cols) * 100,
+    y: ((Number(node.row) - minRow + 0.5) / rows) * 100,
+  });
+  const byId = new Map(nodes.map((node) => [Number(node.workflow_dag_node_id), node]));
+  const detailNode = byId.get(Number(detailNodeId));
+  const executionIsRunning = String(graph?.run?.status || "").toLowerCase() === "running";
+  return (
+    <>
+      <Panel
+        title="Resolved execution graph"
+        actions={(
+          <Button
+            variant={executionIsRunning ? "danger" : "primary"}
+            onClick={executionIsRunning ? actions.stopExecution : actions.startExecution}
+            disabled={loading}
+          >
+            {executionIsRunning ? "Stop execution" : "Start execution"}
+          </Button>
+        )}
+      >
+        <CanvasSurface label="Resolved execution graph" size="compact">
+          {edges.map((edge) => {
+            const from = byId.get(Number(edge.from_workflow_dag_node_id));
+            const to = byId.get(Number(edge.to_workflow_dag_node_id));
+            if (!from || !to) return null;
+            const a = point(from);
+            const b = point(to);
+            return <CanvasEdge key={edge.id} fromX={a.x} fromY={a.y} toX={b.x} toY={b.y} />;
+          })}
+          {nodes.map((node) => {
+            const position = point(node);
+            return (
+              <CanvasNode
+                key={node.workflow_dag_node_id}
+                x={position.x}
+                y={position.y}
+                title={node.step_name}
+                detail={`${node.execution_scope} → ${node.output_scope}`}
+                selected={Number(selectedNodeId) === Number(node.workflow_dag_node_id)}
+                onClick={() => actions.selectExecutionNode(node.workflow_dag_node_id)}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setDetailNodeId(node.workflow_dag_node_id);
+                }}
+              />
+            );
+          })}
+        </CanvasSurface>
+      </Panel>
+      <Dialog
+        open={Boolean(detailNode)}
+        title={detailNode?.step_name || "Execution node"}
+        description="Resolved execution node details"
+        size="small"
+        onClose={() => setDetailNodeId(null)}
+      >
+        {detailNode ? (
+          <DescriptionList
+            items={[
+              ["Execution scope", detailNode.execution_scope],
+              ["Output scope", detailNode.output_scope],
+              ["Stage", detailNode.topological_depth],
+              ["Release state", detailNode.released ? "Released" : "Held"],
+              ["Blocked", detailNode.blocked],
+              ["Pending", detailNode.pending],
+              ["Queued", detailNode.queued],
+              ["Running", detailNode.running],
+              ["Completed", detailNode.completed],
+              ["Total", detailNode.total],
+            ]}
+          />
+        ) : null}
+      </Dialog>
+    </>
   );
 }

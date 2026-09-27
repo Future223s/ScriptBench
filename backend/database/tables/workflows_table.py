@@ -12,7 +12,11 @@ from sqlalchemy import (
     func,
 )
 
-from ..schema import WORKFLOW_STATUS_CHECK_SQL, metadata
+from ..schema import (
+    WORKFLOW_EXECUTION_MODE_CHECK_SQL,
+    WORKFLOW_STATUS_CHECK_SQL,
+    metadata,
+)
 
 workflows = Table(
     "workflows",
@@ -26,6 +30,7 @@ workflows = Table(
         nullable=False,
     ),
     Column("description", Text, nullable=True),
+    Column("execution_mode", String(32), nullable=False, server_default="continuous"),
     Column("status", String(32), nullable=False, server_default="draft", index=True),
     Column(
         "created_at",
@@ -40,4 +45,8 @@ workflows = Table(
         server_default=func.current_timestamp(),
     ),
     CheckConstraint(WORKFLOW_STATUS_CHECK_SQL, name="ck_workflows_status"),
+    CheckConstraint(
+        WORKFLOW_EXECUTION_MODE_CHECK_SQL,
+        name="ck_workflows_execution_mode",
+    ),
 )

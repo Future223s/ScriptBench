@@ -1,0 +1,20 @@
+.ui-input {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 9px var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--surface-solid);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.ui-input--inline {
+  width: auto;
+}
+
+.ui-input:focus {
+  border-color: rgba(212, 106, 50, 0.58);
+  box-shadow: 0 0 0 3px rgba(184, 87, 50, 0.14);
+}

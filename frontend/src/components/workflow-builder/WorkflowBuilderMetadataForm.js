@@ -5,14 +5,13 @@ import {
   Panel,
   Select,
   Stack,
-  StatusBadge,
   Textarea,
   TextInput,
 } from "../../ui/primitives/index.js";
 
 export function WorkflowBuilderMetadataForm({ state, actions }) {
   return (
-    <Panel title="Workflow details" density="compact">
+    <Panel title="Workflow details" className="workflow-builder-details-panel">
       <Stack gap="compact">
         <Field label="Workflow name" density="compact">
           <TextInput
@@ -66,11 +65,17 @@ export function WorkflowBuilderMetadataForm({ state, actions }) {
             )}
           </Select>
         </Field>
-        <StatusBadge>
-          {state.sampleSets.length
-            ? `${state.sampleSets.length} sample sets available.`
-            : "No sample sets available."}
-        </StatusBadge>
+        <Field label="Automatic execution" density="compact">
+          <Select
+            value={state.workflowDraft.execution_mode || "continuous"}
+            onChange={(event) =>
+              actions.setWorkflowDraftField("execution_mode", event.target.value)
+            }
+          >
+            <option value="continuous">End-to-end</option>
+            <option value="stage_by_stage">Stage-by-stage</option>
+          </Select>
+        </Field>
       </Stack>
     </Panel>
   );

@@ -1,15 +1,35 @@
+export const CANVAS_MIN_ROWS = 15;
+export const CANVAS_MIN_COLS = 21;
+// Match the rendered 150px card footprint on the canonical 15 × 21 grid.
+// These values are minimum center-to-center separations, not extra padding.
+export const CANVAS_NODE_ROW_SPAN = 2;
+export const CANVAS_NODE_COL_SPAN = 4;
+
+export function canvasNodesOverlap(left, right) {
+  return (
+    Math.abs(Number(left.row) - Number(right.row)) < CANVAS_NODE_ROW_SPAN &&
+    Math.abs(Number(left.col) - Number(right.col)) < CANVAS_NODE_COL_SPAN
+  );
+}
+
+export function isCanvasPlacementAvailable(nodes, row, col) {
+  return !(nodes || []).some((node) =>
+    canvasNodesOverlap(node, { row, col }),
+  );
+}
+
 export function getCanvasBounds(state) {
-  const minRows = 3;
-  const minCols = 7;
+  const minRows = CANVAS_MIN_ROWS;
+  const minCols = CANVAS_MIN_COLS;
 
   if (!state.nodes.length) {
     return {
-      minRow: 1,
-      maxRow: 3,
-      minCol: 1,
-      maxCol: 7,
-      rows: 3,
-      cols: 7,
+      minRow: -7,
+      maxRow: 7,
+      minCol: -10,
+      maxCol: 10,
+      rows: minRows,
+      cols: minCols,
     };
   }
 
@@ -23,15 +43,17 @@ export function getCanvasBounds(state) {
   const rowSpan = maxRow - minRow + 1;
   if (rowSpan < minRows) {
     const extraRows = minRows - rowSpan;
-    minRow -= Math.floor(extraRows / 2);
-    maxRow += Math.ceil(extraRows / 2);
+    const rowsBefore = Math.floor(extraRows / 2);
+    minRow -= rowsBefore;
+    maxRow += extraRows - rowsBefore;
   }
 
   const colSpan = maxCol - minCol + 1;
   if (colSpan < minCols) {
     const extraCols = minCols - colSpan;
-    minCol -= Math.floor(extraCols / 2);
-    maxCol += Math.ceil(extraCols / 2);
+    const colsBefore = Math.floor(extraCols / 2);
+    minCol -= colsBefore;
+    maxCol += extraCols - colsBefore;
   }
 
   return {

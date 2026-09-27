@@ -1,0 +1,40 @@
+.ui-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 23px;
+  padding: 3px 8px;
+  border: 1px solid rgba(79, 58, 43, 0.08);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+}
+
+.ui-status-badge--compact {
+  min-height: 18px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+}
+
+.ui-status-badge--success {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.ui-status-badge--info {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.ui-status-badge--warning {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.ui-status-badge--danger {
+  background: var(--red-soft);
+  color: var(--red);
+}

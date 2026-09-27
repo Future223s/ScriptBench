@@ -19,10 +19,12 @@ class AnthropicConfig(BaseModel):
 
 
 def seed_step_executors(connection):
-    from sqlalchemy import select, insert, update, func
-    from backend.database.tables.step_executors_table import step_executors
+    from backend.database.repositories.step_executors_repository import (
+        StepExecutorsRepository,
+    )
 
     # Code-defined seeds overwrite the metadata of implemented executors on every run.
+    repository = StepExecutorsRepository(connection.engine)
     for name, label, config, input_schema in [
         ("gemini", "Gemini", GeminiConfig, {
             "type": "object", "required": ["contents"],
@@ -57,10 +59,4 @@ def seed_step_executors(connection):
             input_schema={"transcribe": input_schema},
             output_schema={"transcribe": {"type": "string"}}, active=True,
         )
-        existing = connection.execute(select(step_executors.c.id).where(step_executors.c.id == name)).first()
-        if existing:
-            connection.execute(update(step_executors).where(step_executors.c.id == name).values(
-                **values, updated_at=func.current_timestamp(),
-            ))
-        else:
-            connection.execute(insert(step_executors).values(id=name, **values))
+        repository.upsert(name, values, conn=connection)

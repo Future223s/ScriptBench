@@ -64,19 +64,9 @@ export interface CreatePayloadTemplatePayload {
   payload: Record<string, unknown>;
   resources: Array<{
     name: string;
-    source_table: "derivatives" | "samples" | "step_outputs";
-    batch_limit: number;
-    conditions: Array<{
-      field_name: string;
-      operator:
-        | "equals"
-        | "not_equals"
-        | "greater_than"
-        | "less_than"
-        | "contains";
-      value_type: "manual" | "sample-field";
-      value: string;
-    }>;
+    type: "content" | "binding";
+    source_table: "assets" | "documents" | "derivatives" | "samples" | "step_outputs";
+    row_id?: string | null;
   }>;
 }
 
@@ -93,6 +83,8 @@ export interface WorkflowStepRecord {
   step_executor_id: string;
   method: string;
   executor_config: Record<string, unknown>;
+  execution_scope: ExecutionScope;
+  output_scope: ExecutionScope;
   status: "draft" | "active";
   payload_template_id?: number | null;
   output_spec_id?: number | null;
@@ -104,9 +96,19 @@ export interface CreateWorkflowStepPayload {
   step_executor_id: string;
   method: string;
   executor_config: Record<string, unknown>;
+  execution_scope: ExecutionScope;
+  output_scope: ExecutionScope;
   payload_template_id: number;
   output_spec_id: number;
 }
+
+export type ExecutionScope =
+  | "documents_batch"
+  | "documents"
+  | "samples_batch"
+  | "samples"
+  | "derivatives_batch"
+  | "derivatives";
 
 export interface StepExecutorSummary {
   id: string;
@@ -133,8 +135,7 @@ export interface StepExecutorRecord extends StepExecutorSummary {
 export interface OutputSpecRecord {
   id: number;
   name: string;
-  type?: string | null;
-  item_schema?: Record<string, unknown> | null;
+  item_schema: Record<string, unknown>;
   instructions?: string | null;
   status: "draft" | "active";
   created_at?: string;
@@ -142,8 +143,7 @@ export interface OutputSpecRecord {
 
 export interface CreateOutputSpecPayload {
   name: string;
-  type: "plain-text" | "json";
-  item_schema?: Record<string, unknown> | null;
+  item_schema: Record<string, unknown>;
   instructions?: string | null;
 }
 
@@ -320,27 +320,18 @@ export const workflowStepsApi = {
       { method: "DELETE" },
     ),
   getAssets: () => apiFetch<ApiListResponse<SourceRecord>>("/api/v2/assets"),
+  getDocuments: () => apiFetch<ApiListResponse<SourceRecord>>("/api/v2/documents"),
   getSamples: () => apiFetch<ApiListResponse<SourceRecord>>("/api/v2/samples"),
   getDerivatives: () =>
     apiFetch<ApiListResponse<SourceRecord>>("/api/v2/derivatives"),
 } as const;
 
-export interface PromptResourceConditionRecord {
-  id: number;
-  prompt_resource_id: number;
-  field_name: string;
-  operator: "equals" | "not_equals" | "greater_than" | "less_than" | "contains";
-  value_type: "manual" | "sample-field";
-  value: string;
-  position: number;
-}
-
 export interface PromptResourceRecord {
   id: number;
   payload_template_id: number;
   name: string;
-  source_table: "derivatives" | "samples" | "step_outputs";
-  batch_limit: number;
+  type: "content" | "binding";
+  source_table: "assets" | "documents" | "derivatives" | "samples" | "step_outputs";
+  row_id: string | null;
   created_at: string;
-  conditions: PromptResourceConditionRecord[];
 }

@@ -12,17 +12,12 @@ from fastapi.testclient import TestClient
 
 from backend.api.dependencies import get_engine
 from backend.api.main import app
+from backend.database.migrations import upgrade_database
 
 
 logger = logging.getLogger(__name__)
-REAL_IMAGE_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "seed-data"
-    / "economic-upheaval"
-    / "01_source_material"
-    / "EMMO"
-    / "images"
-    / "La115_1r_EMMO.png"
+TEST_IMAGE_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
 
 
@@ -42,6 +37,7 @@ class ExecutionApiEndToEndTests(unittest.TestCase):
         os.environ["DATABASE_URL"] = f"sqlite:///{self.database_file.name}"
         os.environ["DEV"] = "true"
         get_engine.cache_clear()
+        upgrade_database(os.environ["DATABASE_URL"])
         self.client = TestClient(app)
         self.client.__enter__()
 
@@ -56,17 +52,13 @@ class ExecutionApiEndToEndTests(unittest.TestCase):
                 os.environ[name] = value
 
     def test_frontend_api_can_create_and_complete_an_image_prompt_execution(self) -> None:
-        image_bytes = REAL_IMAGE_PATH.read_bytes()
+        image_bytes = TEST_IMAGE_BYTES
         self.assertTrue(image_bytes.startswith(b"\x89PNG\r\n\x1a\n"))
-        logger.info(
-            "E2E fixture loaded: %s (%s bytes)",
-            REAL_IMAGE_PATH.name,
-            len(image_bytes),
-        )
+        logger.info("E2E in-memory PNG fixture loaded (%s bytes)", len(image_bytes))
         sample_id = "api-e2e-sample"
         self._post(
             "/api/v2/samples",
-            {"id": sample_id, "name": "API E2E sample"},
+            {"id": sample_id, "name": "_api-e2e-sample"},
             gate="sample metadata created",
         )
         response = self.client.put(
@@ -104,7 +96,7 @@ class ExecutionApiEndToEndTests(unittest.TestCase):
             "/api/v2/output-specs",
             {
                 "name": "API E2E plain text",
-                "type": "plain-text",
+                "item_schema": {"type": "string"},
             },
             gate="plain-text output specification created",
         )
@@ -115,6 +107,8 @@ class ExecutionApiEndToEndTests(unittest.TestCase):
                 "step_executor_id": "gemini",
                 "method": "transcribe",
                 "executor_config": {"model": "gemini-3.1-flash-lite"},
+                "execution_scope": "samples",
+                "output_scope": "samples",
                 "payload_template_id": payload_template["data"]["id"],
                 "output_spec_id": output_spec["data"]["id"],
             },
@@ -165,6 +159,8 @@ class ExecutionApiEndToEndTests(unittest.TestCase):
         row = created_rows.json()["items"][0]
         row_id = row["id"]
         self.assertEqual("pending", row["status"])
+        self.assertEqual("samples", row["execution_scope"])
+        self.assertEqual("samples", row["output_scope"])
         logger.info("E2E gate passed: execution row created without a prebuilt job")
 
         self._post(
@@ -192,15 +188,31 @@ class ExecutionApiEndToEndTests(unittest.TestCase):
         step_outputs = detail["data"]["step_outputs"]
         self.assertEqual(1, len(step_outputs), "one completed job must persist one output")
         output = step_outputs[0]
-        self.assertEqual("Demo transcription output.", output["raw_model_response"])
-        self.assertEqual("success", output["parse_status"])
-        self.assertEqual("Demo transcription output.", output["parsed_output"])
+        self.assertEqual("Demo transcription output.", output["output"])
+        self.assertEqual("sample", output["entity_type"])
+        self.assertEqual(sample_id, output["entity_key"])
+
+        raw_outputs = detail["data"]["raw_outputs"]
+        self.assertEqual(1, len(raw_outputs), "one execution must persist one raw attempt")
+        raw_output = raw_outputs[0]
+        self.assertEqual(output["raw_output_id"], raw_output["id"])
+        self.assertEqual(
+            {sample_id: "Demo transcription output."},
+            __import__("json").loads(raw_output["raw_model_response"]),
+        )
+        self.assertEqual("success", raw_output["parse_status"])
+        self.assertEqual(
+            {sample_id: "Demo transcription output."}, raw_output["parsed_output"]
+        )
         logger.info("E2E gate passed: testing client returned and plaintext was validated")
 
-        assembled_payload = output["assembled_model_payload"]
+        assembled_payload = raw_output["assembled_model_payload"]
         inline_data = assembled_payload["contents"][0]["parts"][1]["inline_data"]
         self.assertEqual("image/png", inline_data["mime_type"])
         self.assertEqual(base64.b64encode(image_bytes).decode("ascii"), inline_data["data"])
+        self.assertIn(
+            sample_id, assembled_payload["contents"][0]["parts"][-1]["text"]
+        )
         logger.info("E2E gate passed: payload JSON interpolated the sample image bytes")
 
         self.assertEqual("completed", detail["data"]["status"])

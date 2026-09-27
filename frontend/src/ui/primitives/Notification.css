@@ -1,0 +1,28 @@
+.ui-notification {
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: var(--text-secondary);
+  font-size: var(--font-size-caption);
+}
+.ui-notification--info {
+  border-color: rgba(49, 93, 127, 0.22);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.ui-notification--success {
+  border-color: rgba(47, 116, 95, 0.22);
+  background: var(--green-soft);
+  color: var(--green);
+}
+.ui-notification--warning {
+  border-color: rgba(182, 95, 31, 0.22);
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.ui-notification--danger {
+  border-color: rgba(181, 54, 44, 0.22);
+  background: var(--red-soft);
+  color: var(--red);
+}

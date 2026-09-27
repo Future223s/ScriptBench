@@ -3,8 +3,8 @@
 import {
   Button,
   Inline,
-  PageTitle,
-  Select,
+  PageHeader,
+  StackedSelect,
 } from "../../ui/primitives/index.js";
 
 export function WorkflowBuilderPageHeader({
@@ -15,45 +15,54 @@ export function WorkflowBuilderPageHeader({
   workflows = [],
   selectedWorkflowId = "",
   onSelectWorkflow,
+  onNewWorkflow,
   onSave,
   onFinalize,
 }) {
   return (
-    <header className="workflow-builder-header">
-      <Inline gap="compact">
-        <PageTitle>Workflow Builder</PageTitle>
-        <Select
-          inline
+    <PageHeader
+      variant="floating"
+      showCopy={false}
+      title="Workflow Builder"
+      description="Compose and configure a reusable execution graph."
+      controls={
+        <StackedSelect
+          label="Workflow"
           value={selectedWorkflowId || ""}
           onChange={(event) => onSelectWorkflow?.(event.target.value)}
           aria-label="Select workflow"
         >
-          <option value="">New workflow</option>
+          <option value="">Select a workflow</option>
           {workflows.map((workflow) => (
             <option key={workflow.id} value={workflow.id}>
               {workflow.name}
             </option>
           ))}
-        </Select>
-      </Inline>
-      <Inline gap="compact" justify="end">
+        </StackedSelect>
+      }
+      actions={
+        <Inline gap="compact" justify="end">
         <Button
-          size="compact"
-          variant="primary"
-          onClick={onFinalize}
-          disabled={finalizeDisabled}
+          onClick={onNewWorkflow}
+          disabled={saving || finalizing}
         >
-          {finalizing ? "Finalizing..." : "Finalize workflow"}
+          New workflow
         </Button>
         <Button
-          size="compact"
           variant="primary"
           onClick={onSave}
           disabled={disabled}
         >
           {saving ? "Saving..." : "Save workflow"}
         </Button>
-      </Inline>
-    </header>
+        <Button
+          onClick={onFinalize}
+          disabled={finalizeDisabled}
+        >
+          {finalizing ? "Finalizing..." : "Finalize workflow"}
+        </Button>
+        </Inline>
+      }
+    />
   );
 }

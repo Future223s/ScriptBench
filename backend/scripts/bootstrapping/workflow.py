@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from backend.api.dependencies import get_engine
+from backend.database.repositories.bootstrap_repository import BootstrapRepository
 from backend.scripts.bootstrapping.manuscripts import _upsert_transcription_smoke_test
 from sqlalchemy.engine import Engine
 
@@ -20,33 +21,23 @@ def bootstrap_workflow(engine: Engine, executor: str) -> tuple[int, int]:
         supported = ", ".join(sorted(EXECUTOR_CONFIGS))
         raise ValueError(f"Unsupported executor '{executor}'. Supported executors: {supported}")
 
-    from sqlalchemy import select
-    from backend.database.tables.sample_set_samples_table import sample_set_samples
-    from backend.database.tables.sample_sets_table import sample_sets
     from backend.services.step_executor_catalog import seed_step_executors
 
-    with engine.begin() as connection:
+    repository = BootstrapRepository(engine)
+    with repository.transaction() as connection:
         seed_step_executors(connection)
-        sample_set_id = connection.execute(
-            select(sample_sets.c.id).where(sample_sets.c.name == "test")
-        ).scalar_one_or_none()
+        sample_set_id = repository.fetch_sample_set_id("test", conn=connection)
         if sample_set_id is None:
             raise ValueError(
                 "The demo sample set is missing. Run manuscripts bootstrap first."
             )
-        sample_ids = [
-            str(value)
-            for value in connection.execute(
-                select(sample_set_samples.c.sample_id)
-                .where(sample_set_samples.c.sample_set_id == sample_set_id)
-                .order_by(sample_set_samples.c.position)
-            ).scalars().all()
-        ]
+        sample_ids = repository.list_sample_ids(sample_set_id, conn=connection)
         if not sample_ids:
             raise ValueError(
                 "The demo sample set is empty. Run manuscripts bootstrap first."
             )
         return _upsert_transcription_smoke_test(
+            repository,
             connection,
             sample_ids,
             executor=executor,

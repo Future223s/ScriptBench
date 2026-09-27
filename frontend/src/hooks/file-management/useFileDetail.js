@@ -29,7 +29,9 @@ export function useFileDetail({ setError, derivativeGroups }) {
       const normalizedId = recordIdToString(recordId);
       const normalizedType = normalizeManagementType(type);
       const record =
-        normalizedType === "derivative"
+        normalizedType === "document"
+          ? await fileManagementApi.getDocument(normalizedId)
+          : normalizedType === "derivative"
           ? await fileManagementApi.getDerivative(normalizedId)
           : normalizedType === "asset"
             ? await fileManagementApi.getAsset(normalizedId)

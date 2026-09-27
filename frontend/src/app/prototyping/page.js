@@ -61,12 +61,12 @@ function FilePanelsPrototype() {
           >
             <Stack gap="compact">
               <ListRow
-                title="La115_1r_EMMO.png"
+                title="EMMO-La115_1r.png"
                 detail="Image · 12.4 MB"
                 action={<StatusBadge tone="success">Ready</StatusBadge>}
               />
               <ListRow
-                title="La115_1r_EMMO_gt.txt"
+                title="EMMO-La115_1r_gt.txt"
                 detail="Ground truth · 4 KB"
                 action={<Button size="compact">Button / compact</Button>}
               />
@@ -94,7 +94,7 @@ function ImageDetailPrototype() {
       <Dialog
         open={open}
         size="wide"
-        title="La115_1r_EMMO.png"
+        title="EMMO-La115_1r.png"
         description="image/png"
         onClose={() => setOpen(false)}
         footer={
@@ -112,7 +112,7 @@ function ImageDetailPrototype() {
               variant="zoomable"
               src={manuscriptPreview}
               alt="La115 manuscript page"
-              caption="La115_1r_EMMO.png · 12.4 MB"
+              caption="EMMO-La115_1r.png · 12.4 MB"
             />
           }
           secondary={
@@ -122,7 +122,7 @@ function ImageDetailPrototype() {
               </CodeBlock>
               <DescriptionList
                 items={[
-                  ["Sample ID", "La115_1r_EMMO"],
+                  ["Sample ID", "EMMO-La115_1r"],
                   ["MIME type", "image/png"],
                   ["Sample sets", "EMMO manuscripts"],
                   ["Updated", "2026-08-30"],
@@ -170,7 +170,7 @@ function DerivativeDetailPrototype() {
               variant="zoomable"
               src={manuscriptPreview}
               alt="Preview of the source manuscript page"
-              caption="Derived from La115_1r_EMMO"
+              caption="Derived from EMMO-La115_1r"
             />
           }
           secondary={
@@ -178,7 +178,7 @@ function DerivativeDetailPrototype() {
               <DescriptionList
                 items={[
                   ["Derivative group", "Segmentation line crops"],
-                  ["Origin sample", "La115_1r_EMMO"],
+                  ["Origin sample", "EMMO-La115_1r"],
                   ["Category", "Decomposition"],
                   ["MIME type", "image/png"],
                   ["Updated", "2026-08-30"],

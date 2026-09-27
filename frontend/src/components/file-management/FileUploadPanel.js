@@ -1,328 +1,116 @@
 "use client";
 
-import { Instruction } from "../../ui/primitives/index.js";
+import {
+  Field,
+  Grid,
+  Instruction,
+  Stack,
+  StatusBadge,
+  Textarea,
+  TextInput,
+} from "../../ui/primitives/index.js";
 
 function filesFromEvent(event) {
   return Array.from(event.target.files || []);
 }
 
-function SampleUploadFields({ isFolderUpload, draft, actions, resetKey }) {
+function FileField({ label, name, accept, multiple = false, folder = false, resetKey, onFiles }) {
   return (
-    <>
-      <div
-        className={["field", "wide", isFolderUpload ? "is-hidden" : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="sample-name">Sample name</label>
-        <input
-          id="sample-name"
-          name="name"
-          placeholder="page_001"
-          value={draft.sampleName}
-          onChange={(event) =>
-            actions.setUploadField("sampleName", event.target.value)
-          }
-        />
-      </div>
-      <div
-        className={["field", "wide", isFolderUpload ? "is-hidden" : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="sample-file">File</label>
-        <input
-          key={`sample-file-${resetKey}`}
-          id="sample-file"
-          name="file"
-          type="file"
-          onChange={(event) =>
-            actions.setUploadFiles("sampleFile", filesFromEvent(event))
-          }
-        />
-      </div>
-      <div
-        className={["field", "wide", isFolderUpload ? "is-hidden" : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="sample-ground-truth">Ground truth text</label>
-        <textarea
-          id="sample-ground-truth"
-          name="ground_truth_text"
-          rows="7"
-          placeholder="Optional transcription or reference text."
-          value={draft.groundTruthText}
-          onChange={(event) =>
-            actions.setUploadField("groundTruthText", event.target.value)
-          }
-        />
-      </div>
-      <div
-        className={["field", "wide", isFolderUpload ? "" : "is-hidden"]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="sample-folder">Folder of sample files</label>
-        <input
-          key={`sample-folder-${resetKey}`}
-          id="sample-folder"
-          name="sample_folder_files"
-          type="file"
-          webkitdirectory=""
-          multiple
-          onChange={(event) =>
-            actions.setUploadFiles("sampleFolderFiles", filesFromEvent(event))
-          }
-        />
-      </div>
-      <div
-        className={["field", "wide", isFolderUpload ? "" : "is-hidden"]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="sample-ground-truth-folder">
-          Folder of ground-truth text files
-        </label>
-        <input
-          key={`sample-ground-truth-folder-${resetKey}`}
-          id="sample-ground-truth-folder"
-          name="ground_truth_folder_files"
-          type="file"
-          webkitdirectory=""
-          multiple
-          onChange={(event) =>
-            actions.setUploadFiles(
-              "groundTruthFolderFiles",
-              filesFromEvent(event),
-            )
-          }
-        />
-        <Instruction>
-          Ground-truth files should use the same relative name as the sample
-          file.
-        </Instruction>
-      </div>
-    </>
+    <Field label={label}>
+      <TextInput
+        key={`${name}-${resetKey}`}
+        name={name}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        webkitdirectory={folder ? "" : undefined}
+        onChange={(event) => onFiles(filesFromEvent(event))}
+      />
+    </Field>
   );
 }
 
-function DerivativeUploadFields({
-  isFolderUpload,
-  draft,
-  actions,
-  resetKey,
-  samples,
-}) {
-  const sampleOptions = samples.length
-    ? samples.map((sample) => ({
-        value: sample.id,
-        label: sample.name || sample.id,
-      }))
-    : [];
-
-  return (
-    <>
-      <div
-        className={["field", "wide", isFolderUpload ? "is-hidden" : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="derivative-name">Derivative name</label>
-        <input
-          id="derivative-name"
-          name="name"
-          placeholder="page_001_crop_01"
-          value={draft.derivativeName}
-          onChange={(event) =>
-            actions.setUploadField("derivativeName", event.target.value)
-          }
-        />
-      </div>
-      <div className="field wide">
-        <label htmlFor="derivative-originating-sample">Originating sample</label>
-        <select
-          id="derivative-originating-sample"
-          name="sample_id"
-          value={draft.originatingSampleId}
-          onChange={(event) =>
-            actions.setUploadField("originatingSampleId", event.target.value)
-          }
-          disabled={!sampleOptions.length}
-        >
-          <option value="">
-            {sampleOptions.length
-              ? "Let derivative mapping resolve this"
-              : "No samples available"}
-          </option>
-          {sampleOptions.map((sample) => (
-            <option key={sample.value} value={sample.value}>
-              {sample.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div
-        className={["field", "wide", isFolderUpload ? "is-hidden" : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="derivative-file">File</label>
-        <input
-          key={`derivative-file-${resetKey}`}
-          id="derivative-file"
-          name="file"
-          type="file"
-          onChange={(event) =>
-            actions.setUploadFiles("derivativeFile", filesFromEvent(event))
-          }
-        />
-      </div>
-      <div
-        className={["field", "wide", isFolderUpload ? "" : "is-hidden"]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="derivative-folder">Folder of derivative files</label>
-        <input
-          key={`derivative-folder-${resetKey}`}
-          id="derivative-folder"
-          name="derivative_folder_files"
-          type="file"
-          webkitdirectory=""
-          multiple
-          onChange={(event) =>
-            actions.setUploadFiles("derivativeFolderFiles", filesFromEvent(event))
-          }
-        />
-        <Instruction>
-          Folder uploads will derive derivative names from the folder structure
-          when possible.
-        </Instruction>
-      </div>
-    </>
-  );
+function DocumentUploadFields({ folder, draft, actions, resetKey }) {
+  if (folder) {
+    return <FileField label="Folder of PDFs" name="document_folder_files" accept="application/pdf,.pdf" multiple folder resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("documentFolderFiles", files)} />;
+  }
+  return <Grid columns={2}>
+    <Field label="Document name" hint="Document names cannot contain underscores. Pages use document_page.">
+      <TextInput name="name" placeholder="EMMO-La115" value={draft.documentName} onChange={(event) => actions.setUploadField("documentName", event.target.value)} />
+    </Field>
+    <FileField label="PDF" name="file" accept="application/pdf,.pdf" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("documentFile", files)} />
+  </Grid>;
 }
 
-function AssetUploadFields({ isFolderUpload, draft, actions, resetKey }) {
-  return (
-    <>
-      <div
-        className={["field", "wide", isFolderUpload ? "is-hidden" : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="asset-name">Asset name</label>
-        <input
-          id="asset-name"
-          name="name"
-          placeholder="reference_image"
-          value={draft.assetName}
-          onChange={(event) =>
-            actions.setUploadField("assetName", event.target.value)
-          }
-        />
-      </div>
-      <div
-        className={["field", "wide", isFolderUpload ? "is-hidden" : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="asset-file">File</label>
-        <input
-          key={`asset-file-${resetKey}`}
-          id="asset-file"
-          name="file"
-          type="file"
-          onChange={(event) =>
-            actions.setUploadFiles("assetFile", filesFromEvent(event))
-          }
-        />
-      </div>
-      <div
-        className={["field", "wide", isFolderUpload ? "" : "is-hidden"]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <label htmlFor="asset-folder">Folder of asset files</label>
-        <input
-          key={`asset-folder-${resetKey}`}
-          id="asset-folder"
-          name="asset_folder_files"
-          type="file"
-          webkitdirectory=""
-          multiple
-          onChange={(event) =>
-            actions.setUploadFiles("assetFolderFiles", filesFromEvent(event))
-          }
-        />
-        <Instruction>
-          Asset names default to the file name when no explicit name is
-          provided.
-        </Instruction>
-      </div>
-    </>
-  );
+function SampleUploadFields({ folder, draft, actions, resetKey }) {
+  if (folder) {
+    return <Stack>
+      <Grid columns={2}>
+        <FileField label="Folder of sample files" name="sample_folder_files" multiple folder resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("sampleFolderFiles", files)} />
+        <Field label="Folder of ground-truth text files" hint="Ground-truth files should use the same relative name as the sample file.">
+          <TextInput key={`ground-truth-folder-${resetKey}`} name="ground_truth_folder_files" type="file" webkitdirectory="" multiple onChange={(event) => actions.setUploadFiles("groundTruthFolderFiles", filesFromEvent(event))} />
+        </Field>
+      </Grid>
+      <Instruction>Page names must use document_page, or _page when no document exists. Document membership and page order are assigned automatically.</Instruction>
+    </Stack>;
+  }
+  return <Stack>
+    <Grid columns={2}>
+      <Field label="Sample name"><TextInput name="name" placeholder="page_001" value={draft.sampleName} onChange={(event) => actions.setUploadField("sampleName", event.target.value)} /></Field>
+      <FileField label="File" name="file" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("sampleFile", files)} />
+    </Grid>
+    <Field label="Ground truth text"><Textarea name="ground_truth_text" placeholder="Optional transcription or reference text." value={draft.groundTruthText} onChange={(event) => actions.setUploadField("groundTruthText", event.target.value)} /></Field>
+  </Stack>;
+}
+
+function DerivativeUploadFields({ folder, draft, actions, resetKey }) {
+  if (folder) {
+    return <Field label="Folder of derivative files" hint="Names must use document_page_derivative or _page_derivative. The source sample and derivative group are assigned automatically.">
+      <TextInput key={`derivative-folder-${resetKey}`} name="derivative_folder_files" type="file" webkitdirectory="" multiple onChange={(event) => actions.setUploadFiles("derivativeFolderFiles", filesFromEvent(event))} />
+    </Field>;
+  }
+  return <Grid columns={2}>
+    <Field label="Derivative name"><TextInput name="name" placeholder="page_001_crop_01" value={draft.derivativeName} onChange={(event) => actions.setUploadField("derivativeName", event.target.value)} /></Field>
+    <FileField label="File" name="file" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("derivativeFile", files)} />
+  </Grid>;
+}
+
+function AssetUploadFields({ folder, draft, actions, resetKey }) {
+  if (folder) {
+    return <Field label="Folder of asset files" hint="Asset names default to the file name when no explicit name is provided.">
+      <TextInput key={`asset-folder-${resetKey}`} name="asset_folder_files" type="file" webkitdirectory="" multiple onChange={(event) => actions.setUploadFiles("assetFolderFiles", filesFromEvent(event))} />
+    </Field>;
+  }
+  return <Grid columns={2}>
+    <Field label="Asset name"><TextInput name="name" placeholder="reference_image" value={draft.assetName} onChange={(event) => actions.setUploadField("assetName", event.target.value)} /></Field>
+    <FileField label="File" name="file" resetKey={resetKey} onFiles={(files) => actions.setUploadFiles("assetFile", files)} />
+  </Grid>;
 }
 
 export function FileUploadPanel({ state, actions, formId }) {
-  const isFolderUpload = state.uploadMode === "folder";
-  const uploadDraft = state.uploadDraft || {};
+  const folder = state.uploadMode === "folder";
+  const draft = state.uploadDraft || {};
   const resetKey = state.uploadInputResetKey || 0;
   const progress = state.folderUploadProgress || {};
-  const showProgress =
-    isFolderUpload && (progress.totalFiles || state.uploadLoading);
-
-  function handleSubmit(event) {
-    if (event) {
-      event.preventDefault();
-    }
-    void actions.submitUpload();
-  }
-
+  const fields = state.uploadType === "document"
+    ? <DocumentUploadFields folder={folder} draft={draft} actions={actions} resetKey={resetKey} />
+    : state.uploadType === "sample"
+      ? <SampleUploadFields folder={folder} draft={draft} actions={actions} resetKey={resetKey} />
+      : state.uploadType === "derivative"
+        ? <DerivativeUploadFields folder={folder} draft={draft} actions={actions} resetKey={resetKey} />
+        : <AssetUploadFields folder={folder} draft={draft} actions={actions} resetKey={resetKey} />;
   return (
-    <form
-      id={formId}
-      className="file-upload-form file-upload-form--modal"
-      onSubmit={handleSubmit}
-    >
-      <div className="form-grid">
-        {state.uploadType === "sample" ? (
-          <SampleUploadFields
-            isFolderUpload={isFolderUpload}
-            draft={uploadDraft}
-            actions={actions}
-            resetKey={resetKey}
-          />
-        ) : state.uploadType === "derivative" ? (
-          <DerivativeUploadFields
-            isFolderUpload={isFolderUpload}
-            draft={uploadDraft}
-            actions={actions}
-            resetKey={resetKey}
-            samples={state.samples}
-          />
-        ) : (
-          <AssetUploadFields
-            isFolderUpload={isFolderUpload}
-            draft={uploadDraft}
-            actions={actions}
-            resetKey={resetKey}
-          />
-        )}
-      </div>
-      {showProgress ? (
-        <div className="file-upload-copy">
-          <p>
-            {progress.completedFiles || 0} of {progress.totalFiles || 0}{" "}
-            uploaded
-            {progress.failedFiles ? `, ${progress.failedFiles} failed` : ""}.
-          </p>
-          {progress.currentFile ? (
-            <p>Current file: {progress.currentFile}</p>
-          ) : null}
-        </div>
-      ) : null}
+    <form id={formId} onSubmit={(event) => { event.preventDefault(); void actions.submitUpload(); }}>
+      <Stack>
+        {fields}
+        {folder && (progress.totalFiles || state.uploadLoading) ? (
+          <Stack gap="compact">
+            <StatusBadge>{progress.completedFiles || 0} of {progress.totalFiles || 0} uploaded</StatusBadge>
+            {progress.failedFiles ? <Instruction>{progress.failedFiles} failed.</Instruction> : null}
+            {progress.currentFile ? <Instruction>Current file: {progress.currentFile}</Instruction> : null}
+          </Stack>
+        ) : null}
+      </Stack>
     </form>
   );
 }

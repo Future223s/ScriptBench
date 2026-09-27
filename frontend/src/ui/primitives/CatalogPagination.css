@@ -1,0 +1,4 @@
+.ui-catalog-pagination__actions {
+  display: flex;
+  gap: var(--space-2);
+}

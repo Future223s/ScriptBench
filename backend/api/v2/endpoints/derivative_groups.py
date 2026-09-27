@@ -8,12 +8,8 @@ from backend.api.dependencies import get_engine
 from backend.database.repositories.derivative_groups_repository import (
     DerivativeGroupsRepository,
 )
-from backend.database.repositories.derivatives_repository import DerivativesRepository
 from backend.database.repositories.membership_mapping_repository import (
     MembershipMappingRepository,
-)
-from backend.database.repositories.sample_mapping_repository import (
-    SampleMappingRepository,
 )
 from backend.models.api import ApiDeleteResponse, ApiListResponse, ApiResponse
 from backend.models.derivative_groups import (
@@ -101,7 +97,6 @@ def create_derivative_group(
         else None
     )
     mapping_type = payload.mapping_type.strip()
-    ids = list(dict.fromkeys(payload.derivative_ids))
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
     if not mapping_type:
@@ -113,100 +108,43 @@ def create_derivative_group(
             detail=f"Derivative group already exists: {name}",
         )
 
-    derivatives_repository = DerivativesRepository(engine)
-    missing_ids = [
-        id
-        for id in ids
-        if derivatives_repository.fetch_derivative(id) is None
-    ]
-    if missing_ids:
+    position_rule = payload.position_rule or {}
+    membership_row = {
+        "derivative_field": str(
+            position_rule.get("membership_derivative_field") or "name"
+        ),
+        "operator": str(
+            position_rule.get("membership_operator") or "contains"
+        ),
+        "pattern": str(position_rule.get("membership_pattern") or "").strip(),
+        "case_sensitive": bool(
+            position_rule.get("membership_case_sensitive", False)
+        ),
+    }
+    derivative_fields = {"id", "name", "sample_id", "derivative_group_id", "category", "mime_type"}
+    if membership_row["derivative_field"] not in derivative_fields:
+        raise HTTPException(status_code=400, detail="Unsupported mapping field")
+
+    if not membership_row["pattern"]:
         raise HTTPException(
-            status_code=404,
-            detail=f"Unknown id(s): {', '.join(map(str, missing_ids))}",
+            status_code=400, detail="position_rule.membership_pattern is required"
         )
 
-    if ids:
-        with engine.begin() as conn:
-            id = derivative_groups_repository.insert(
-                {
-                    "name": name,
-                    "description": description or None,
-                    "position_rule": None,
-                    "mapping_type": mapping_type,
-                    "status": "draft",
-                },
-                conn=conn,
-            )
-            for derivative_id in ids:
-                updated = derivatives_repository.update_derivative(
-                    derivative_id,
-                    {"derivative_group_id": id},
-                    conn=conn,
-                )
-                if updated != 1:
-                    raise HTTPException(
-                        status_code=409,
-                        detail=f"Failed to assign derivative to group: {derivative_id}",
-                    )
-    else:
-        position_rule = payload.position_rule or {}
-        membership_row = {
-            "derivative_field": str(
-                position_rule.get("membership_derivative_field") or "name"
-            ),
-            "operator": str(
-                position_rule.get("membership_operator") or "contains"
-            ),
-            "pattern": str(position_rule.get("membership_pattern") or "").strip(),
-            "case_sensitive": bool(
-                position_rule.get("membership_case_sensitive", False)
-            ),
-        }
-        sample_row = {
-            "derivative_field": str(
-                position_rule.get("sample_mapping_derivative_field")
-                or "name"
-            ),
-            "sample_field": str(
-                position_rule.get("sample_mapping_sample_field") or "name"
-            ),
-            "operator": str(
-                position_rule.get("sample_mapping_operator") or "contains"
-            ),
-            "case_sensitive": bool(
-                position_rule.get("sample_mapping_case_sensitive", False)
-            ),
-        }
-        derivative_fields = {"id", "name", "sample_id", "derivative_group_id", "category", "mime_type"}
-        sample_fields = {"id", "name", "mime_type", "ground_truth_text"}
-        if (membership_row["derivative_field"] not in derivative_fields
-                or sample_row["derivative_field"] not in derivative_fields
-                or sample_row["sample_field"] not in sample_fields):
-            raise HTTPException(status_code=400, detail="Unsupported mapping field")
+    membership_mapping_repository = MembershipMappingRepository(engine)
 
-        if not membership_row["pattern"]:
-            raise HTTPException(
-                status_code=400, detail="position_rule.membership_pattern is required"
-            )
-
-        membership_mapping_repository = MembershipMappingRepository(engine)
-        sample_mapping_repository = SampleMappingRepository(engine)
-
-        with engine.begin() as conn:
-            id = derivative_groups_repository.insert(
-                {
-                    "name": name,
-                    "description": description or None,
-                    "position_rule": position_rule,
-                    "mapping_type": mapping_type,
-                    "status": "draft",
-                },
-                conn=conn,
-            )
-            membership_row["derivative_group_id"] = id
-            sample_row["derivative_group_id"] = id
-            membership_mapping_repository.insert(membership_row, conn=conn)
-            sample_mapping_repository.insert(sample_row, conn=conn)
+    with engine.begin() as conn:
+        id = derivative_groups_repository.insert(
+            {
+                "name": name,
+                "description": description or None,
+                "position_rule": position_rule,
+                "mapping_type": mapping_type,
+                "status": "draft",
+            },
+            conn=conn,
+        )
+        membership_row["derivative_group_id"] = id
+        membership_mapping_repository.insert(membership_row, conn=conn)
 
     row = derivative_groups_repository.fetch_derivative_group(id)
     if row is None:
@@ -235,16 +173,12 @@ def delete_derivative_group(
 ) -> ApiDeleteResponse:
     derivative_groups_repository = DerivativeGroupsRepository(engine)
     membership_mapping_repository = MembershipMappingRepository(engine)
-    sample_mapping_repository = SampleMappingRepository(engine)
     row = derivative_groups_repository.fetch_derivative_group(id)
     if row is None:
         raise HTTPException(status_code=404, detail="Derivative group not found")
 
     with engine.begin() as conn:
         membership_deleted = membership_mapping_repository.delete_by_derivative_group_ids(
-            [id], conn=conn
-        )
-        sample_deleted = sample_mapping_repository.delete_by_derivative_group_ids(
             [id], conn=conn
         )
         deleted = derivative_groups_repository.delete_derivative_group(
@@ -257,10 +191,9 @@ def delete_derivative_group(
             )
 
     logger.info(
-        "Deleted derivative group record from v2 derivative groups endpoint (id=%s, membership_deleted=%s, sample_deleted=%s)",
+        "Deleted derivative group record from v2 derivative groups endpoint (id=%s, membership_deleted=%s)",
         id,
         membership_deleted,
-        sample_deleted,
     )
     return ApiDeleteResponse(message="Derivative group deleted successfully.")
 
@@ -278,7 +211,6 @@ def delete_derivative_groups(
 
     derivative_groups_repository = DerivativeGroupsRepository(engine)
     membership_mapping_repository = MembershipMappingRepository(engine)
-    sample_mapping_repository = SampleMappingRepository(engine)
     unique_ids = list(dict.fromkeys(ids))
     missing_ids = [
         id
@@ -295,7 +227,6 @@ def delete_derivative_groups(
         membership_mapping_repository.delete_by_derivative_group_ids(
             unique_ids, conn=conn
         )
-        sample_mapping_repository.delete_by_derivative_group_ids(unique_ids, conn=conn)
         deleted_count = derivative_groups_repository.delete_derivative_groups(
             unique_ids, conn=conn
         )

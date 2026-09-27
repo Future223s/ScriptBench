@@ -6,7 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Path as FastAPIPath
 from backend.api.dependencies import get_engine
 from backend.database.repositories.sample_sets_repository import SampleSetsRepository
 from backend.database.repositories.workflows_repository import WorkflowsRepository
-from backend.models.api import ApiListResponse, ApiResponse
+from backend.database.repositories.workflow_steps_repository import (
+    WorkflowStepsRepository,
+)
+from backend.models.api import ApiDeleteResponse, ApiListResponse, ApiResponse
 from backend.models.workflows import (
     WorkflowCreateRequest,
     WorkflowCreateResponse,
@@ -16,15 +19,78 @@ from backend.models.workflows import (
     WorkflowUpdateResponse,
 )
 from backend.database.repositories.workflow_dag_repository import WorkflowDagRepository
-from backend.database.repositories.execution_jobs_repository import (
-    ExecutionJobsRepository,
-)
 from backend.database.repositories.sample_set_samples_repository import (
     SampleSetSamplesRepository,
 )
+from backend.database.repositories.prompt_resources_repository import (
+    PromptResourcesRepository,
+)
+from backend.services.execution_graph_resolver import ExecutionGraphResolver
 
 router = APIRouter(tags=["workflows-v2"])
 logger = logging.getLogger(__name__)
+
+
+def validate_workflow_dag(engine, workflow_id: int) -> None:
+    """Reject a non-DAG or prompt-output dependency that cannot be executed."""
+    dag = WorkflowDagRepository(engine)
+    nodes = dag.list_nodes(workflow_id)
+    edges = dag.list_edges(workflow_id)
+    node_ids = {int(node["id"]) for node in nodes}
+    adjacency: dict[int, set[int]] = {node_id: set() for node_id in node_ids}
+    parents: dict[int, set[int]] = {node_id: set() for node_id in node_ids}
+
+    for edge in edges:
+        source_id = int(edge["from_workflow_dag_node_id"])
+        target_id = int(edge["to_workflow_dag_node_id"])
+        if source_id not in node_ids or target_id not in node_ids:
+            raise HTTPException(
+                status_code=409,
+                detail="Workflow DAG edge references a node outside this workflow",
+            )
+        adjacency[source_id].add(target_id)
+        parents[target_id].add(source_id)
+
+    visiting: set[int] = set()
+    visited: set[int] = set()
+
+    def visit(node_id: int) -> None:
+        if node_id in visiting:
+            raise HTTPException(
+                status_code=409, detail="Workflow DAG contains a cycle"
+            )
+        if node_id in visited:
+            return
+        visiting.add(node_id)
+        for next_node_id in adjacency[node_id]:
+            visit(next_node_id)
+        visiting.remove(node_id)
+        visited.add(node_id)
+
+    for node_id in node_ids:
+        visit(node_id)
+
+    steps = WorkflowStepsRepository(engine)
+    resources = PromptResourcesRepository(engine)
+    for node in nodes:
+        node_id = int(node["id"])
+        step = steps.fetch(int(node["workflow_step_id"]))
+        if step is None or step.get("payload_template_id") is None:
+            continue
+        for resource in resources.list_for_template(int(step["payload_template_id"])):
+            if (
+                resource["type"] != "binding"
+                or resource["source_table"] != "step_outputs"
+            ):
+                continue
+            if not parents[node_id]:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "A step_outputs binding requires at least one incoming "
+                        "workflow edge"
+                    ),
+                )
 
 
 @router.get("/api/v2/workflows", response_model=ApiListResponse[WorkflowRecord])
@@ -69,6 +135,7 @@ def create_workflow(
             ),
             "sample_set_id": payload.sample_set_id,
             "status": "draft",
+            "execution_mode": payload.execution_mode,
         }
     )
     row = repository.fetch(workflow_id)
@@ -96,6 +163,27 @@ def get_workflow(
         message="Workflow retrieved successfully.",
         data=WorkflowRecord.model_validate(row),
     )
+
+
+@router.delete(
+    "/api/v2/workflows/{workflow_id}", response_model=ApiDeleteResponse
+)
+def delete_workflow(
+    workflow_id: int = FastAPIPath(..., ge=1),
+    engine=Depends(get_engine),
+) -> ApiDeleteResponse:
+    repository = WorkflowsRepository(engine)
+    if repository.fetch(workflow_id) is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    deleted = repository.delete(workflow_id)
+    if deleted != 1:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Failed to delete workflow: {workflow_id}",
+        )
+
+    return ApiDeleteResponse(message="Workflow deleted successfully.")
 
 
 @router.patch("/api/v2/workflows/{workflow_id}", response_model=WorkflowUpdateResponse)
@@ -131,7 +219,10 @@ def update_workflow(
         if SampleSetsRepository(engine).fetch(payload.sample_set_id) is None:
             raise HTTPException(status_code=404, detail="Sample set not found")
         changes["sample_set_id"] = payload.sample_set_id
+    if payload.execution_mode is not None:
+        changes["execution_mode"] = payload.execution_mode
 
+    validate_workflow_dag(engine, workflow_id)
     if changes:
         repository.update(workflow_id, changes)
     row = repository.fetch(workflow_id)
@@ -184,11 +275,12 @@ def finalize_workflow(
             detail="The workflow sample set must contain at least one sample",
         )
 
+    validate_workflow_dag(engine, workflow_id)
+    try:
+        ExecutionGraphResolver(engine).resolve(workflow_id)
+    except (LookupError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     repository.update(workflow_id, {"status": "finalized"})
-    ExecutionJobsRepository(engine).create_jobs(
-        workflow_id=workflow_id,
-        sample_ids=[str(membership["sample_id"]) for membership in memberships],
-    )
     row = repository.fetch(workflow_id)
     if row is None:
         raise HTTPException(

@@ -1,18 +1,16 @@
 "use client";
 
+import { Notification } from "../../ui/primitives/index.js";
+
 const bannerClassByKind = {
-  error: "error-banner",
-  status: "status-banner",
-  success: "success-banner",
+  error: "danger",
+  status: "info",
+  success: "success",
 };
 
 export function NotificationBar({ kind, message, role = "status" }) {
   if (!message) return null;
 
-  const className = bannerClassByKind[kind] || bannerClassByKind.success;
-  return (
-    <div className={className} role={role}>
-      {message}
-    </div>
-  );
+  const tone = bannerClassByKind[kind] || bannerClassByKind.success;
+  return <Notification tone={tone}>{message}</Notification>;
 }

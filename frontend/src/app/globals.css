@@ -1575,12 +1575,6 @@ textarea {
   border-color: var(--accent-strong);
 }
 
-.workflow-builder-canvas-mode-hint {
-  margin: 4px 0 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
 .workflow-builder-grid {
   display: grid;
   grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);

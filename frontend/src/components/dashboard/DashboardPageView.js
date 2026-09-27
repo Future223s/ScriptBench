@@ -1,13 +1,9 @@
 "use client";
 
-import {
-  EmptyState,
-  LoadingPlaceholder,
-  Panel,
-} from "../../ui/primitives/index.js";
+import { EmptyState, LoadingPlaceholder, Panel } from "../../ui/primitives/index.js";
 import { DashboardIntro } from "./DashboardIntro.js";
 import { SampleSetAnalyticsPanel } from "./SampleSetAnalyticsPanel.js";
-import { SampleSetsPanel } from "./SampleSetsPanel.js";
+import { RecordDetailDialog } from "../file-management/FileManagementOverlays.js";
 
 export function DashboardPageView({
   loading,
@@ -19,6 +15,9 @@ export function DashboardPageView({
   onSelectSampleSet,
   onDeleteSampleSet,
   onDeleteWorkflow,
+  detailState,
+  onOpenSampleDetail,
+  onCloseSampleDetail,
   onNavigateFileManagement,
 }) {
   const selectedSampleSet =
@@ -42,12 +41,6 @@ export function DashboardPageView({
         </main>
       ) : (
         <main className="dashboard-page">
-          <SampleSetsPanel
-            sampleSets={sampleSets}
-            selectedSampleSetId={selectedSampleSetId}
-            onSelectSampleSet={onSelectSampleSet}
-            onDeleteSampleSet={onDeleteSampleSet}
-          />
           <div className="main-area">
             {sampleSetAnalyticsLoading ? (
               <Panel title="Analytics">
@@ -55,12 +48,16 @@ export function DashboardPageView({
               </Panel>
             ) : selectedSampleSet ? (
               <SampleSetAnalyticsPanel
-                workflow={selectedSampleSet}
+                sampleSets={sampleSets}
+                selectedSampleSetId={selectedSampleSetId}
                 sampleSet={selectedSampleSet}
                 sampleSetAnalytics={sampleSetAnalytics}
                 analyticsLoading={false}
                 analyticsError={sampleSetAnalyticsError}
                 onDeleteWorkflow={onDeleteWorkflow}
+                onSelectSampleSet={onSelectSampleSet}
+                onManageSampleSet={onNavigateFileManagement}
+                onOpenSampleDetail={onOpenSampleDetail}
               />
             ) : (
               <Panel title="Analytics">
@@ -72,6 +69,15 @@ export function DashboardPageView({
           </div>
         </main>
       )}
+      <RecordDetailDialog
+        open={Boolean(detailState?.detailOpen)}
+        type="sample"
+        record={detailState?.selectedRecord}
+        actions={{
+          closeRecordDetail: onCloseSampleDetail,
+          detailLoading: Boolean(detailState?.detailLoading),
+        }}
+      />
     </div>
   );
 }

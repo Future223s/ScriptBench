@@ -6,6 +6,9 @@ from typing import Any
 from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.engine import Engine
 
+from backend.services.file_naming import natural_sort_key, parse_sample_name
+
+from ..tables.documents_table import documents
 from ..tables.samples_table import samples
 
 
@@ -24,6 +27,8 @@ class SamplesRepository:
             samples.c.name,
             samples.c.mime_type,
             samples.c.ground_truth_text,
+            samples.c.document_id,
+            samples.c.document_position,
             samples.c.created_at,
             samples.c.updated_at,
         ).order_by(
@@ -57,6 +62,13 @@ class SamplesRepository:
             ).fetchone()
         return dict(row._mapping) if row is not None else None
 
+    def fetch_ground_truth_text(self, sample_id: str) -> str | None:
+        with self.engine.connect() as conn:
+            value = conn.execute(
+                select(samples.c.ground_truth_text).where(samples.c.id == sample_id)
+            ).scalar_one_or_none()
+        return str(value) if value is not None else None
+
     def fetch_samples_by_names(
         self, sample_names: Sequence[str]
     ) -> list[dict[str, Any]]:
@@ -79,17 +91,33 @@ class SamplesRepository:
         sample_id: str,
         name: str,
         ground_truth_text: str | None = None,
+        document_id: str | None = None,
     ) -> None:
         with self.engine.begin() as conn:
+            if document_id is not None:
+                existing_document = conn.execute(
+                    select(documents.c.id).where(documents.c.id == document_id)
+                ).scalar_one_or_none()
+                if existing_document is None:
+                    conn.execute(
+                        insert(documents).values(
+                            id=document_id,
+                            name=document_id,
+                            metadata={"source": "sample-naming"},
+                        )
+                    )
             conn.execute(
                 insert(samples).values(
                     id=sample_id,
                     name=name,
+                    document_id=document_id,
                     blob=None,
                     mime_type=None,
                     ground_truth_text=ground_truth_text,
                 )
             )
+            if document_id is not None:
+                self._reorder_document_pages(conn, document_id)
 
     def update_sample_blob(
         self,
@@ -111,7 +139,32 @@ class SamplesRepository:
 
     def delete_sample(self, sample_id: str) -> int:
         with self.engine.begin() as conn:
+            document_id = conn.execute(
+                select(samples.c.document_id).where(samples.c.id == sample_id)
+            ).scalar_one_or_none()
             result = conn.execute(
                 delete(samples).where(samples.c.id == sample_id)
             )
+            if document_id is not None:
+                self._reorder_document_pages(conn, str(document_id))
         return int(result.rowcount or 0)
+
+    def _reorder_document_pages(self, conn, document_id: str) -> None:
+        page_rows = conn.execute(
+            select(samples.c.id, samples.c.name).where(
+                samples.c.document_id == document_id
+            )
+        ).mappings().all()
+        ordered = sorted(
+            page_rows,
+            key=lambda row: (
+                natural_sort_key(parse_sample_name(str(row["name"])).page),
+                str(row["id"]),
+            ),
+        )
+        for position, row in enumerate(ordered):
+            conn.execute(
+                update(samples)
+                .where(samples.c.id == row["id"])
+                .values(document_position=position)
+            )

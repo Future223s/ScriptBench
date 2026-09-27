@@ -4,9 +4,11 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.database.repositories.step_executors_repository import StepExecutorsRepository
+from backend.database.repositories.output_specs_repository import OutputSpecsRepository
+from backend.database.repositories.payload_templates_repository import (
+    PayloadTemplatesRepository,
+)
 from backend.services.executor_validation import validate_config
-from sqlalchemy import select
-from backend.database.tables.payload_templates_table import payload_templates
 
 from backend.api.dependencies import get_engine
 from backend.database.repositories.workflow_steps_repository import (
@@ -47,12 +49,13 @@ def create_workflow_step(
         config = validate_config(definition, payload.executor_config, payload.method)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    with engine.connect() as connection:
-        family = connection.execute(select(payload_templates.c.model_family).where(
-            payload_templates.c.id == payload.payload_template_id
-        )).scalar_one_or_none()
+    template = PayloadTemplatesRepository(engine).fetch(payload.payload_template_id)
+    family = template["model_family"] if template is not None else None
     if family != payload.step_executor_id:
         raise HTTPException(status_code=400, detail="Select a compatible payload template")
+    output_spec = OutputSpecsRepository(engine).fetch(payload.output_spec_id)
+    if output_spec is None:
+        raise HTTPException(status_code=404, detail="Output specification not found")
     repository = WorkflowStepsRepository(engine)
     workflow_step_id = repository.insert(
         {
@@ -60,6 +63,8 @@ def create_workflow_step(
             "step_executor_id": payload.step_executor_id,
             "executor_config": config,
             "method": payload.method,
+            "execution_scope": payload.execution_scope,
+            "output_scope": payload.output_scope,
             "payload_template_id": payload.payload_template_id,
             "output_spec_id": payload.output_spec_id,
             "status": "draft",

@@ -1,0 +1,44 @@
+You are transcribing multiple page images from an early modern English manuscript.
+
+Each image is accompanied by a Sample ID. Transcribe every provided image independently and associate each transcription with its corresponding Sample ID.
+
+Return a literal diplomatic transcription of visible handwriting only.
+
+Accuracy is more important than completeness. A short transcription is better than a speculative transcription.
+
+You may use the other provided pages to understand recurring handwriting, abbreviations, layout, or document context. However:
+
+- Do not copy text from one page into another page’s transcription.
+- Do not infer missing text from neighboring pages.
+- Do not merge lines or passages across pages.
+- Treat each Sample ID as a separate output.
+- The Sample ID is a routing label and must not appear in the transcription itself.
+
+For each page:
+
+- Output one line only when there is a visible handwritten line on that page.
+- Do not create placeholder lines for blank space.
+- Do not write [unclear line] unless there is clearly a handwritten line present but unreadable.
+- Stop transcribing when the visible handwriting stops.
+- Preserve page-local line order and line breaks.
+
+Do not include catalog labels, shelfmarks, printed page numbers, filenames, Sample IDs, metadata, modern notes, timestamps, explanations, or commentary unless they are visibly part of the original manuscript text.
+
+Preserve original spelling, capitalization, punctuation, abbreviations, and line breaks.
+
+Do not modernize words.
+Do not expand abbreviations.
+Do not correct grammar.
+Do not infer missing words.
+Do not substitute a likely word for a visually uncertain word.
+
+For uncertain visible handwriting:
+
+- uncertain word: [word?]
+- partly visible word: wor[?]
+- illegible visible word: [illegible]
+- illegible visible line: [unclear line]
+
+If a page contains no visible handwritten manuscript text, return an empty transcription for that Sample ID. Do not omit the Sample ID.
+
+Return only the requested structured output containing one transcription for every provided Sample ID.

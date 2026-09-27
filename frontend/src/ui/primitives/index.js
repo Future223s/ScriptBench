@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { zoomImageView } from "./imageFrameUtils.js";
 
 function joinClasses(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -57,7 +58,9 @@ export function IconButton({
 const iconPaths = {
   add: <path d="M12 5v14M5 12h14" />,
   close: <path d="m6 6 12 12M18 6 6 18" />,
+  menu: <path d="M5 7h14M5 12h14M5 17h14" />,
   delete: <path d="M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12" />,
+  pencil: <path d="m4 20 4.2-1 10.7-10.7a2.1 2.1 0 0 0-3-3L5.2 16 4 20ZM14.5 6.5l3 3" />,
   chevron: <path d="m7 10 5 5 5-5" />,
   zoomIn: (
     <>
@@ -77,6 +80,36 @@ const iconPaths = {
       <rect x="8" y="8" width="8" height="8" rx="1" />
     </>
   ),
+  dashboard: (
+    <>
+      <rect x="4" y="4" width="6" height="6" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <rect x="14" y="14" width="6" height="6" rx="1" />
+    </>
+  ),
+  library: <path d="M5 4v16M9 5v14M13 4l4 16M19 4v16" />,
+  blocks: (
+    <>
+      <rect x="4" y="4" width="7" height="7" rx="1" />
+      <rect x="13" y="13" width="7" height="7" rx="1" />
+      <path d="M14 7h4v4M7 14v4h4" />
+    </>
+  ),
+  workflow: (
+    <>
+      <circle cx="6" cy="6" r="2" />
+      <circle cx="18" cy="18" r="2" />
+      <path d="M6 8v8a2 2 0 0 0 2 2h8M8 6h7a3 3 0 0 1 3 3v7" />
+    </>
+  ),
+  workspace: (
+    <>
+      <rect x="4" y="5" width="16" height="14" rx="2" />
+      <path d="M4 10h16M10 10v9" />
+    </>
+  ),
+  analysis: <path d="M5 19v-5M10 19V9M15 19v-8M20 19V5M4 19h17" />,
 };
 
 export function Icon({ name, label }) {
@@ -132,6 +165,37 @@ export function SectionTitle({ children }) {
 
 export function PageTitle({ children }) {
   return <h1 className="ui-page-title">{children}</h1>;
+}
+
+export function PageHeader({
+  title,
+  description,
+  controls,
+  actions,
+  variant = "plain",
+  showCopy = true,
+}) {
+  return (
+    <header className={joinClasses("ui-page-header", `ui-page-header--${variant}`)}>
+      {showCopy ? (
+        <div className="ui-page-header__copy">
+          <PageTitle>{title}</PageTitle>
+          {description ? <Instruction>{description}</Instruction> : null}
+        </div>
+      ) : null}
+      {controls ? <div className="ui-page-header__controls">{controls}</div> : null}
+      {actions ? <div className="ui-page-header__actions">{actions}</div> : null}
+    </header>
+  );
+}
+
+export function StackedSelect({ label, children, ...props }) {
+  return (
+    <label className="ui-stacked-select">
+      <span>{label}</span>
+      <select {...props}>{children}</select>
+    </label>
+  );
 }
 
 export function TextInput({ className: _className, style: _style, ...props }) {
@@ -389,9 +453,19 @@ export function CollapsibleSection({
   );
 }
 
-export function Tabs({ items, activeId, onChange }) {
+export function Tabs({
+  items,
+  activeId,
+  onChange,
+  ariaLabel,
+  className,
+}) {
   return (
-    <div className="ui-tabs" role="tablist">
+    <div
+      className={joinClasses("ui-tabs", className)}
+      role="tablist"
+      aria-label={ariaLabel}
+    >
       {items.map((item) => (
         <button
           key={item.id}
@@ -404,10 +478,411 @@ export function Tabs({ items, activeId, onChange }) {
           aria-selected={activeId === item.id}
           onClick={() => onChange?.(item.id)}
         >
-          {item.label}
+          <span>{item.label}</span>
+          {item.count != null ? (
+            <span className="ui-tabs__count">{item.count}</span>
+          ) : null}
         </button>
       ))}
     </div>
+  );
+}
+
+function FilterControl({ filter, id }) {
+  const sharedProps = {
+    id,
+    value: filter.value ?? "",
+    disabled: filter.disabled || false,
+    required: filter.required || false,
+    "aria-describedby": filter.describedBy,
+    onChange: (event) => filter.onChange?.(event.target.value),
+  };
+  return (
+    <label className="ui-filter-bar__control" htmlFor={id}>
+      <span className="u-sr-only">{filter.label}</span>
+      {filter.kind === "select" ? (
+        <Select {...sharedProps}>
+          {(filter.options || []).map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      ) : (
+        <TextInput
+          {...sharedProps}
+          type={filter.inputType || "search"}
+          placeholder={filter.placeholder || filter.label}
+        />
+      )}
+    </label>
+  );
+}
+
+export function CompactFilterBar({
+  filters = [],
+  activeFilters = [],
+  onClearAll,
+  actions,
+  ariaLabel = "Filters",
+}) {
+  const idPrefix = useId().replaceAll(":", "");
+  const primaryFilters = filters.filter((filter) => !filter.overflow);
+  const overflowFilters = filters.filter((filter) => filter.overflow);
+  return (
+    <section className="ui-filter-bar" aria-label={ariaLabel}>
+      <div className="ui-filter-bar__controls">
+        {primaryFilters.map((filter) => (
+          <FilterControl
+            key={filter.id}
+            filter={filter}
+            id={`${idPrefix}-${filter.id}`}
+          />
+        ))}
+        {overflowFilters.length ? (
+          <details className="ui-filter-bar__overflow">
+            <summary>More filters</summary>
+            <div className="ui-filter-bar__overflow-controls">
+              {overflowFilters.map((filter) => (
+                <FilterControl
+                  key={filter.id}
+                  filter={filter}
+                  id={`${idPrefix}-${filter.id}`}
+                />
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {actions ? <div className="ui-filter-bar__actions">{actions}</div> : null}
+      </div>
+      {activeFilters.length ? (
+        <div className="ui-filter-bar__active" aria-label="Active filters">
+          {activeFilters.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              className="ui-filter-token"
+              onClick={filter.onRemove}
+              aria-label={`Remove filter: ${filter.label}`}
+            >
+              <span>{filter.label}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          ))}
+          {onClearAll ? (
+            <button
+              type="button"
+              className="ui-filter-bar__clear"
+              onClick={onClearAll}
+            >
+              Clear all
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function Catalog({
+  title,
+  description,
+  meta,
+  actions,
+  search,
+  controls,
+  footer,
+  ariaLabel,
+  children,
+}) {
+  const hasHeader = Boolean(title || description || meta || actions);
+  return (
+    <section className="ui-catalog" aria-label={ariaLabel || title}>
+      {hasHeader ? (
+        <header className="ui-catalog__header">
+          {title || description ? (
+            <div className="ui-catalog__copy">
+              {title ? (
+                <div className="ui-catalog__title-line">
+                  <h2>{title}</h2>
+                </div>
+              ) : null}
+              {description ? <p>{description}</p> : null}
+            </div>
+          ) : null}
+          {meta || actions ? (
+            <div className="ui-catalog__header-actions">
+              {meta ? <div className="ui-catalog__meta">{meta}</div> : null}
+              {actions ? <div className="ui-catalog__actions">{actions}</div> : null}
+            </div>
+          ) : null}
+        </header>
+      ) : null}
+      {search || controls ? (
+        <div className="ui-catalog__toolbar">
+          {search ? <div className="ui-catalog__search">{search}</div> : null}
+          {controls ? <div className="ui-catalog__controls">{controls}</div> : null}
+        </div>
+      ) : null}
+      <div className="ui-catalog__body">{children}</div>
+      {footer ? <footer className="ui-catalog__footer">{footer}</footer> : null}
+    </section>
+  );
+}
+
+export function ColumnFilter({
+  label,
+  active = false,
+  open = false,
+  onToggle,
+  align = "start",
+  children,
+}) {
+  return (
+    <div
+      className={joinClasses(
+        "ui-column-filter",
+        align === "end" && "ui-column-filter--end",
+      )}
+    >
+      <button
+        type="button"
+        className={open ? "is-open" : undefined}
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        {active ? <i className="ui-column-filter__dot" aria-label="Filter active" /> : null}
+        <span>{label}</span>
+        <span className="ui-column-filter__chevron" aria-hidden="true">⌄</span>
+      </button>
+      {open ? <div className="ui-column-filter__menu">{children}</div> : null}
+    </div>
+  );
+}
+
+export function CatalogPagination({
+  start,
+  end,
+  total,
+  onPrevious,
+  onNext,
+  previousDisabled = false,
+  nextDisabled = false,
+}) {
+  return (
+    <>
+      <span>{total ? `${start}–${end} of ${total}` : "No matching records"}</span>
+      <div className="ui-catalog-pagination__actions">
+        <Button size="compact" disabled={previousDisabled} onClick={onPrevious}>
+          Previous
+        </Button>
+        <Button size="compact" disabled={nextDisabled} onClick={onNext}>
+          Next
+        </Button>
+      </div>
+    </>
+  );
+}
+
+const interactiveElementSelector =
+  "button, a, input, select, textarea, label, [role='button']";
+
+export function DataTable({
+  ariaLabel = "Records",
+  columns = [],
+  rows = [],
+  getRowId = (row) => row.id,
+  getRowLabel = (row) => row.name || row.title || `Record ${getRowId(row)}`,
+  selectedRowId,
+  onRowActivate,
+  onRowDoubleClick,
+  selectedRowIds = [],
+  onRowSelectedChange,
+  rowActions,
+  openRowActionsId: controlledOpenRowActionsId,
+  onOpenRowActionsChange,
+  emptyState = "No records are available.",
+}) {
+  const [internalOpenRowActionsId, setInternalOpenRowActionsId] = useState("");
+  const tableRef = useRef(null);
+  const openRowActionsId = controlledOpenRowActionsId === undefined
+    ? internalOpenRowActionsId
+    : controlledOpenRowActionsId;
+  const setOpenRowActionsId = (value) => {
+    if (controlledOpenRowActionsId === undefined) {
+      setInternalOpenRowActionsId(value);
+    }
+    onOpenRowActionsChange?.(value);
+  };
+  const selectedIds = new Set(selectedRowIds.map(String));
+  const activate = (row) => onRowActivate?.(row);
+  useEffect(() => {
+    if (!openRowActionsId) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (!tableRef.current?.contains(event.target)) setOpenRowActionsId("");
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [openRowActionsId]);
+  return (
+    <div className="ui-data-table" ref={tableRef}>
+      <table aria-label={ariaLabel}>
+        <colgroup>
+          {onRowSelectedChange ? <col className="ui-data-table__selection-col" /> : null}
+          {columns.map((column) => (
+            <col key={column.id} style={column.width ? { width: column.width } : undefined} />
+          ))}
+          {rowActions ? <col className="ui-data-table__row-actions-col" /> : null}
+        </colgroup>
+        <thead>
+          <tr>
+            {onRowSelectedChange ? <th scope="col"><span className="u-sr-only">Select</span></th> : null}
+            {columns.map((column) => (
+              <th key={column.id} scope="col" className={column.headerClassName}>
+                {column.header || column.label}
+              </th>
+            ))}
+            {rowActions ? <th scope="col"><span className="u-sr-only">Actions</span></th> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length ? rows.map((row, rowIndex) => {
+            const rowId = String(getRowId(row));
+            const actions = rowActions?.(row) || [];
+            const isActive =
+              String(selectedRowId ?? "") === rowId || selectedIds.has(rowId);
+            return (
+              <tr
+                key={rowId}
+                className={joinClasses(isActive && "is-selected", onRowActivate && "is-interactive")}
+                aria-selected={isActive || undefined}
+                tabIndex={onRowActivate ? 0 : undefined}
+                onClick={(event) => {
+                  if (event.target.closest(interactiveElementSelector)) return;
+                  activate(row);
+                }}
+                onDoubleClick={(event) => {
+                  if (event.target.closest(interactiveElementSelector)) return;
+                  onRowDoubleClick?.(row);
+                }}
+                onKeyDown={(event) => {
+                  if (!onRowActivate || (event.key !== "Enter" && event.key !== " ")) return;
+                  event.preventDefault();
+                  activate(row);
+                }}
+              >
+                {onRowSelectedChange ? (
+                  <td className="ui-data-table__selection">
+                    <input
+                      type="checkbox"
+                      className="ui-choice__control"
+                      checked={selectedIds.has(rowId)}
+                      onChange={(event) => onRowSelectedChange(row, event.target.checked)}
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={`Select ${getRowLabel(row)}`}
+                    />
+                  </td>
+                ) : null}
+                {columns.map((column) => (
+                  <td key={column.id} className={column.className} data-column={column.label}>
+                    {column.render ? column.render(row) : row[column.id]}
+                  </td>
+                ))}
+                {rowActions ? (
+                  <td className="ui-data-table__row-actions" data-column="Actions">
+                    <div className="ui-row-actions" data-row-actions>
+                      <IconButton
+                        label={`Actions for ${getRowLabel(row)}`}
+                        onClick={() => setOpenRowActionsId(openRowActionsId === rowId ? "" : rowId)}
+                        aria-expanded={openRowActionsId === rowId}
+                      >
+                        <span aria-hidden="true">•••</span>
+                      </IconButton>
+                      {openRowActionsId === rowId ? (
+                        <div className={joinClasses(
+                          "ui-row-actions__menu",
+                          rowIndex >= rows.length - 2 && "ui-row-actions__menu--up",
+                        )}>
+                          {actions.map((action) => (
+                            <button
+                              key={action.id || action.label}
+                              type="button"
+                              className={action.tone === "danger" ? "is-danger" : undefined}
+                              disabled={action.disabled}
+                              onClick={() => {
+                                setOpenRowActionsId("");
+                                action.onSelect?.(row);
+                              }}
+                            >
+                              {action.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                ) : null}
+              </tr>
+            );
+          }) : (
+            <tr>
+              <td className="ui-data-table__empty" colSpan={columns.length + (onRowSelectedChange ? 1 : 0) + (rowActions ? 1 : 0)}>
+                {emptyState}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function ListPreview({ list, preview, previewLabel = "Selected record preview" }) {
+  return (
+    <div className="ui-list-preview">
+      <div className="ui-list-preview__list">{list}</div>
+      <aside className="ui-list-preview__preview" aria-label={previewLabel}>
+        {preview}
+      </aside>
+    </div>
+  );
+}
+
+export function PrimaryNavigation({
+  items,
+  activeId,
+  onChange,
+  ariaLabel = "Primary navigation",
+  orientation = "horizontal",
+}) {
+  return (
+    <nav
+      className={joinClasses(
+        "ui-primary-navigation",
+        `ui-primary-navigation--${orientation}`,
+      )}
+      aria-label={ariaLabel}
+      aria-orientation={orientation}
+    >
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className={joinClasses(
+            "ui-primary-navigation__item",
+            activeId === item.id && "is-active",
+          )}
+          onClick={item.disabled ? undefined : () => onChange?.(item.id)}
+          aria-current={activeId === item.id ? "page" : undefined}
+          aria-disabled={item.disabled ? "true" : undefined}
+          disabled={item.disabled}
+          title={item.disabled ? "Coming soon" : undefined}
+        >
+          {item.icon ? <Icon name={item.icon} /> : null}
+          {item.label}
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -580,42 +1055,56 @@ export function ImageFrame({ variant = "static", src, alt, caption, actions }) {
 }
 
 function ZoomableImageFrame({ src, alt, caption, actions }) {
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [view, setView] = useState({ scale: 1, x: 0, y: 0 });
+  const viewport = useRef(null);
+  const focalPoint = useRef(null);
   const drag = useRef(null);
   const reset = () => {
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
+    setView({ scale: 1, x: 0, y: 0 });
   };
-  const zoom = (amount) =>
-    setScale((value) =>
-      Math.max(1, Math.min(4, Number((value + amount).toFixed(2)))),
-    );
+  const pointFromPointer = (event) => {
+    const rect = viewport.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: event.clientX - rect.left - rect.width / 2,
+      y: event.clientY - rect.top - rect.height / 2,
+    };
+  };
+  const zoom = (amount, point = focalPoint.current || { x: 0, y: 0 }) =>
+    setView((current) => zoomImageView(current, amount, point));
   return (
     <figure className="ui-image-frame ui-image-frame--zoomable">
       <div
+        ref={viewport}
         className="ui-image-frame__zoom-view"
         onWheel={(event) => {
           event.preventDefault();
-          zoom(event.deltaY < 0 ? 0.15 : -0.15);
+          const point = pointFromPointer(event);
+          focalPoint.current = point;
+          zoom(event.deltaY < 0 ? 0.15 : -0.15, point);
         }}
         onDoubleClick={reset}
         onPointerDown={(event) => {
-          if (scale === 1) return;
+          if (view.scale === 1) return;
           drag.current = {
-            x: event.clientX - position.x,
-            y: event.clientY - position.y,
+            x: event.clientX - view.x,
+            y: event.clientY - view.y,
           };
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
         onPointerMove={(event) => {
+          focalPoint.current = pointFromPointer(event);
           if (!drag.current) return;
-          setPosition({
+          setView((current) => ({
+            ...current,
             x: event.clientX - drag.current.x,
             y: event.clientY - drag.current.y,
-          });
+          }));
         }}
         onPointerUp={() => {
+          drag.current = null;
+        }}
+        onPointerCancel={() => {
           drag.current = null;
         }}
       >
@@ -624,7 +1113,7 @@ function ZoomableImageFrame({ src, alt, caption, actions }) {
           alt={alt}
           draggable="false"
           style={{
-            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
           }}
         />
       </div>
@@ -634,12 +1123,12 @@ function ZoomableImageFrame({ src, alt, caption, actions }) {
           <Button
             size="compact"
             onClick={() => zoom(-0.25)}
-            disabled={scale === 1}
+            disabled={view.scale === 1}
             aria-label="Zoom out"
           >
             −
           </Button>
-          <StatusBadge>{Math.round(scale * 100)}%</StatusBadge>
+          <StatusBadge>{Math.round(view.scale * 100)}%</StatusBadge>
           <Button
             size="compact"
             onClick={() => zoom(0.25)}
@@ -665,17 +1154,24 @@ export function Dialog({
   size = "default",
   actions,
   footer,
+  closeOnBackdrop = true,
+  closeOnEscape = true,
   children,
 }) {
   const dialogRef = useRef(null);
   const onCloseRef = useRef(onClose);
+  const titleId = useId();
+  const descriptionId = useId();
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
   useEffect(() => {
     if (!open) return undefined;
+    const previouslyFocused = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") onCloseRef.current?.();
+      if (event.key === "Escape" && closeOnEscape) onCloseRef.current?.();
       if (event.key !== "Tab") return;
       const focusable = [
         ...(dialogRef.current?.querySelectorAll(
@@ -696,14 +1192,18 @@ export function Dialog({
     };
     document.addEventListener("keydown", handleKeyDown);
     dialogRef.current?.focus();
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open]);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+    };
+  }, [closeOnEscape, open]);
   if (!open) return null;
   return (
     <div
       className="ui-dialog-backdrop"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
+        if (closeOnBackdrop && event.target === event.currentTarget) onClose?.();
       }}
     >
       <section
@@ -711,13 +1211,14 @@ export function Dialog({
         className={joinClasses("ui-dialog", `ui-dialog--${size}`)}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="ui-dialog-title"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
         tabIndex="-1"
       >
         <header className="ui-dialog__header">
           <div>
-            <h2 id="ui-dialog-title">{title}</h2>
-            {description ? <p>{description}</p> : null}
+            <h2 id={titleId}>{title}</h2>
+            {description ? <p id={descriptionId}>{description}</p> : null}
           </div>
           <Inline gap="compact">
             {actions}
@@ -757,6 +1258,7 @@ export function CanvasSurface({
     >
       <div
         className="ui-canvas__viewport"
+        data-canvas-viewport
         style={{ transform: `scale(${zoom})` }}
       >
         {children}
@@ -822,6 +1324,7 @@ export function CanvasEdge({
   selected = false,
   onClick,
 }) {
+  const markerId = `canvas-edge-arrow-${useId().replaceAll(":", "")}`;
   return (
     <svg
       className={joinClasses("ui-canvas-edge", selected && "is-selected")}
@@ -829,7 +1332,26 @@ export function CanvasEdge({
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
     >
-      <line x1={fromX} y1={fromY} x2={toX} y2={toY} />
+      <defs>
+        <marker
+          id={markerId}
+          markerWidth="3"
+          markerHeight="3"
+          refX="2.7"
+          refY="1.5"
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <path d="M 0 0 L 3 1.5 L 0 3 z" fill="context-stroke" />
+        </marker>
+      </defs>
+      <line
+        x1={fromX}
+        y1={fromY}
+        x2={toX}
+        y2={toY}
+        markerEnd={`url(#${markerId})`}
+      />
       {onClick ? (
         <line
           className="ui-canvas-edge__hit-target"

@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
+from backend.database.repositories.samples_repository import SamplesRepository
 from backend.database.repositories.step_outputs_repository import (
     StepOutputsRepository,
 )
-from backend.database.tables.samples_table import samples
 
 
 @dataclass(frozen=True)
@@ -23,6 +22,7 @@ class ErrorComputationService:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
         self.step_outputs = StepOutputsRepository(engine)
+        self.samples = SamplesRepository(engine)
 
     def score(self, *, step_output_id: int, sample_id: str, output_text: str) -> None:
         ground_truth = self._ground_truth(sample_id)
@@ -36,13 +36,7 @@ class ErrorComputationService:
         )
 
     def _ground_truth(self, sample_id: str) -> str | None:
-        with self.engine.connect() as connection:
-            value = connection.execute(
-                select(samples.c.ground_truth_text).where(
-                    samples.c.id == sample_id
-                )
-            ).scalar_one_or_none()
-        return str(value) if value is not None else None
+        return self.samples.fetch_ground_truth_text(sample_id)
 
 
 def compute_metrics(ground_truth: str, output: str) -> OutputMetrics:

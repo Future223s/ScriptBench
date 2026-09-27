@@ -1,0 +1,48 @@
+.ui-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ui-field--compact {
+  gap: var(--space-1);
+}
+
+.ui-field--compact .ui-field__header {
+  min-height: 0;
+}
+
+.ui-field__header {
+  display: flex;
+  min-height: var(--control-height-compact);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ui-field__action {
+  flex: 0 0 auto;
+}
+
+.ui-field__label,
+.ui-eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-label);
+}
+
+.ui-field__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-copy);
+}
+
+.ui-field__error {
+  color: var(--red);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}

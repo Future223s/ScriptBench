@@ -1,0 +1,7 @@
+.ui-page-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-heading);
+  line-height: var(--line-height-title);
+}

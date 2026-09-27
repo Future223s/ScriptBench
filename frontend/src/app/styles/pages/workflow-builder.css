@@ -1,49 +1,75 @@
 .workflow-builder-page {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+  position: relative;
   min-width: 0;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
 }
 
-.workflow-builder-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-2);
+.workflow-builder-page > .ui-page-header {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  left: var(--space-4);
+  z-index: var(--layer-sticky);
 }
 
-.workflow-builder-grid {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-  align-items: stretch;
-  gap: var(--space-3);
+.workflow-builder-loading {
+  padding: calc(var(--space-5) * 4) var(--space-4) var(--space-4);
+}
+
+.workflow-builder-details-panel {
+  position: absolute;
+  top: calc(var(--space-5) * 4);
+  left: var(--space-4);
+  z-index: 2;
+  width: min(304px, calc(100% - 2 * var(--space-4)));
+}
+
+.workflow-builder-canvas-shell {
+  position: absolute;
+  inset: 0;
   min-width: 0;
-  height: auto;
+  min-height: 0;
 }
 
-.workflow-builder-sidebar,
-.workflow-builder-workbench {
-  min-width: 0;
+.workflow-builder-canvas-mode-hint,
+.workflow-builder-canvas-tools {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
-.workflow-builder-workbench {
-  display: flex;
+.workflow-builder-canvas-mode-hint {
+  bottom: calc(var(--space-5) * 3);
 }
 
-.workflow-builder-workbench .ui-canvas {
-  min-height: 320px;
+.workflow-builder-canvas-tools {
+  bottom: var(--space-4);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
 }
 
 @media (max-width: 900px) {
-  .workflow-builder-grid {
-    flex: none;
-    grid-template-rows: auto auto;
+  .workflow-builder-page {
+    min-height: 900px;
   }
 
-  .workflow-builder-header,
-  .workflow-builder-grid {
+  .workflow-builder-page > .ui-page-header {
     grid-template-columns: 1fr;
+  }
+
+  .workflow-builder-details-panel {
+    top: 160px;
+  }
+
+  .workflow-builder-canvas-tools {
+    max-width: calc(100% - 2 * var(--space-4));
+    overflow-x: auto;
   }
 }

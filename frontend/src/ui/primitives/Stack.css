@@ -1,0 +1,16 @@
+.ui-stack {
+  display: grid;
+}
+.ui-stack--compact {
+  gap: var(--space-2);
+}
+.ui-stack--default {
+  gap: var(--space-4);
+}
+.ui-stack--loose {
+  gap: var(--space-6);
+}
+.ui-stack--fill {
+  flex: 1;
+  min-height: 0;
+}

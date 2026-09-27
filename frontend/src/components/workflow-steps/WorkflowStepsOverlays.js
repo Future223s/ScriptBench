@@ -1,7 +1,6 @@
 "use client";
 
 import { EmptyState } from "../common/EmptyState.js";
-import { Modal } from "../common/Modal.js";
 import { SampleSetCreateModal } from "./SampleSetCreateModal.js";
 import {
   Button,
@@ -48,11 +47,11 @@ const TABLE_SOURCE_FIELDS = {
     "workflow_id",
     "workflow_step_id",
     "sample_id",
-    "parsed_output",
-    "parse_status",
-    "parse_error",
+    "output_scope",
+    "entity_type",
+    "entity_key",
+    "output",
     "created_at",
-    "completed_at",
   ],
 };
 
@@ -76,99 +75,67 @@ const COMMON_MIME_TYPES = [
 
 function WorkflowStepDetailModal({ open, record, actions }) {
   return (
-    <Modal
+    <Dialog
       open={open}
-      panelClassName="resource-detail-modal"
-      data-modal="resource-detail"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          actions.closeWorkflowStepDetail();
-        }
-      }}
+      title={record?.title || "Resource"}
+      description={record?.typeLabel || "Detail"}
+      size="extra-wide"
+      onClose={actions.closeWorkflowStepDetail}
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>{record?.title || "Resource"}</h2>
-          <span>{record?.typeLabel || "Detail"}</span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeWorkflowStepDetail}
-        >
-          Close
-        </button>
-      </div>
-      <div className="modal-body">
-        {record ? (
-          <div className="resource-detail-grid">
-            <div className="ground-truth-box">
-              <h3>Metadata</h3>
-              <div className="metadata-grid">
-                {(record.metadata || []).map(([label, value]) => (
-                  <div className="metadata-row" key={label}>
-                    <span>{label}</span>
-                    <strong>{String(value)}</strong>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="ground-truth-box">
-              {(record.sections || []).map((section) =>
-                section.collapsible ? (
-                  <details key={section.title} className="resource-detail-section">
-                    <summary>{section.title}</summary>
-                    <pre>{section.content || ""}</pre>
-                  </details>
-                ) : (
-                  <div key={section.title} className="resource-detail-section">
-                    <h3>{section.title}</h3>
-                    <pre>{section.content || ""}</pre>
-                  </div>
-                ),
-              )}
-              <div className="resource-detail-section">
-                <h3>Raw record</h3>
-                <pre>{JSON.stringify(record.raw || {}, null, 2)}</pre>
-              </div>
+      {record ? (
+        <div className="resource-detail-grid">
+          <div className="ground-truth-box">
+            <h3>Metadata</h3>
+            <div className="metadata-grid">
+              {(record.metadata || []).map(([label, value]) => (
+                <div className="metadata-row" key={label}>
+                  <span>{label}</span>
+                  <strong>{String(value)}</strong>
+                </div>
+              ))}
             </div>
           </div>
-        ) : (
-          <EmptyState>No resource selected.</EmptyState>
-        )}
-      </div>
-    </Modal>
+          <div className="ground-truth-box">
+            {(record.sections || []).map((section) =>
+              section.collapsible ? (
+                <details key={section.title} className="resource-detail-section">
+                  <summary>{section.title}</summary>
+                  <pre>{section.content || ""}</pre>
+                </details>
+              ) : (
+                <div key={section.title} className="resource-detail-section">
+                  <h3>{section.title}</h3>
+                  <pre>{section.content || ""}</pre>
+                </div>
+              ),
+            )}
+            <div className="resource-detail-section">
+              <h3>Raw record</h3>
+              <pre>{JSON.stringify(record.raw || {}, null, 2)}</pre>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <EmptyState>No resource selected.</EmptyState>
+      )}
+    </Dialog>
   );
 }
 
 function DerivativeGroupConditionRows({ kind, conditions, actions }) {
-  const isMembership = kind === "membership";
   return (
     <Stack gap="compact">
-      <SectionTitle>
-        {isMembership ? "Derivative membership" : "Sample mapping"}
-      </SectionTitle>
+      <SectionTitle>Derivative membership</SectionTitle>
       {conditions.map((condition, index) => (
-        <Grid columns={4} key={`${kind}-${index}`}>
+        <Grid columns={2} key={`${kind}-${index}`}>
           <Field density="compact" label="Field">
             <Select value={condition.field} onChange={(event) => actions.updateDerivativeGroupCondition(kind, index, "field", event.target.value)}>
               <option value="name">name</option>
               <option value="sample_id">sample_id</option>
-              {isMembership ? <option value="name">name</option> : null}
-            </Select>
-          </Field>
-          <Field density="compact" label="Operator">
-            <Select value={condition.operator} onChange={(event) => actions.updateDerivativeGroupCondition(kind, index, "operator", event.target.value)}>
-              <option value="equals">is</option><option value="contains">contains</option><option value="starts_with">starts with</option><option value="ends_with">ends with</option>
-            </Select>
-          </Field>
-          <Field density="compact" label="Value type">
-            <Select value={condition.valueType} onChange={(event) => actions.updateDerivativeGroupCondition(kind, index, "valueType", event.target.value)}>
-              <option value={isMembership ? "manual" : "sample-field"}>{isMembership ? "Manual value" : "Sample field"}</option>
             </Select>
           </Field>
           <Field density="compact" label="Value" action={<IconButton label="Remove condition" variant="danger" onClick={() => actions.removeDerivativeGroupCondition(kind, index)}><Icon name="delete" /></IconButton>}>
-            {isMembership ? <TextInput value={condition.value} onChange={(event) => actions.updateDerivativeGroupCondition(kind, index, "value", event.target.value)} placeholder="_line_" /> : <Select value={condition.value} onChange={(event) => actions.updateDerivativeGroupCondition(kind, index, "value", event.target.value)}><option value="name">name</option><option value="id">id</option></Select>}
+            <TextInput value={condition.value} onChange={(event) => actions.updateDerivativeGroupCondition(kind, index, "value", event.target.value)} placeholder="_line_" />
           </Field>
         </Grid>
       ))}
@@ -185,7 +152,7 @@ function DerivativeGroupCreateModal({ open, state, actions }) {
     <Dialog
       open={open}
       title="Create derivative group"
-      description={`Step ${step} of 4`}
+      description={`Step ${step} of 3`}
       size="wide"
       onClose={actions.closeCreateDerivativeGroup}
       footer={
@@ -203,13 +170,13 @@ function DerivativeGroupCreateModal({ open, state, actions }) {
           <Button
             variant="primary"
             onClick={
-              step < 4
+              step < 3
                 ? actions.nextCreateDerivativeGroupStep
                 : actions.submitCreateDerivativeGroup
             }
             disabled={state.createDerivativeGroupLoading}
           >
-            {step < 4
+            {step < 3
               ? "Next"
               : state.createDerivativeGroupLoading
                 ? "Creating..."
@@ -224,8 +191,7 @@ function DerivativeGroupCreateModal({ open, state, actions }) {
           steps={[
             { id: "step-1", label: "Details" },
             { id: "step-2", label: "Membership" },
-            { id: "step-3", label: "Sample mapping" },
-            { id: "step-4", label: "Review" },
+            { id: "step-3", label: "Review" },
           ]}
         />
         {step === 1 ? (
@@ -283,66 +249,6 @@ function DerivativeGroupCreateModal({ open, state, actions }) {
             </Field>
           </Stack>
         ) : null}
-        {false ? (
-          <Stack>
-            <Grid columns={2}>
-              <Field label="Derivative field">
-                <Select
-                value={draft.membershipDerivativeField}
-                onChange={(event) =>
-                  actions.setCreateDerivativeGroupField(
-                    "membershipDerivativeField",
-                    event.target.value,
-                  )
-                }
-              >
-                <option value="name">Derivative name</option>
-                <option value="sample_id">
-                  Originating sample ID
-                </option>
-                </Select>
-              </Field>
-              <Field label="Operator">
-                <Select
-                value={draft.membershipOperator}
-                onChange={(event) =>
-                  actions.setCreateDerivativeGroupField(
-                    "membershipOperator",
-                    event.target.value,
-                  )
-                }
-              >
-                <option value="contains">Contains</option>
-                <option value="equals">Equals</option>
-                <option value="starts_with">Starts with</option>
-                <option value="ends_with">Ends with</option>
-                </Select>
-              </Field>
-            </Grid>
-            <Field label="Pattern" hint="Required">
-              <TextInput
-                value={draft.membershipPattern}
-                onChange={(event) =>
-                  actions.setCreateDerivativeGroupField(
-                    "membershipPattern",
-                    event.target.value,
-                  )
-                }
-                placeholder="_line_"
-              />
-            </Field>
-            <Checkbox
-              label="Case sensitive"
-              checked={draft.membershipCaseSensitive}
-              onChange={(event) =>
-                actions.setCreateDerivativeGroupField(
-                  "membershipCaseSensitive",
-                  event.target.checked,
-                )
-              }
-            />
-          </Stack>
-        ) : null}
         {step === 2 ? (
           <Stack>
             <DerivativeGroupConditionRows
@@ -353,77 +259,6 @@ function DerivativeGroupCreateModal({ open, state, actions }) {
           </Stack>
         ) : null}
         {step === 3 ? (
-          <Stack>
-            <DerivativeGroupConditionRows
-              kind="sample"
-              conditions={draft.sampleMappingConditions}
-              actions={actions}
-            />
-          </Stack>
-        ) : null}
-        {false ? (
-          <Stack>
-            <Grid columns={2}>
-              <Field label="Derivative field">
-                <Select
-                value={draft.sampleMappingDerivativeField}
-                onChange={(event) =>
-                  actions.setCreateDerivativeGroupField(
-                    "sampleMappingDerivativeField",
-                    event.target.value,
-                  )
-                }
-              >
-                <option value="name">Derivative name</option>
-                <option value="sample_id">
-                  Originating sample ID
-                </option>
-                </Select>
-              </Field>
-              <Field label="Sample field">
-                <Select
-                value={draft.sampleMappingSampleField}
-                onChange={(event) =>
-                  actions.setCreateDerivativeGroupField(
-                    "sampleMappingSampleField",
-                    event.target.value,
-                  )
-                }
-              >
-                <option value="name">Sample name</option>
-                <option value="id">Sample ID</option>
-                </Select>
-              </Field>
-              <Field label="Operator">
-                <Select
-                value={draft.sampleMappingOperator}
-                onChange={(event) =>
-                  actions.setCreateDerivativeGroupField(
-                    "sampleMappingOperator",
-                    event.target.value,
-                  )
-                }
-              >
-                <option value="contains">Contains</option>
-                <option value="equals">Equals</option>
-                <option value="starts_with">Starts with</option>
-                <option value="ends_with">Ends with</option>
-                </Select>
-              </Field>
-            </Grid>
-            <Checkbox
-              label="Case sensitive"
-              checked={draft.sampleMappingCaseSensitive}
-              onChange={(event) =>
-                actions.setCreateDerivativeGroupField(
-                  "sampleMappingCaseSensitive",
-                  event.target.checked,
-                )
-              }
-            />
-          </Stack>
-        ) : null}
-        {step === 4 ? (
           <Grid columns={2}>
             <Panel title="Group">
               <CodeBlock label="Configuration">
@@ -443,9 +278,6 @@ function DerivativeGroupCreateModal({ open, state, actions }) {
               <Stack gap="compact">
                 <CodeBlock label="Membership rule">
                   {JSON.stringify(draft.membershipConditions, null, 2)}
-                </CodeBlock>
-                <CodeBlock label="Sample mapping">
-                  {JSON.stringify(draft.sampleMappingConditions, null, 2)}
                 </CodeBlock>
               </Stack>
             </Panel>
@@ -517,37 +349,66 @@ export function WorkflowStepsOverlays({ state, actions }) {
 }
 
 const promptResourceTables = {
+  documents: ["id", "name", "metadata", "blob", "mime_type", "created_at", "updated_at"],
+  assets: ["id", "name", "type", "blob", "mime_type", "text", "created_at", "updated_at"],
   derivatives: [
     "id",
     "name",
     "sample_id",
     "derivative_group_id",
     "category",
+    "blob",
     "mime_type",
+    "created_at",
+    "updated_at",
   ],
   samples: [
     "id",
     "name",
+    "document_id",
+    "document_position",
+    "blob",
     "mime_type",
     "ground_truth_text",
+    "created_at",
+    "updated_at",
   ],
   step_outputs: [
     "id",
     "workflow_id",
     "workflow_step_id",
     "sample_id",
-    "parsed_output",
-    "parse_status",
-    "parse_error",
+    "output_scope",
+    "entity_type",
+    "entity_key",
+    "output",
     "created_at",
-    "completed_at",
   ],
 };
 
-function PromptResourceCard({ resource, index, actions }) {
-  const fields = promptResourceTables[resource.table] || [];
+function PromptResourceCard({ resource, index, state, actions }) {
   const hasName = resource.name.trim().length > 0;
   const hasTable = Boolean(resource.table);
+  const contentOptions = {
+    assets: state.assets || [],
+    documents: state.documents || [],
+    samples: state.samples || [],
+    derivatives: state.derivatives || [],
+  }[resource.table] || [];
+  const optionLabel = (item) => `${item.name} — ${item.id}`;
+  const tableOptions = resource.type === "content"
+    ? [
+        ["assets", "Assets"],
+        ["documents", "Documents"],
+        ["samples", "Samples"],
+        ["derivatives", "Derivatives"],
+      ]
+    : [
+        ["documents", "Documents"],
+        ["samples", "Samples"],
+        ["derivatives", "Derivatives"],
+        ["step_outputs", "Upstream step outputs"],
+      ];
   return (
     <Panel
       title={resource.name || "Prompt data"}
@@ -573,6 +434,17 @@ function PromptResourceCard({ resource, index, actions }) {
         />
         {hasName ? (
           <>
+            <SectionTitle>Resource type</SectionTitle>
+            <Select
+              aria-label="Resource type"
+              value={resource.type}
+              onChange={(event) =>
+                actions.updatePayloadResource(index, "type", event.target.value)
+              }
+            >
+              <option value="content">Content — one fixed record</option>
+              <option value="binding">Binding — related records at runtime</option>
+            </Select>
             <SectionTitle>Get data from</SectionTitle>
             <Select
               aria-label="Get data from"
@@ -586,165 +458,47 @@ function PromptResourceCard({ resource, index, actions }) {
               }
             >
               <option value="">Choose a table</option>
-              <option value="derivatives">Derivatives</option>
-              <option value="samples">Samples</option>
-              <option value="step_outputs">Step outputs</option>
+              {tableOptions.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
             </Select>
           </>
         ) : null}
         {hasTable ? (
           <>
-            <SectionTitle>Where</SectionTitle>
-            <Stack gap="compact">
-              {resource.conditions.map((condition, conditionIndex) => (
-                <Grid columns={4} key={conditionIndex}>
-                  <Field density="compact" label="Field">
-                    <Select
-                      value={condition.field}
-                      onChange={(event) =>
-                        actions.updatePayloadResourceCondition(
-                          index,
-                          conditionIndex,
-                          "field",
-                          event.target.value,
-                        )
-                      }
-                    >
-                      <option value="">Choose a field</option>
-                      {fields.map((field) => (
-                        <option key={field} value={field}>
-                          {field}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  {condition.field ? (
-                    <Field density="compact" label="Operator">
-                      <Select
-                        value={condition.operator}
-                        onChange={(event) =>
-                          actions.updatePayloadResourceCondition(
-                            index,
-                            conditionIndex,
-                            "operator",
-                            event.target.value,
-                          )
-                        }
-                      >
-                        <option value="equals">is</option>
-                        <option value="not_equals">is not</option>
-                        <option value="greater_than">is greater than</option>
-                        <option value="less_than">is less than</option>
-                        <option value="contains">contains</option>
-                      </Select>
-                    </Field>
-                  ) : null}
-                  {condition.operator ? (
-                    <Field density="compact" label="Value type">
-                      <Select
-                        value={condition.valueType}
-                        onChange={(event) =>
-                          actions.updatePayloadResourceCondition(
-                            index,
-                            conditionIndex,
-                            "valueType",
-                            event.target.value,
-                          )
-                        }
-                      >
-                        <option value="sample-field">Sample field</option>
-                        <option value="manual">Manual value</option>
-                      </Select>
-                    </Field>
-                  ) : null}
-                  {condition.valueType ? (
-                    <Field
-                      density="compact"
-                      label="Value"
-                      action={
-                        <IconButton
-                          label="Remove condition"
-                          variant="danger"
-                          onClick={() =>
-                            actions.removePayloadResourceCondition(
-                              index,
-                              conditionIndex,
-                            )
-                          }
-                        >
-                          <Icon name="delete" />
-                        </IconButton>
-                      }
-                    >
-                      {condition.valueType === "sample-field" ? (
-                        <Select
-                          value={condition.value}
-                          onChange={(event) =>
-                            actions.updatePayloadResourceCondition(
-                              index,
-                              conditionIndex,
-                              "value",
-                              event.target.value,
-                            )
-                          }
-                        >
-                          <option value="id">id</option>
-                          <option value="name">name</option>
-                          <option value="mime_type">
-                            mime_type
-                          </option>
-                          <option value="ground_truth_text">
-                            ground_truth_text
-                          </option>
-                        </Select>
-                      ) : (
-                        <TextInput
-                          value={condition.value}
-                          onChange={(event) =>
-                            actions.updatePayloadResourceCondition(
-                              index,
-                              conditionIndex,
-                              "value",
-                              event.target.value,
-                            )
-                          }
-                          placeholder="Value"
-                        />
-                      )}
-                    </Field>
-                  ) : null}
-                </Grid>
-              ))}
-              <Button
-                size="compact"
-                onClick={() => actions.addPayloadResourceCondition(index)}
+            {resource.type === "content" ? (
+              <Field
+                label="Database record"
+                hint="Start typing a name, then choose the matching record."
               >
-                Add condition
-              </Button>
-            </Stack>
-          </>
-        ) : null}
-        {hasTable ? (
-          <>
-            <SectionTitle>Batch</SectionTitle>
-            <Field
-              density="compact"
-              label="Batch limit"
-              hint="Maximum matching rows included in one prompt run."
-            >
-              <TextInput
-                type="number"
-                min="1"
-                value={resource.batchLimit}
-                onChange={(event) =>
-                  actions.updatePayloadResource(
-                    index,
-                    "batchLimit",
-                    event.target.value,
-                  )
-                }
-              />
-            </Field>
+                <TextInput
+                  type="search"
+                  list={`prompt-content-options-${index}`}
+                  value={resource.rowLabel}
+                  placeholder="Search by name"
+                  onChange={(event) => {
+                    const label = event.target.value;
+                    const selected = contentOptions.find(
+                      (item) => optionLabel(item) === label,
+                    );
+                    actions.updatePayloadResource(index, "rowLabel", label);
+                    actions.updatePayloadResource(
+                      index,
+                      "rowId",
+                      selected ? String(selected.id) : "",
+                    );
+                  }}
+                />
+                <datalist id={`prompt-content-options-${index}`}>
+                  {contentOptions.map((item) => (
+                    <option key={item.id} value={optionLabel(item)} />
+                  ))}
+                </datalist>
+              </Field>
+            ) : null}
+            <Instruction>
+              The complete database record is available to the JSON template.
+            </Instruction>
           </>
         ) : null}
       </Stack>
@@ -853,14 +607,16 @@ function PayloadTemplateCreateModal({ state, actions }) {
         {step === 2 ? (
           <Stack>
             <Notification tone="info">
-              Choose project data that this prompt can use. Each source resolves
-              matching database records for the current sample.
+              The current execution sample is always available as {"{{sample.*}}"}.
+              Content selects one fixed database record. Bindings resolve all
+              related records from the current execution entity.
             </Notification>
             {draft.resources.map((resource, index) => (
               <PromptResourceCard
                 key={index}
                 resource={resource}
                 index={index}
+                state={state}
                 actions={actions}
               />
             ))}
@@ -929,25 +685,49 @@ function PayloadTemplateCreateModal({ state, actions }) {
 
 function OutputSpecCreateModal({ state, actions }) {
   const draft = state.createOutputSpecDraft;
+  const entityPlaceholder = {
+    documents_batch: "<document-id>", documents: "<document-id>",
+    samples_batch: "<sample-id>", samples: "<sample-id>",
+    derivatives_batch: "<derivative-id>", derivatives: "<derivative-id>",
+  }[state.createWorkflowStepDraft.outputScope || "samples"];
+  const itemPreview = draft.itemType === "string"
+    ? "<string>"
+    : Object.fromEntries(
+        draft.fields
+          .filter((field) => field.name.trim())
+          .map((field) => [
+            field.name.trim(),
+            field.type === "number"
+              ? 0
+              : field.type === "boolean"
+                ? false
+                : "<string>",
+          ]),
+      );
+  const outputPreview = { [entityPlaceholder]: itemPreview };
   return (
-    <Modal
+    <Dialog
       open={state.createOutputSpecOpen}
-      panelClassName="output-spec-create-modal"
+      title="Create output specification"
+      description="Define the shape returned by the model."
+      size="wide"
+      onClose={actions.closeCreateOutputSpec}
+      footer={
+        <Inline gap="compact" justify="end">
+          <Button onClick={actions.closeCreateOutputSpec}>Cancel</Button>
+          <Button
+            variant="primary"
+            onClick={actions.submitCreateOutputSpec}
+            disabled={state.createOutputSpecLoading}
+          >
+            {state.createOutputSpecLoading
+              ? "Creating..."
+              : "Create output specification"}
+          </Button>
+        </Inline>
+      }
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>Create Output Specification</h2>
-          <span>Define the shape returned by the model</span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateOutputSpec}
-        >
-          Close
-        </button>
-      </div>
-      <div className="modal-body output-spec-create-body">
+      <div className="output-spec-create-body">
         <div className="form-grid">
           <div className="field wide">
             <label htmlFor="output-spec-name">Name</label>
@@ -960,65 +740,19 @@ function OutputSpecCreateModal({ state, actions }) {
               placeholder="Document analysis result"
             />
           </div>
-          <div className="field">
-            <label htmlFor="output-spec-type">Type</label>
+          <div className="field wide">
+            <label htmlFor="output-spec-item-type">Item shape</label>
             <select
-              id="output-spec-type"
-              value={draft.type}
+              id="output-spec-item-type"
+              value={draft.itemType}
               onChange={(event) =>
-                actions.updateCreateOutputSpecField("type", event.target.value)
+                actions.updateCreateOutputSpecField("itemType", event.target.value)
               }
             >
-              <option value="json">JSON</option>
-              <option value="plain-text">Plain text</option>
+              <option value="string">String</option>
+              <option value="object">Object</option>
             </select>
-          </div>
-          <div className="field wide">
-            <label htmlFor="output-spec-instructions">
-              Instructions <span>Optional</span>
-            </label>
-            <textarea
-              id="output-spec-instructions"
-              rows="4"
-              value={draft.instructions}
-              onChange={(event) =>
-                actions.updateCreateOutputSpecField(
-                  "instructions",
-                  event.target.value,
-                )
-              }
-              placeholder="Describe the expected step output."
-            />
-          </div>
-          <div className="field wide">
-            <div className="output-spec-schema-heading">
-              <label>Item schema</label>
-              <div
-                className="output-spec-mode-toggle"
-                role="tablist"
-                aria-label="Item schema mode"
-              >
-                <button
-                  className={draft.schemaMode === "fields" ? "is-active" : ""}
-                  type="button"
-                  onClick={() =>
-                    actions.updateCreateOutputSpecField("schemaMode", "fields")
-                  }
-                >
-                  Fields
-                </button>
-                <button
-                  className={draft.schemaMode === "json" ? "is-active" : ""}
-                  type="button"
-                  onClick={() =>
-                    actions.updateCreateOutputSpecField("schemaMode", "json")
-                  }
-                >
-                  JSON
-                </button>
-              </div>
-            </div>
-            {draft.schemaMode === "fields" ? (
+            {draft.itemType === "object" ? (
               <div className="output-spec-fields-editor">
                 {draft.fields.map((field, index) => (
                   <div className="output-spec-field-row" key={index}>
@@ -1044,6 +778,23 @@ function OutputSpecCreateModal({ state, actions }) {
                         )
                       }
                     />
+                    <select
+                      value={field.type}
+                      onChange={(event) =>
+                        actions.updateOutputSpecField(index, "type", event.target.value)
+                      }
+                    >
+                      <option value="string">String</option>
+                      <option value="number">Number</option>
+                      <option value="boolean">Boolean</option>
+                    </select>
+                    <Checkbox
+                      label="Required"
+                      checked={field.required}
+                      onChange={() =>
+                        actions.updateOutputSpecField(index, "required", !field.required)
+                      }
+                    />
                     <button
                       className="payload-remove-button"
                       type="button"
@@ -1062,43 +813,32 @@ function OutputSpecCreateModal({ state, actions }) {
                   ＋ Add field
                 </button>
               </div>
-            ) : (
-              <textarea
-                id="output-spec-schema"
-                className="payload-json-editor"
-                rows="8"
-                value={draft.itemSchema}
-                onChange={(event) =>
-                  actions.updateCreateOutputSpecField(
-                    "itemSchema",
-                    event.target.value,
-                  )
-                }
-              />
-            )}
+            ) : null}
+          </div>
+          <div className="field wide">
+            <label htmlFor="output-spec-instructions">
+              Additional instructions <span>Optional</span>
+            </label>
+            <textarea
+              id="output-spec-instructions"
+              rows="4"
+              value={draft.instructions}
+              onChange={(event) =>
+                actions.updateCreateOutputSpecField(
+                  "instructions",
+                  event.target.value,
+                )
+              }
+              placeholder="Add any further requirements for each output item."
+            />
+          </div>
+          <div className="field wide">
+            <label>Generated output preview</label>
+            <CodeBlock>{JSON.stringify(outputPreview, null, 2)}</CodeBlock>
           </div>
         </div>
       </div>
-      <div className="modal-footer">
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateOutputSpec}
-        >
-          Cancel
-        </button>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={actions.submitCreateOutputSpec}
-          disabled={state.createOutputSpecLoading}
-        >
-          {state.createOutputSpecLoading
-            ? "Creating..."
-            : "Create output specification"}
-        </button>
-      </div>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -1110,24 +850,41 @@ function WorkflowStepCreateModal({ state, actions }) {
     (item) => executor && item.model_family === executor.id,
   );
   return (
-    <Modal
+    <Dialog
       open={state.createWorkflowStepOpen}
-      panelClassName="workflow-step-create-modal"
+      title="Create workflow step"
+      description={`Step ${step} of 4`}
+      size="wide"
+      onClose={actions.closeCreateWorkflowStep}
+      footer={
+        <Inline gap="compact" justify="end">
+          <Button onClick={actions.closeCreateWorkflowStep}>Cancel</Button>
+          {step > 1 ? (
+            <Button onClick={actions.previousCreateWorkflowStep}>Back</Button>
+          ) : null}
+          {step < 4 ? (
+            <Button
+              variant="primary"
+              onClick={actions.nextCreateWorkflowStep}
+              disabled={state.createWorkflowStepLoading}
+            >
+              {state.createWorkflowStepLoading ? "Loading..." : "Next"}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={actions.submitCreateWorkflowStep}
+              disabled={state.createWorkflowStepLoading}
+            >
+              {state.createWorkflowStepLoading
+                ? "Creating..."
+                : "Create workflow step"}
+            </Button>
+          )}
+        </Inline>
+      }
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>Create Workflow Step</h2>
-          <span>Step {step} of 4</span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateWorkflowStep}
-        >
-          Close
-        </button>
-      </div>
-      <div className="modal-body workflow-step-create-body">
+      <div className="workflow-step-create-body">
         <div className="payload-stepper">
           {["Metadata & executor", "Configuration", "Payload template", "Output spec"].map((label, index) => (
             <span key={label} className={step === index + 1 ? "is-active" : step > index + 1 ? "is-complete" : ""}>
@@ -1156,6 +913,36 @@ function WorkflowStepCreateModal({ state, actions }) {
                 onChange={(event) => actions.updateCreateWorkflowStepField("stepExecutor", event.target.value)}>
                 <option value="">Select executor</option>
                 {(state.stepExecutors || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="execution-scope">Execution scope</label>
+              <select
+                id="execution-scope"
+                value={draft.executionScope}
+                onChange={(event) => actions.updateCreateWorkflowStepField("executionScope", event.target.value)}
+              >
+                <option value="documents_batch">Documents (batch)</option>
+                <option value="documents">Document</option>
+                <option value="samples_batch">Samples (batch)</option>
+                <option value="samples">Sample</option>
+                <option value="derivatives_batch">Derivatives (batch)</option>
+                <option value="derivatives">Derivative</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="output-scope">Output scope</label>
+              <select
+                id="output-scope"
+                value={draft.outputScope}
+                onChange={(event) => actions.updateCreateWorkflowStepField("outputScope", event.target.value)}
+              >
+                <option value="documents_batch">Documents (batch)</option>
+                <option value="documents">Document</option>
+                <option value="samples_batch">Samples (batch)</option>
+                <option value="samples">Sample</option>
+                <option value="derivatives_batch">Derivatives (batch)</option>
+                <option value="derivatives">Derivative</option>
               </select>
             </div>
           </div>
@@ -1276,48 +1063,7 @@ function WorkflowStepCreateModal({ state, actions }) {
           </div>
         ) : null}
       </div>
-      <div className="modal-footer">
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreateWorkflowStep}
-        >
-          Cancel
-        </button>
-        <div className="inline-actions">
-          {step > 1 ? (
-            <button
-              className="btn-ghost"
-              type="button"
-              onClick={actions.previousCreateWorkflowStep}
-            >
-              Back
-            </button>
-          ) : null}
-          {step < 4 ? (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={actions.nextCreateWorkflowStep}
-              disabled={state.createWorkflowStepLoading}
-            >
-              {state.createWorkflowStepLoading ? "Loading..." : "Next"}
-            </button>
-          ) : (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={actions.submitCreateWorkflowStep}
-              disabled={state.createWorkflowStepLoading}
-            >
-              {state.createWorkflowStepLoading
-                ? "Creating..."
-                : "Create workflow step"}
-            </button>
-          )}
-        </div>
-      </div>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -1340,26 +1086,36 @@ function LegacyPayloadTemplateCreateModal({ state, actions }) {
   };
   const workflowSteps = state.workflowSteps || [];
   return (
-    <Modal
+    <Dialog
       open={state.createPayloadTemplateOpen}
-      panelClassName="payload-template-create-modal"
+      title="Create payload template"
+      description={`Step ${step} of 2 · ${step === 1 ? "Template metadata" : "Messages and inputs"}`}
+      size="extra-wide"
+      onClose={actions.closeCreatePayloadTemplate}
+      footer={
+        <Inline gap="compact" justify="end">
+          <Button onClick={actions.closeCreatePayloadTemplate}>Cancel</Button>
+          {step === 2 ? (
+            <Button onClick={actions.previousCreatePayloadTemplateStep}>Back</Button>
+          ) : null}
+          {step === 1 ? (
+            <Button variant="primary" onClick={actions.nextCreatePayloadTemplateStep}>
+              Continue to prompt structure
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={actions.submitCreatePayloadTemplate}
+              disabled={state.createPayloadTemplateLoading}
+            >
+              {state.createPayloadTemplateLoading
+                ? "Creating..."
+                : "Create payload template"}
+            </Button>
+          )}
+        </Inline>
+      }
     >
-      <div className="modal-header">
-        <div className="panel-title">
-          <h2>Create Payload Template</h2>
-          <span>
-            Step {step} of 2 ·{" "}
-            {step === 1 ? "Template metadata" : "Messages and inputs"}
-          </span>
-        </div>
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreatePayloadTemplate}
-        >
-          Close
-        </button>
-      </div>
       <div className="payload-stepper">
         <span className={step === 1 ? "is-active" : "is-complete"}>
           01 <b>Metadata</b>
@@ -1369,7 +1125,7 @@ function LegacyPayloadTemplateCreateModal({ state, actions }) {
           02 <b>Prompt structure</b>
         </span>
       </div>
-      <div className="modal-body payload-template-builder">
+      <div className="payload-template-builder">
         {step === 1 ? (
           <div className="payload-metadata-stage">
             <div className="payload-stage-intro">
@@ -2140,46 +1896,6 @@ function LegacyPayloadTemplateCreateModal({ state, actions }) {
           </div>
         )}
       </div>
-      <div className="modal-footer">
-        <button
-          className="btn-ghost"
-          type="button"
-          onClick={actions.closeCreatePayloadTemplate}
-        >
-          Cancel
-        </button>
-        <div className="inline-actions">
-          {step === 2 ? (
-            <button
-              className="btn-ghost"
-              type="button"
-              onClick={actions.previousCreatePayloadTemplateStep}
-            >
-              Back
-            </button>
-          ) : null}
-          {step === 1 ? (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={actions.nextCreatePayloadTemplateStep}
-            >
-              Continue to prompt structure
-            </button>
-          ) : (
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={actions.submitCreatePayloadTemplate}
-              disabled={state.createPayloadTemplateLoading}
-            >
-              {state.createPayloadTemplateLoading
-                ? "Creating..."
-                : "Create payload template"}
-            </button>
-          )}
-        </div>
-      </div>
-    </Modal>
+    </Dialog>
   );
 }

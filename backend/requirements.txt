@@ -2,11 +2,14 @@ google-genai
 pandas
 matplotlib
 SQLAlchemy
+alembic
 psycopg[binary]
 fastapi
 uvicorn
 watchfiles
 python-multipart
+Pillow
 dotenv
 anthropic
 jsonschema
+json-repair==0.63.5
