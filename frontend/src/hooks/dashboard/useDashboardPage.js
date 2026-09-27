@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { dashboardApi } from "../../api/endpoints/dashboard.ts";
 import { APP_DATA_CHANGED_EVENT } from "../../utils/appEvents.js";
 import { useNotificationOverlay } from "../../components/layout/NotificationOverlay.js";
+import { useFileDetail } from "../file-management/useFileDetail.js";
 
 export function useDashboardPage() {
   const { syncNotifications } = useNotificationOverlay() || {};
@@ -17,6 +18,10 @@ export function useDashboardPage() {
     sampleSetAnalytics: null,
     sampleSetAnalyticsLoading: false,
     sampleSetAnalyticsError: "",
+  });
+  const detail = useFileDetail({
+    derivativeGroups: [],
+    setError: (error) => setState((current) => ({ ...current, error })),
   });
 
   async function loadDashboard({ keepSelection = true } = {}) {
@@ -217,9 +222,12 @@ export function useDashboardPage() {
 
   return {
     ...state,
+    detailState: detail.state,
     refresh,
     selectSampleSet,
     removeSampleSet,
     removeWorkflow,
+    openSampleDetail: (sampleId) => detail.actions.openRecord("sample", sampleId),
+    closeSampleDetail: detail.actions.closeRecordDetail,
   };
 }

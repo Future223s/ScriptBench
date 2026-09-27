@@ -56,8 +56,11 @@
 .dashboard-quality-summary strong { display: block; margin-top: 3px; font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 500; }
 
 .dashboard-attention-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
-.dashboard-attention-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+.dashboard-attention-list li { border-bottom: 1px solid var(--line); }
 .dashboard-attention-list li:last-child { padding-bottom: 0; border-bottom: 0; }
+.dashboard-attention-list button { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 0 0 9px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.dashboard-attention-list button:hover span,
+.dashboard-attention-list button:focus-visible span { color: var(--accent); }
 .dashboard-attention-list span { overflow: hidden; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-attention-list strong { color: var(--amber); font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 500; }
 .dashboard-analysis-instruction { margin: 13px 0 0; color: var(--text-muted); font-size: 11px; text-align: center; }

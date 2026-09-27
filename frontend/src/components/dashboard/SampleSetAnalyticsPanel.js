@@ -50,7 +50,7 @@ function Kpi({ label, value, note }) {
   return <article className="dashboard-card dashboard-kpi"><span className="dashboard-kpi-label">{label}</span><strong className="dashboard-kpi-value">{value}</strong><span className="dashboard-kpi-note">{note}</span></article>;
 }
 
-export function SampleSetAnalyticsPanel({ sampleSets, selectedSampleSetId, sampleSet, sampleSetAnalytics, onSelectSampleSet, onDeleteWorkflow, onManageSampleSet }) {
+export function SampleSetAnalyticsPanel({ sampleSets, selectedSampleSetId, sampleSet, sampleSetAnalytics, onSelectSampleSet, onDeleteWorkflow, onManageSampleSet, onOpenSampleDetail }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedWorkflowId, setSelectedWorkflowId] = useState("all");
   const [search, setSearch] = useState("");
@@ -143,8 +143,8 @@ export function SampleSetAnalyticsPanel({ sampleSets, selectedSampleSetId, sampl
         </article>
         <article className="dashboard-card dashboard-panel">
           <div className="dashboard-panel-head"><h2>Pages to review</h2><span className="dashboard-badge">{reviewRows.length} shown</span></div>
-          <ol className="dashboard-attention-list">{reviewRows.map((row) => <li key={row.sample_id}><span>{row.sample_id}</span><strong>{metricValue(row.cer)}</strong></li>)}</ol>
-          <p className="dashboard-analysis-instruction">Click to open detailed analysis.</p>
+          <ol className="dashboard-attention-list">{reviewRows.map((row) => <li key={row.sample_id}><button type="button" onClick={() => onOpenSampleDetail?.(row.sample_id)} aria-label={`Open details for ${row.sample_id}`}><span>{row.sample_id}</span><strong>{metricValue(row.cer)}</strong></button></li>)}</ol>
+          <p className="dashboard-analysis-instruction">Click a page to open its details.</p>
         </article>
         <article className="dashboard-card dashboard-panel dashboard-latest">
           <div className="dashboard-panel-head"><div><h2>Latest workflow</h2><p>{latestWorkflow ? `Updated ${formatDate(latestWorkflow.updated_at || latestWorkflow.created_at)}` : "No workflow runs yet"}</p></div>{latestWorkflow ? <span className="dashboard-badge is-success">{latestWorkflow.status}</span> : null}</div>

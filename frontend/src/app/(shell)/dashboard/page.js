@@ -20,6 +20,9 @@ export default function DashboardRoute() {
       onSelectSampleSet={dashboard.selectSampleSet}
       onDeleteSampleSet={dashboard.removeSampleSet}
       onDeleteWorkflow={dashboard.removeWorkflow}
+      detailState={dashboard.detailState}
+      onOpenSampleDetail={dashboard.openSampleDetail}
+      onCloseSampleDetail={dashboard.closeSampleDetail}
       onNavigateFileManagement={() => router.push("/file-management")}
     />
   );

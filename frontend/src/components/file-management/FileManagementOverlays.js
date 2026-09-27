@@ -87,8 +87,16 @@ function RecordPreview({ type, record, loading }) {
   return <EmptyState title="No preview available">This record does not contain previewable content.</EmptyState>;
 }
 
-function RecordDetailDialog({ open, type, record, actions }) {
+export function RecordDetailDialog({ open, type, record, actions }) {
   const isDocument = type === "document";
+  const canAssembleDocument = isDocument && typeof actions.assembleDocument === "function";
+  const canDelete = typeof actions.deleteRecord === "function";
+  const dialogActions = canAssembleDocument || canDelete ? (
+    <Inline gap="compact">
+      {canAssembleDocument ? <Button size="compact" onClick={() => actions.assembleDocument(record?.id)} disabled={!record?.id || !record?.raw?.sample_count}>Assemble PDF</Button> : null}
+      {canDelete ? <Button size="compact" variant="danger" onClick={() => actions.deleteRecord(type, record?.id)} disabled={!record?.id}>Delete</Button> : null}
+    </Inline>
+  ) : null;
   return (
     <Dialog
       open={open}
@@ -96,12 +104,7 @@ function RecordDetailDialog({ open, type, record, actions }) {
       description={record?.mimeType || record?.typeLabel || objectTypeLabel(type)}
       size="extra-wide"
       onClose={actions.closeRecordDetail}
-      actions={
-        <Inline gap="compact">
-          {isDocument ? <Button size="compact" onClick={() => actions.assembleDocument(record?.id)} disabled={!record?.id || !record?.raw?.sample_count}>Assemble PDF</Button> : null}
-          <Button size="compact" variant="danger" onClick={() => actions.deleteRecord(type, record?.id)} disabled={!record?.id}>Delete</Button>
-        </Inline>
-      }
+      actions={dialogActions}
     >
       <SplitPane
         primary={<RecordPreview type={type} record={record} loading={actions.detailLoading} />}
