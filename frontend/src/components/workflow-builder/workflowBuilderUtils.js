@@ -1,14 +1,14 @@
 export function getCanvasBounds(state) {
-  const minRows = 3;
+  const minRows = 5;
   const minCols = 7;
 
   if (!state.nodes.length) {
     return {
       minRow: 1,
-      maxRow: 3,
+      maxRow: minRows,
       minCol: 1,
       maxCol: 7,
-      rows: 3,
+      rows: minRows,
       cols: 7,
     };
   }

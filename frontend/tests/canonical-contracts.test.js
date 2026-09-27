@@ -8,6 +8,7 @@ import {
 } from '../src/hooks/workflow-steps/workflowStepsShared.js';
 import { buildWorkflowPayload } from '../src/utils/workflow.js';
 import { buildCharacterDiff } from '../src/utils/textDiff.js';
+import { getCanvasBounds } from '../src/components/workflow-builder/workflowBuilderUtils.js';
 
 test('step output diff refines substitutions at character level', () => {
   assert.deepEqual(buildCharacterDiff('riwer', 'river'), [
@@ -82,4 +83,16 @@ test('workflow form emits canonical local fields and qualified sample-set relati
   assert.deepEqual(buildWorkflowPayload({ name: ' Read ', description: ' Demo ', sample_set_id: '8' }), {
     name: 'Read', description: 'Demo', sample_set_id: 8, status: 'draft', execution_mode: 'continuous',
   });
+});
+
+test('workflow canvas keeps vertical placement lanes compact', () => {
+  assert.deepEqual(getCanvasBounds({ nodes: [] }), {
+    minRow: 1,
+    maxRow: 5,
+    minCol: 1,
+    maxCol: 7,
+    rows: 5,
+    cols: 7,
+  });
+  assert.equal(getCanvasBounds({ nodes: [{ row: 2, col: 4 }] }).rows, 5);
 });
