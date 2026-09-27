@@ -149,9 +149,7 @@ export function WorkflowDisagreementWorkspace() {
   return (
     <section className="analysis-tool" aria-labelledby="quick-analysis-title">
       <header className="analysis-tool__header">
-        <p className="ui-eyebrow">Quick analysis</p>
         <h2 id="quick-analysis-title">Compare model outputs</h2>
-        <p>Run an on-demand comparison of terminal workflow outputs and inspect their disagreement regions.</p>
       </header>
       <div className="analysis-tool__surface">
         <Stack>
