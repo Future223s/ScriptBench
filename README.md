@@ -3,7 +3,7 @@
 ScriptBench is a platform for constructing, running, and evaluating composable
 handwritten text recognition (HTR) pipelines for historical documents at scale.
 It combines research experimentation with durable execution: researchers can
-compare transcription methods while preserving every input, model response,
+compare transcription pipelines while preserving every input, model response,
 failure, and derived result.
 
 Historical collections routinely contain hundreds or thousands of pages with
@@ -12,12 +12,7 @@ contrast. Established platforms such as
 [eScriptorium](https://escriptorium.readthedocs.io/en/latest/) and
 [Transkribus](https://help.transkribus.org/beginners-guide-to-transkribus)
 support segmentation and trained text-recognition models; conventional OCR and
-multimodal language models offer additional approaches. Each performs differently
-across collections, and useful transcription often requires several preprocessing,
-recognition, correction, and evaluation stages.
-
-ScriptBench provides the orchestration and evidence layer for composing those
-stages into reproducible experiments.
+multimodal language models offer additional approaches. Each performs differently, and useful transcription often requires several preprocessing, classification, correction, and evaluation stages. ScriptBench provides the orchestration and evidence layer for composing those stages into reproducible experiments.
 
 ## Why durable execution matters
 
@@ -78,14 +73,9 @@ Folder uploads infer these relationships from filenames:
 | Documentless derivative | `_page_derivative.png` |
 | Ground truth | `document_page_gt.txt` or `_page_gt.txt` |
 
-Document and page names cannot contain underscores because underscores delimit
-the hierarchy.
-
 ## Workflow model
 
-The smallest unit of work is a **workflow step**, defined by an executor and model,
-a method, a payload template, an execution scope, an output scope, and runtime
-configuration.
+The smallest unit of work is a **workflow step**, defined by an execution scope, an executor, a method, the runtime configuration (arguments) corresponding to that method, a payload template, and an output scope
 
 The execution scope determines what becomes one model request. The output scope
 determines which artifacts receive the result. Both support six granularities:
@@ -170,10 +160,6 @@ not a general model leaderboard.
   use SQLite.
 - An in-process asynchronous worker currently claims database-backed jobs and runs
   up to 20 concurrently.
-
-Redis and Celery are intentionally deferred. They become relevant when execution
-must be deployed independently from the API or scaled across multiple machines;
-they are not required for the current single-backend deployment.
 
 ## Run locally
 
