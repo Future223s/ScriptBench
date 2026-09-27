@@ -99,7 +99,7 @@ test('workflow canvas uses a granular grid and reserves each node footprint', ()
   const nodes = [{ row: 6, col: 12 }];
   assert.equal(getCanvasBounds({ nodes }).rows, 15);
   assert.equal(getCanvasBounds({ nodes }).cols, 21);
-  assert.equal(isCanvasPlacementAvailable(nodes, 8, 17), false);
-  assert.equal(isCanvasPlacementAvailable(nodes, 9, 12), true);
-  assert.equal(isCanvasPlacementAvailable(nodes, 6, 18), true);
+  assert.equal(isCanvasPlacementAvailable(nodes, 7, 15), false);
+  assert.equal(isCanvasPlacementAvailable(nodes, 8, 12), true);
+  assert.equal(isCanvasPlacementAvailable(nodes, 6, 16), true);
 });

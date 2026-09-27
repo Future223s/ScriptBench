@@ -247,7 +247,7 @@ class CanonicalContractsTests(unittest.TestCase):
             'workflow_step_id': step['id'], 'row': 1, 'col': col,
         }) for col in (1, 7)]
         overlap = self.client.post('/api/v2/' + base + '/workflow-dag-nodes', json={
-            'workflow_step_id': step['id'], 'row': 2, 'col': 5,
+            'workflow_step_id': step['id'], 'row': 2, 'col': 4,
         })
         self.assertEqual(409, overlap.status_code, overlap.text)
         self.assertIn('overlaps', overlap.json()['detail'])

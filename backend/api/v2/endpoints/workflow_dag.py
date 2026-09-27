@@ -27,8 +27,10 @@ from backend.models.workflow_dag_nodes import (
 router = APIRouter(tags=["workflow-dag-v2"])
 logger = logging.getLogger(__name__)
 
-CANVAS_NODE_ROW_SPAN = 3
-CANVAS_NODE_COL_SPAN = 6
+# Minimum center-to-center separation for the rendered workflow-step card.
+# This mirrors the canonical 15 x 21 frontend grid without adding a buffer.
+CANVAS_NODE_ROW_SPAN = 2
+CANVAS_NODE_COL_SPAN = 4
 
 
 def _workflow_or_404(engine, workflow_id: int):

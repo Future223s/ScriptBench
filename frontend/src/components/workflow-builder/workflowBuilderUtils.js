@@ -1,7 +1,9 @@
 export const CANVAS_MIN_ROWS = 15;
 export const CANVAS_MIN_COLS = 21;
-export const CANVAS_NODE_ROW_SPAN = 3;
-export const CANVAS_NODE_COL_SPAN = 6;
+// Match the rendered 150px card footprint on the canonical 15 × 21 grid.
+// These values are minimum center-to-center separations, not extra padding.
+export const CANVAS_NODE_ROW_SPAN = 2;
+export const CANVAS_NODE_COL_SPAN = 4;
 
 export function canvasNodesOverlap(left, right) {
   return (
