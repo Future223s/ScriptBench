@@ -68,11 +68,12 @@
 .topbar-notification-slot {
   position: fixed;
   top: var(--space-3);
-  right: var(--space-4);
+  left: 50%;
   z-index: var(--layer-modal);
   display: flex;
-  justify-content: flex-end;
-  width: min(560px, calc(100vw - 272px));
+  justify-content: center;
+  width: min(560px, calc(100vw - (var(--space-4) * 2)));
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -195,5 +196,6 @@
     right: var(--space-3);
     left: var(--space-3);
     width: auto;
+    transform: none;
   }
 }
